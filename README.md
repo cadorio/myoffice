@@ -4,6 +4,22 @@ Suite de escritório para desktop, instalável em Windows, macOS e Linux. Funcio
 
 A interface segue o modelo habitual das suites de escritório: barra de título na cor de cada aplicação, friso com separadores (Base, Inserir, Fórmulas…) e vista **Ficheiro** para abrir, guardar e exportar.
 
+## Capturas de ecrã
+
+| Início | Texto |
+| --- | --- |
+| ![Página inicial](docs/screenshots/inicio.png) | ![Editor de texto](docs/screenshots/texto.png) |
+
+| Folhas | Diapositivos |
+| --- | --- |
+| ![Folha de cálculo](docs/screenshots/folhas.png) | ![Apresentações com temas](docs/screenshots/diapositivos.png) |
+
+| Assistente de sugestões | Modo escuro |
+| --- | --- |
+| ![Assistente dos Diapositivos](docs/screenshots/assistente.png) | ![Modo escuro](docs/screenshots/modo-escuro.png) |
+
+## Módulos
+
 | Módulo | O que faz | Formato próprio | Abre também | Exporta |
 | --- | --- | --- | --- | --- |
 | **Texto** | Documentos com estilos, tipos e tamanhos de letra, cores, listas, ligações, imagens, tabelas, quebras de página e localizar/substituir | `.modoc` | `.docx`, `.html`, `.txt` | DOCX, PDF, HTML, TXT |
