@@ -9,6 +9,7 @@
   const ROWS = 100;
   const COLS = 26;
   const MAX_UNDO = 100;
+  const MAX_CELL_CHARS = 32767;
   const NUMBER_FORMATS = {
     num2: { minimumFractionDigits: 2, maximumFractionDigits: 2 },
     eur: { style: 'currency', currency: 'EUR' },
@@ -91,7 +92,7 @@
     for (const [a, cell] of Object.entries(input)) {
       const pos = /^[A-Z]{1,2}\d{1,4}$/.test(a) ? F.parseAddr(a) : null;
       if (!pos || pos.r >= ROWS || pos.c >= COLS || !cell || typeof cell !== 'object') continue;
-      const clean = { v: cell.v == null ? '' : String(cell.v) };
+      const clean = { v: cell.v == null ? '' : String(cell.v).slice(0, MAX_CELL_CHARS) };
       if (cell.s && typeof cell.s === 'object') {
         const s = {};
         if (cell.s.b) s.b = 1;
@@ -99,7 +100,7 @@
         if (['left', 'center', 'right'].includes(cell.s.a)) s.a = cell.s.a;
         if (MO.HEX.test(cell.s.bg)) s.bg = cell.s.bg;
         if (MO.HEX.test(cell.s.c)) s.c = cell.s.c;
-        if (NUMBER_FORMATS[cell.s.f]) s.f = cell.s.f;
+        if (Object.hasOwn(NUMBER_FORMATS, cell.s.f)) s.f = cell.s.f;
         if (Object.keys(s).length) clean.s = s;
       }
       if (clean.v !== '' || clean.s) out[a] = clean;
@@ -115,7 +116,7 @@
     const cell = cells[a];
     const v = cell ? values.get(a) : null;
     const s = (cell && cell.s) || {};
-    td.textContent = typeof v === 'number' && NUMBER_FORMATS[s.f] ? v.toLocaleString('pt-PT', NUMBER_FORMATS[s.f]) : F.format(v);
+    td.textContent = typeof v === 'number' && Object.hasOwn(NUMBER_FORMATS, s.f) ? v.toLocaleString('pt-PT', NUMBER_FORMATS[s.f]) : F.format(v);
     td.classList.toggle('num', typeof v === 'number');
     td.classList.toggle('err', v instanceof F.FError);
     td.classList.toggle('bool', typeof v === 'boolean');
@@ -276,6 +277,41 @@
         if (cells[a].v === '') delete cells[a];
       })
     );
+  }
+
+  // Estilos de tabela predefinidos: cabeçalho colorido e linhas alternadas.
+  const TABLE_STYLES = [
+    { name: 'Azul', head: '#1f5fbf', band: '#e3edfa' },
+    { name: 'Verde', head: '#127a45', band: '#e2f3ea' },
+    { name: 'Laranja', head: '#c8491f', band: '#fbe9e1' },
+    { name: 'Roxo', head: '#5b3fa8', band: '#ece7f8' },
+    { name: 'Cinzento', head: '#4a5263', band: '#eceef2' }
+  ];
+
+  function formatAsTable(style) {
+    const { r0, r1, c0, c1 } = range();
+    if (r0 === r1) return MO.toast('Selecione a tabela inteira, incluindo a linha de títulos.');
+    mutate(() => {
+      for (let r = r0; r <= r1; r++) {
+        for (let c = c0; c <= c1; c++) {
+          const a = F.addr(r, c);
+          const header = r === r0;
+          setStyle(a, 'bg', header ? style.head : (r - r0) % 2 === 0 ? style.band : '');
+          setStyle(a, 'c', header ? '#ffffff' : '');
+          setStyle(a, 'b', header ? 1 : 0);
+        }
+      }
+    });
+  }
+
+  function tableChip(style) {
+    const chip = toolButton(
+      [h('span', { class: 'table-head', style: { background: style.head } }), h('span', { class: 'table-band', style: { background: style.band } }), h('span', { class: 'theme-name' }, style.name)],
+      'Formatar a seleção como tabela: ' + style.name,
+      () => formatAsTable(style),
+      'theme-chip table-chip'
+    );
+    return chip;
   }
 
   // Ordena as linhas da seleção pela coluna da célula ativa.
@@ -465,7 +501,10 @@
       const line = [];
       for (let c = 0; c <= maxC; c++) {
         const a = F.addr(r, c);
-        const text = F.format(cells[a] ? values.get(a) : null);
+        const value = cells[a] ? values.get(a) : null;
+        let text = F.format(value);
+        // Texto começado por = + - @ seria executado como fórmula por outras folhas de cálculo ao abrir o CSV.
+        if (typeof value === 'string' && /^[=+\-@\t\r]/.test(text)) text = "'" + text;
         line.push(/[";\n\r]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text);
       }
       lines.push(line.join(';'));
@@ -612,6 +651,7 @@
                 ]
               ]
             },
+            { label: 'Formatar como tabela', rows: [TABLE_STYLES.map(tableChip)] },
             {
               label: 'Edição',
               rows: [
@@ -732,7 +772,7 @@
       if (ext === 'csv') {
         parseCSV(text).forEach((row, r) =>
           row.forEach((value, c) => {
-            if (r < ROWS && c < COLS && value !== '') next[F.addr(r, c)] = { v: value };
+            if (r < ROWS && c < COLS && value !== '') next[F.addr(r, c)] = { v: value.slice(0, MAX_CELL_CHARS) };
           })
         );
       } else {

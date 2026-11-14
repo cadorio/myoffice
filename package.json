@@ -87,6 +87,12 @@
       "maintainer": "cadorio <cadorio@users.noreply.github.com>",
       "artifactName": "MyOffice-${version}-linux-${arch}.${ext}",
       "syncDesktopName": true
+    },
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "onlyLoadAppFromAsar": true
     }
   },
   "devDependencies": {

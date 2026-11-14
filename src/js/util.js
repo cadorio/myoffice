@@ -36,6 +36,27 @@
     'svg,math,audio,video,source,template,noscript,title,head,dialog';
   const URL_ATTRS = ['href', 'src', 'action', 'formaction', 'background', 'poster', 'xlink:href'];
 
+  // Propriedades de estilo que um documento pode trazer. Tudo o resto é descartado, para que um
+  // ficheiro não consiga sobrepor-se à interface (position, z-index, transform…) nem pedir recursos.
+  const SAFE_STYLES = [
+    'color', 'background-color', 'font-family', 'font-size', 'font-weight', 'font-style', 'font-variant',
+    'text-align', 'text-decoration', 'text-decoration-line', 'text-indent', 'line-height', 'vertical-align',
+    'margin-left', 'margin-right', 'padding-left', 'list-style-type', 'width', 'height', 'max-width', 'white-space'
+  ];
+  const SAFE_CLASSES = ['page-break'];
+
+  function cleanStyle(el) {
+    const kept = [];
+    for (const prop of SAFE_STYLES) {
+      const value = el.style.getPropertyValue(prop);
+      if (!value || value.length > 200 || /url\s*\(|expression|var\s*\(|[<>{}\\]/i.test(value)) continue;
+      if (/^(width|height|max-width|margin-|padding-|text-indent)/.test(prop) && /-\d|\d{5,}/.test(value)) continue;
+      kept.push(`${prop}: ${value}`);
+    }
+    if (kept.length) el.setAttribute('style', kept.join('; '));
+    else el.removeAttribute('style');
+  }
+
   // Limpa HTML vindo de ficheiros ou da área de transferência antes de o colocar na página.
   MO.sanitizeHTML = function (html) {
     const doc = new DOMParser().parseFromString('<!doctype html><body>' + String(html), 'text/html');
@@ -51,11 +72,16 @@
           const url = value.replace(/[\u0000- ]+/g, '');
           if (n.tagName === 'IMG' && name === 'src') keep = MO.IMAGE_DATA_URL.test(url);
           else keep = name === 'href' && /^(https?:|mailto:|#)/i.test(url);
-        } else if (name === 'style') {
-          keep = !/url\s*\(|expression|@import|behavior|position\s*:/i.test(value);
+        } else if (name === 'class') {
+          const classes = value.split(/\s+/).filter((c) => SAFE_CLASSES.includes(c));
+          if (classes.length) n.setAttribute('class', classes.join(' '));
+          else keep = false;
+        } else if (name === 'style' || name === 'hidden' || name === 'tabindex' || name === 'draggable' || name.startsWith('data-') || name.startsWith('aria-')) {
+          keep = name === 'style';
         }
         if (!keep) n.removeAttribute(attr.name);
       }
+      if (n.hasAttribute('style')) cleanStyle(n);
     });
     return doc.body.innerHTML;
   };

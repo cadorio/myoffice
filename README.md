@@ -22,6 +22,24 @@ No separador **Assistente** dos Diapositivos há um motor de sugestões próprio
 
 O assistente segue regras de escrita para apresentações em português; não é um modelo de linguagem, por isso não escreve conteúdo novo sobre o tema nem conhece factos. O código está em `src/js/assistant.js`.
 
+## Temas predefinidos
+
+- **Diapositivos** — 12 temas (Claro, Executivo, Oceano, Floresta, Pôr do sol, Coral, Menta, Lavanda, Areia, Grafite, Noite e Alto contraste), cada um com fundo, cores, tipo de letra e elemento decorativo. Em Estrutura › Temas; aplicam-se a toda a apresentação.
+- **Texto** — 6 temas de documento (Clássico, Moderno, Elegante, Natureza, Técnico e Vivo), que mudam os tipos de letra e as cores dos títulos. Em Estrutura › Temas do documento.
+- **Folhas** — 5 estilos de tabela (cabeçalho colorido e linhas alternadas). Em Base › Formatar como tabela.
+
+## Segurança
+
+- **Sem rede** — a aplicação bloqueia todos os pedidos de rede e a leitura de ficheiros fora da sua própria pasta; não abre janelas nem navega para outras páginas.
+- **Interface isolada** — a página corre em sandbox, sem acesso ao Node.js, com uma política de conteúdo (CSP) que impede a execução de scripts que não sejam os da aplicação. Só a página principal pode falar com o processo que acede ao disco.
+- **Ficheiros** — só são lidos e escritos ficheiros escolhidos pelo utilizador nos diálogos do sistema, e só nos formatos suportados. A gravação é atómica: uma falha a meio não corrompe o documento.
+- **Documentos abertos** — o conteúdo é limpo antes de ser mostrado: scripts, objetos incorporados, ligações `javascript:`, imagens remotas e estilos capazes de se sobrepor à interface são removidos; os campos dos ficheiros são validados um a um.
+- **CSV** — ao exportar, o texto começado por `=`, `+`, `-` ou `@` é neutralizado, para não ser executado como fórmula noutras folhas de cálculo.
+- **Aplicação instalada** — não inclui ferramentas de programador e não pode ser usada para executar código Node arbitrário (`ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` e `--inspect` estão desativados).
+- **Compilação** — as ações do GitHub Actions estão fixadas por hash de commit.
+
+Por fazer: os instaladores não são assinados digitalmente (ver acima) e a verificação de integridade do pacote da aplicação não está ativa.
+
 ## O que ainda não existe
 
 O MyOffice cobre o trabalho do dia a dia, mas não tem todas as funções do Microsoft 365. Em particular, ainda não tem: abrir e gravar ficheiros `.docx`, `.xlsx` e `.pptx`; gráficos e tabelas dinâmicas; várias folhas por livro; cabeçalhos, rodapés e numeração de páginas; revisão de alterações e comentários; animações e vista do apresentador; coautoria em tempo real e armazenamento na nuvem; correio e calendário.
@@ -89,4 +107,3 @@ build/         ícone da aplicação
 test/          testes
 ```
 
-A interface corre isolada (sandbox, sem acesso ao Node.js); só o processo principal toca no disco, e apenas em ficheiros escolhidos pelo utilizador nos diálogos do sistema. O conteúdo de ficheiros abertos é limpo antes de ser mostrado.

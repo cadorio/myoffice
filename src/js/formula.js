@@ -174,7 +174,7 @@
             } while ((isOp(',') || isOp(';')) && ++p);
           }
           expect(')');
-          return { k: 'call', name: ALIASES[tok.v] || tok.v, args };
+          return { k: 'call', name: Object.prototype.hasOwnProperty.call(ALIASES, tok.v) ? ALIASES[tok.v] : tok.v, args };
         }
         if (tok.v === 'VERDADEIRO' || tok.v === 'TRUE') return { k: 'lit', v: true };
         if (tok.v === 'FALSO' || tok.v === 'FALSE') return { k: 'lit', v: false };

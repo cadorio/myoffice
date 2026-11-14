@@ -72,7 +72,7 @@
     if (!file) return;
     if (file.error) return MO.toast(file.error);
     const ext = file.name.split('.').pop().toLowerCase();
-    const id = EXT_MODULE[ext];
+    const id = Object.hasOwn(EXT_MODULE, ext) ? EXT_MODULE[ext] : null;
     if (!id) return MO.toast('Tipo de ficheiro não suportado.');
     if (!confirmDiscard(id)) return;
     const mod = MO.modules[id];
@@ -212,7 +212,8 @@
     document.querySelectorAll('.recent-list').forEach((ul) =>
       ul.replaceChildren(
         ...list.map((item) => {
-          const id = EXT_MODULE[item.name.split('.').pop().toLowerCase()] || 'writer';
+          const ext = item.name.split('.').pop().toLowerCase();
+          const id = Object.hasOwn(EXT_MODULE, ext) ? EXT_MODULE[ext] : 'writer';
           return h(
             'li',
             null,
