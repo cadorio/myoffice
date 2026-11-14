@@ -1,6 +1,6 @@
 # MyOffice
 
-Suite de escritório para desktop, instalável em Windows, macOS e Linux. Funciona sem ligação à Internet (exceto o assistente de IA, que é opcional) e os documentos ficam no seu computador.
+Suite de escritório para desktop, instalável em Windows, macOS e Linux. Funciona sem ligação à Internet e os documentos ficam apenas no seu computador.
 
 A interface segue o modelo habitual das suites de escritório: barra de título na cor de cada aplicação, friso com separadores (Base, Inserir, Fórmulas…) e vista **Ficheiro** para abrir, guardar e exportar.
 
@@ -8,19 +8,19 @@ A interface segue o modelo habitual das suites de escritório: barra de título 
 | --- | --- | --- | --- | --- |
 | **Texto** | Documentos com estilos, tipos e tamanhos de letra, cores, listas, ligações, imagens, tabelas, quebras de página e localizar/substituir | `.modoc` | `.html`, `.txt` | PDF, HTML, TXT |
 | **Folhas** | Folha de cálculo (100 linhas × 26 colunas) com fórmulas, formatos de número (moeda, percentagem), ordenação, copiar/colar e anular | `.mosheet` | `.csv` | PDF, CSV |
-| **Diapositivos** | Apresentações com esquemas, temas, caixas de texto, imagens, formas e notas do orador; modo de apresentação em ecrã inteiro; assistente de IA | `.moslides` | — | PDF |
+| **Diapositivos** | Apresentações com esquemas, temas, caixas de texto, imagens, formas e notas do orador; modo de apresentação em ecrã inteiro; assistente de sugestões | `.moslides` | — | PDF |
 
-## Assistente de IA (Diapositivos)
+## Assistente (Diapositivos)
 
-No separador **IA** dos Diapositivos:
+No separador **Assistente** dos Diapositivos há um motor de sugestões próprio, incluído na aplicação. Funciona sem ligação à Internet, sem chave e sem custos, e nenhum texto sai do computador.
 
-- **Criar apresentação** — indica-se o tema, o público e o número de diapositivos; o assistente gera títulos, tópicos e notas do orador, já com o tema visual escolhido.
-- **Sugestões** — propõe versões alternativas do diapositivo atual (mais concisa, mais clara, mais persuasiva); cada uma pode ser aplicada com um clique e anulada com Ctrl+Z.
+- **Criar apresentação** — indica-se o tema, o público e o número de diapositivos. O assistente reconhece o tipo de apresentação (plano, relatório, formação, produto ou geral) e cria a estrutura adequada, com os tópicos a preencher e conselhos nas notas do orador.
+- **Sugestões** — analisa o diapositivo atual e mostra dicas (texto a mais, tópicos longos, falta de números ou de notas) e versões alternativas que se aplicam com um clique e se anulam com Ctrl+Z:
+  - *Mais conciso*: fica a ideia principal de cada frase, sem expressões de enchimento; o texto original passa para as notas do orador.
+  - *Uma ideia por tópico*: separa frases com várias ideias.
+  - *Números primeiro*: sobe os tópicos com dados concretos.
 
-O assistente usa o Claude, através da API da Anthropic, e precisa de uma chave da API (IA › Chave da API). A utilização é cobrada pela Anthropic na conta dessa chave.
-
-- A chave fica guardada cifrada pelo sistema operativo (Windows e macOS; no Linux, quando existe um porta-chaves). Sem cifra disponível, só é mantida até fechar a aplicação. Em alternativa, pode definir a variável de ambiente `ANTHROPIC_API_KEY`.
-- Só o texto dos diapositivos é enviado para a Anthropic, e apenas quando se pede uma sugestão. Tudo o resto funciona sem ligação à Internet.
+O assistente segue regras de escrita para apresentações em português; não é um modelo de linguagem, por isso não escreve conteúdo novo sobre o tema nem conhece factos. O código está em `src/js/assistant.js`.
 
 ## O que ainda não existe
 
@@ -47,7 +47,7 @@ Requer Node.js 22 ou superior.
 ```bash
 npm install
 npm start          # abre a aplicação
-npm test           # testes do motor de fórmulas
+npm test           # testes do motor de fórmulas e do assistente
 npm run dist       # cria o instalador para o sistema atual (pasta dist/)
 ```
 
@@ -77,13 +77,13 @@ Operadores: `+ - * / ^ %`, `&` (juntar texto) e comparações `= <> < > <= >=`. 
 
 ```
 main.js        processo principal do Electron: janela, menus, leitura e escrita de ficheiros
-ai.js          assistente de IA (chamadas à API da Anthropic, feitas só no processo principal)
 preload.js     ponte segura entre a interface e o processo principal
 src/           interface (HTML, CSS e JavaScript sem dependências)
   js/formula.js  motor de fórmulas
   js/writer.js   Texto
   js/sheets.js   Folhas
   js/slides.js   Diapositivos
+  js/assistant.js  assistente dos Diapositivos (motor de sugestões)
   js/app.js      navegação e gestão de ficheiros
 build/         ícone da aplicação
 test/          testes
