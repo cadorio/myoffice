@@ -4,6 +4,7 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, session, shell } = require('e
 const path = require('path');
 const fs = require('fs/promises');
 const fsSync = require('fs');
+const ai = require('./ai');
 
 const NATIVE_EXT = ['modoc', 'mosheet', 'moslides'];
 const OPEN_EXT = [...NATIVE_EXT, 'html', 'htm', 'txt', 'csv'];
@@ -181,6 +182,8 @@ function fromOurWindow(event) {
 }
 
 function registerIpc() {
+  ai.register(ipcMain, fromOurWindow);
+
   ipcMain.on('app:ready', (event) => {
     if (!fromOurWindow(event)) return;
     rendererReady = true;

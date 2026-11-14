@@ -29,7 +29,8 @@ body { font-family: Georgia, "Times New Roman", serif; font-size: 12pt; line-hei
 h1 { font-size: 24pt; margin: 0 0 12pt; } h2 { font-size: 18pt; margin: 14pt 0 8pt; } h3 { font-size: 14pt; margin: 12pt 0 6pt; }
 p { margin: 0 0 8pt; } blockquote { margin: 8pt 0 8pt 12pt; padding-left: 12pt; border-left: 3px solid #c5cad6; color: #4a5263; }
 table { border-collapse: collapse; width: 100%; margin: 8pt 0; } td, th { border: 1px solid #9aa1b1; padding: 4pt 6pt; vertical-align: top; }
-img { max-width: 100%; } hr { border: 0; border-top: 1px solid #9aa1b1; margin: 12pt 0; }`;
+img { max-width: 100%; } hr { border: 0; border-top: 1px solid #9aa1b1; margin: 12pt 0; }
+hr.page-break { border: 0; margin: 0; break-after: page; }`;
 
   let ctx, editor, statusEl, savedRange;
 
@@ -123,6 +124,40 @@ img { max-width: 100%; } hr { border: 0; border-top: 1px solid #9aa1b1; margin: 
     insertHTML('<table><tbody>' + row.repeat(rows) + '</tbody></table>' + EMPTY);
   }
 
+  async function findReplace() {
+    const res = await MO.dialog({
+      title: 'Localizar e substituir',
+      fields: [
+        { name: 'find', label: 'Localizar' },
+        { name: 'replace', label: 'Substituir por (deixe vazio para só localizar)' }
+      ],
+      okLabel: 'Continuar'
+    });
+    if (!res || !res.find) return;
+    if (!res.replace) {
+      editor.focus();
+      document.getSelection().collapse(editor, 0);
+      if (!window.find(res.find, false, false, false)) MO.toast('Não foram encontradas ocorrências.');
+      return;
+    }
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    const needle = res.find.toLowerCase();
+    let count = 0;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const text = node.nodeValue;
+      let out = '';
+      let from = 0;
+      for (let at = text.toLowerCase().indexOf(needle); at !== -1; at = text.toLowerCase().indexOf(needle, from)) {
+        out += text.slice(from, at) + res.replace;
+        from = at + needle.length;
+        count++;
+      }
+      if (from) node.nodeValue = out + text.slice(from);
+    }
+    if (count) changed();
+    MO.toast(count ? `${count} ${count === 1 ? 'substituição feita' : 'substituições feitas'}.` : 'Não foram encontradas ocorrências.');
+  }
+
   function select(options, title, onChange, resetAfter) {
     const el = h(
       'select',
@@ -189,6 +224,10 @@ img { max-width: 100%; } hr { border: 0; border-top: 1px solid #9aa1b1; margin: 
             {
               label: 'Estilos',
               rows: [BLOCKS.map(([label, tag]) => styleChip(label, tag))]
+            },
+            {
+              label: 'Edição',
+              rows: [[bigButton('search', 'Localizar', 'Localizar e substituir', findReplace)]]
             }
           ]
         },
@@ -198,7 +237,15 @@ img { max-width: 100%; } hr { border: 0; border-top: 1px solid #9aa1b1; margin: 
             { label: 'Tabelas', rows: [[bigButton('table', 'Tabela', 'Inserir tabela', insertTable)]] },
             { label: 'Ilustrações', rows: [[bigButton('image', 'Imagem', 'Inserir imagem', insertImage)]] },
             { label: 'Ligações', rows: [[bigButton('link', 'Ligação', 'Inserir ligação', insertLink)]] },
-            { label: 'Elementos', rows: [[bigButton('line', 'Linha', 'Linha horizontal', () => insertHTML('<hr>' + EMPTY))]] }
+            {
+              label: 'Elementos',
+              rows: [
+                [
+                  bigButton('line', 'Linha', 'Linha horizontal', () => insertHTML('<hr>' + EMPTY)),
+                  bigButton('pageBreak', 'Quebra de página', 'Inserir quebra de página', () => insertHTML('<hr class="page-break">' + EMPTY))
+                ]
+              ]
+            }
           ]
         }
       ],

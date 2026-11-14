@@ -234,7 +234,7 @@
   function about() {
     MO.dialog({
       title: 'MyOffice',
-      message: 'Suite de escritório para desktop: Texto, Folhas e Diapositivos. Os seus documentos ficam apenas no seu computador.',
+      message: 'Suite de escritório para desktop: Texto, Folhas e Diapositivos. Os documentos ficam no seu computador; só o assistente de IA, se o usar, envia texto dos diapositivos para a Anthropic.',
       cancelLabel: null,
       okLabel: 'Fechar'
     });

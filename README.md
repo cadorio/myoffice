@@ -1,14 +1,30 @@
 # MyOffice
 
-Suite de escritório para desktop, instalável em Windows, macOS e Linux. Funciona sem ligação à Internet e os documentos ficam apenas no seu computador.
+Suite de escritório para desktop, instalável em Windows, macOS e Linux. Funciona sem ligação à Internet (exceto o assistente de IA, que é opcional) e os documentos ficam no seu computador.
 
 A interface segue o modelo habitual das suites de escritório: barra de título na cor de cada aplicação, friso com separadores (Base, Inserir, Fórmulas…) e vista **Ficheiro** para abrir, guardar e exportar.
 
 | Módulo | O que faz | Formato próprio | Importa | Exporta |
 | --- | --- | --- | --- | --- |
-| **Texto** | Documentos com títulos, tipos e tamanhos de letra, cores, listas, ligações, imagens e tabelas | `.modoc` | `.html`, `.txt` | PDF, HTML, TXT |
-| **Folhas** | Folha de cálculo (100 linhas × 26 colunas) com fórmulas, formatação, copiar/colar e anular | `.mosheet` | `.csv` | PDF, CSV |
-| **Diapositivos** | Apresentações com caixas de texto, imagens e formas; modo de apresentação em ecrã inteiro | `.moslides` | — | PDF |
+| **Texto** | Documentos com estilos, tipos e tamanhos de letra, cores, listas, ligações, imagens, tabelas, quebras de página e localizar/substituir | `.modoc` | `.html`, `.txt` | PDF, HTML, TXT |
+| **Folhas** | Folha de cálculo (100 linhas × 26 colunas) com fórmulas, formatos de número (moeda, percentagem), ordenação, copiar/colar e anular | `.mosheet` | `.csv` | PDF, CSV |
+| **Diapositivos** | Apresentações com esquemas, temas, caixas de texto, imagens, formas e notas do orador; modo de apresentação em ecrã inteiro; assistente de IA | `.moslides` | — | PDF |
+
+## Assistente de IA (Diapositivos)
+
+No separador **IA** dos Diapositivos:
+
+- **Criar apresentação** — indica-se o tema, o público e o número de diapositivos; o assistente gera títulos, tópicos e notas do orador, já com o tema visual escolhido.
+- **Sugestões** — propõe versões alternativas do diapositivo atual (mais concisa, mais clara, mais persuasiva); cada uma pode ser aplicada com um clique e anulada com Ctrl+Z.
+
+O assistente usa o Claude, através da API da Anthropic, e precisa de uma chave da API (IA › Chave da API). A utilização é cobrada pela Anthropic na conta dessa chave.
+
+- A chave fica guardada cifrada pelo sistema operativo (Windows e macOS; no Linux, quando existe um porta-chaves). Sem cifra disponível, só é mantida até fechar a aplicação. Em alternativa, pode definir a variável de ambiente `ANTHROPIC_API_KEY`.
+- Só o texto dos diapositivos é enviado para a Anthropic, e apenas quando se pede uma sugestão. Tudo o resto funciona sem ligação à Internet.
+
+## O que ainda não existe
+
+O MyOffice cobre o trabalho do dia a dia, mas não tem todas as funções do Microsoft 365. Em particular, ainda não tem: abrir e gravar ficheiros `.docx`, `.xlsx` e `.pptx`; gráficos e tabelas dinâmicas; várias folhas por livro; cabeçalhos, rodapés e numeração de páginas; revisão de alterações e comentários; animações e vista do apresentador; coautoria em tempo real e armazenamento na nuvem; correio e calendário.
 
 ## Instalar
 
@@ -51,6 +67,8 @@ As fórmulas começam por `=` e aceitam nomes em português ou inglês. Os argum
 | `E`, `OU`, `NÃO` | `AND`, `OR`, `NOT` | `=E(A1>0;B1>0)` |
 | `ARRED`, `INT`, `ABS`, `RAIZQ`, `POTÊNCIA`, `RESTO`, `PRODUTO`, `PI` | `ROUND`, `INT`, `ABS`, `SQRT`, `POWER`, `MOD`, `PRODUCT`, `PI` | `=ARRED(A1/3;2)` |
 | `CONCATENAR`, `NÚM.CARACT`, `MAIÚSCULAS`, `MINÚSCULAS`, `COMPACTAR` | `CONCAT`, `LEN`, `UPPER`, `LOWER`, `TRIM` | `=A1&" "&B1` |
+| `SOMA.SE`, `CONTAR.SE` | `SUMIF`, `COUNTIF` | `=SOMA.SE(A1:A9;">10";B1:B9)` |
+| `PROCV` | `VLOOKUP` | `=PROCV("pera";A1:C9;3;FALSO)` |
 | `HOJE` | `TODAY` | `=HOJE()` |
 
 Operadores: `+ - * / ^ %`, `&` (juntar texto) e comparações `= <> < > <= >=`. Use `$` para fixar referências ao copiar (`$A$1`). Copiar uma célula e colar numa seleção maior preenche toda a seleção, ajustando as referências.
@@ -59,6 +77,7 @@ Operadores: `+ - * / ^ %`, `&` (juntar texto) e comparações `= <> < > <= >=`. 
 
 ```
 main.js        processo principal do Electron: janela, menus, leitura e escrita de ficheiros
+ai.js          assistente de IA (chamadas à API da Anthropic, feitas só no processo principal)
 preload.js     ponte segura entre a interface e o processo principal
 src/           interface (HTML, CSS e JavaScript sem dependências)
   js/formula.js  motor de fórmulas

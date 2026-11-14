@@ -37,7 +37,10 @@
     'MAIÚSCULAS': 'UPPER',
     'MINÚSCULAS': 'LOWER',
     COMPACTAR: 'TRIM',
-    HOJE: 'TODAY'
+    HOJE: 'TODAY',
+    'SOMA.SE': 'SUMIF',
+    'CONTAR.SE': 'COUNTIF',
+    PROCV: 'VLOOKUP'
   };
 
   function colName(c) {
@@ -297,7 +300,66 @@
     return (Math.sign(x) * Math.round((Math.abs(x) + Number.EPSILON) * p)) / p;
   }
 
+  // Critério de SOMA.SE / CONTAR.SE: um valor, ou um operador seguido de valor (">10", "<>x").
+  function criterion(c) {
+    c = scalar(c);
+    const m = typeof c === 'string' ? /^(<=|>=|<>|<|>|=)(.*)$/.exec(c) : null;
+    const op = m ? m[1] : '=';
+    const target = typeof c === 'string' ? parseLiteral(m ? m[2] : c) : c;
+    return (v) => {
+      if (v === null) return false;
+      const sameKind = (typeof v === 'string') === (typeof target === 'string');
+      if (!sameKind) return op === '<>';
+      const k = compare(v, target);
+      if (op === '=') return k === 0;
+      if (op === '<>') return k !== 0;
+      if (op === '<') return k < 0;
+      if (op === '>') return k > 0;
+      return op === '<=' ? k <= 0 : k >= 0;
+    };
+  }
+
+  function needRange(v) {
+    if (!Array.isArray(v)) throw new FError('#VALOR!');
+    return v;
+  }
+
   const FUNCS = {
+    SUMIF: (a) => {
+      const range = needRange(a[0]);
+      const values = a.length > 2 ? needRange(a[2]) : range;
+      const test = criterion(a[1]);
+      let sum = 0;
+      range.forEach((v, i) => {
+        if (test(v) && typeof values[i] === 'number') sum += values[i];
+      });
+      return sum;
+    },
+    COUNTIF: (a) => needRange(a[0]).filter(criterion(a[1])).length,
+    VLOOKUP: (a) => {
+      const table = needRange(a[1]);
+      const cols = table.cols;
+      const col = Math.trunc(num(a[2]));
+      if (col < 1 || col > cols) throw new FError('#REF!');
+      const exact = a.length > 3 && !truthy(a[3]);
+      const key = scalar(a[0]);
+      let hit = -1;
+      for (let r = 0; r * cols < table.length; r++) {
+        const v = table[r * cols];
+        if (v === null) continue;
+        const k = compare(v, key);
+        if (k === 0) {
+          hit = r;
+          break;
+        }
+        // Sem correspondência exata, fica a última linha abaixo do valor (tabela ordenada).
+        if (!exact && k < 0) hit = r;
+        else if (!exact) break;
+      }
+      if (hit < 0) throw new FError('#N/D');
+      const out = table[hit * cols + col - 1];
+      return out === null ? 0 : out;
+    },
     SUM: (a) => nums(a).reduce((s, v) => s + v, 0),
     PRODUCT: (a) => nums(a).reduce((s, v) => s * v, 1),
     AVERAGE: (a) => {
@@ -342,7 +404,7 @@
     TODAY: () => new Date().toLocaleDateString('pt-PT')
   };
 
-  const MIN_ARGS = { ROUND: 1, INT: 1, ABS: 1, SQRT: 1, POWER: 2, MOD: 2, NOT: 1, LEN: 1, UPPER: 1, LOWER: 1, TRIM: 1 };
+  const MIN_ARGS = { SUMIF: 2, COUNTIF: 2, VLOOKUP: 3, ROUND: 1, INT: 1, ABS: 1, SQRT: 1, POWER: 2, MOD: 2, NOT: 1, LEN: 1, UPPER: 1, LOWER: 1, TRIM: 1 };
 
   function evaluate(n, ctx) {
     switch (n.k) {
@@ -357,6 +419,7 @@
         const c0 = Math.min(n.a.c, n.b.c);
         const c1 = Math.max(n.a.c, n.b.c);
         for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) out.push(ctx.get(c, r));
+        out.cols = c1 - c0 + 1;
         return out;
       }
       case 'neg':

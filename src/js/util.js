@@ -220,7 +220,14 @@
     count: 'M5 8h14M5 16h14M9 4 7 20M17 4l-2 16',
     max: 'M4 20h16M7 20V10M12 20V4M17 20v-7',
     min: 'M4 20h16M7 20v-7M12 20v-3M17 20V8',
-    branch: 'M6 4v16M6 12h6a6 6 0 0 0 6-6V4M12 12a6 6 0 0 1 6 6v2'
+    branch: 'M6 4v16M6 12h6a6 6 0 0 0 6-6V4M12 12a6 6 0 0 1 6 6v2',
+    sortAsc: 'M4 6h4M4 12h7M4 18h10M18 5v14M15 16l3 3 3-3',
+    sortDesc: 'M4 6h10M4 12h7M4 18h4M18 5v14M15 16l3 3 3-3',
+    sparkle: 'M11 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z',
+    key: 'M8 11a4 4 0 1 0 .1 0zM11.5 13.5 20 5M17 8l2.5 2.5M14.5 10.5l2 2',
+    search: 'M10.5 4a6.5 6.5 0 1 0 .1 0zM15.5 15.5 20 20',
+    pageBreak: 'M6 3v6h12V3M6 21v-6h12v6M3 12h2M8 12h2M13 12h2M18 12h3',
+    lookup: 'M3 5h18v14H3zM3 10h18M9 5v14M13 14.5h5M16 12.5l2 2-2 2'
   };
 
   MO.icon = function (name) {

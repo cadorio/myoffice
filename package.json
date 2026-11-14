@@ -27,6 +27,7 @@
     },
     "files": [
       "main.js",
+      "ai.js",
       "preload.js",
       "src/**/*",
       "build/icon.png",
@@ -93,5 +94,8 @@
     "electron": "^45.3.2",
     "electron-builder": "^26.18.0"
   },
-  "desktopName": "myoffice.desktop"
+  "desktopName": "myoffice.desktop",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0"
+  }
 }

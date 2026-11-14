@@ -9,6 +9,11 @@
   const ROWS = 100;
   const COLS = 26;
   const MAX_UNDO = 100;
+  const NUMBER_FORMATS = {
+    num2: { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+    eur: { style: 'currency', currency: 'EUR' },
+    pct: { style: 'percent', maximumFractionDigits: 2 }
+  };
 
   let ctx, wrap, editorEl, nameBox, fxInput, statusEl;
   let cells = {}; // endereço -> { v: texto introduzido, s: { b, i, a, bg, c } }
@@ -94,6 +99,7 @@
         if (['left', 'center', 'right'].includes(cell.s.a)) s.a = cell.s.a;
         if (MO.HEX.test(cell.s.bg)) s.bg = cell.s.bg;
         if (MO.HEX.test(cell.s.c)) s.c = cell.s.c;
+        if (NUMBER_FORMATS[cell.s.f]) s.f = cell.s.f;
         if (Object.keys(s).length) clean.s = s;
       }
       if (clean.v !== '' || clean.s) out[a] = clean;
@@ -109,7 +115,7 @@
     const cell = cells[a];
     const v = cell ? values.get(a) : null;
     const s = (cell && cell.s) || {};
-    td.textContent = F.format(v);
+    td.textContent = typeof v === 'number' && NUMBER_FORMATS[s.f] ? v.toLocaleString('pt-PT', NUMBER_FORMATS[s.f]) : F.format(v);
     td.classList.toggle('num', typeof v === 'number');
     td.classList.toggle('err', v instanceof F.FError);
     td.classList.toggle('bool', typeof v === 'boolean');
@@ -269,6 +275,37 @@
         delete cells[a].s;
         if (cells[a].v === '') delete cells[a];
       })
+    );
+  }
+
+  // Ordena as linhas da seleção pela coluna da célula ativa.
+  function sortRange(descending) {
+    const { r0, r1, c0, c1 } = range();
+    if (r0 === r1) return MO.toast('Selecione as linhas a ordenar (sem a linha de títulos).');
+    const key = cur.c;
+    const rank = (v) => (v == null ? 3 : typeof v === 'number' ? 0 : typeof v === 'string' ? 1 : 2);
+    const rows = [];
+    for (let r = r0; r <= r1; r++) {
+      const a = F.addr(r, key);
+      const row = [];
+      for (let c = c0; c <= c1; c++) row.push(cells[F.addr(r, c)] || null);
+      rows.push({ row, v: cells[a] && cells[a].v !== '' ? values.get(a) : null });
+    }
+    rows.sort((x, y) => {
+      const kx = rank(x.v);
+      const ky = rank(y.v);
+      if (kx !== ky || kx === 3) return kx - ky; // vazios sempre no fim
+      const cmp = kx === 0 ? x.v - y.v : String(x.v).localeCompare(String(y.v), 'pt');
+      return descending ? -cmp : cmp;
+    });
+    mutate(() =>
+      rows.forEach(({ row }, i) =>
+        row.forEach((cell, j) => {
+          const a = F.addr(r0 + i, c0 + j);
+          if (cell) cells[a] = cell;
+          else delete cells[a];
+        })
+      )
     );
   }
 
@@ -530,6 +567,15 @@
   }
 
   function buildRibbon() {
+    const formatSelect = h(
+      'select',
+      { class: 'tool-select', title: 'Formato do número', 'aria-label': 'Formato do número' },
+      [['', 'Geral'], ['num2', 'Número (0,00)'], ['eur', 'Moeda (€)'], ['pct', 'Percentagem']].map(([value, label]) => h('option', { value }, label))
+    );
+    formatSelect.addEventListener('change', () => {
+      applyStyle('f', formatSelect.value);
+      wrap.focus({ preventScroll: true });
+    });
     return MO.ribbon(
       [
         {
@@ -551,6 +597,10 @@
                   colorButton('ab', 'Cor de preenchimento', '#fff3a3', () => {}, (v) => applyStyle('bg', v))
                 ]
               ]
+            },
+            {
+              label: 'Número',
+              rows: [[formatSelect]]
             },
             {
               label: 'Alinhamento',
@@ -586,7 +636,24 @@
                   bigButton('count', 'Contar', 'Inserir CONTAR', () => autoFn('CONTAR')),
                   bigButton('max', 'Máximo', 'Inserir MÁXIMO', () => autoFn('MÁXIMO')),
                   bigButton('min', 'Mínimo', 'Inserir MÍNIMO', () => autoFn('MÍNIMO')),
-                  bigButton('branch', 'Se', 'Inserir SE(condição; valor se verdadeiro; valor se falso)', () => insertFn('=SE('))
+                  bigButton('branch', 'Se', 'Inserir SE(condição; valor se verdadeiro; valor se falso)', () => insertFn('=SE(')),
+                  bigButton('sum', 'Soma.Se', 'Inserir SOMA.SE(intervalo; critério; intervalo a somar)', () => insertFn('=SOMA.SE(')),
+                  bigButton('count', 'Contar.Se', 'Inserir CONTAR.SE(intervalo; critério)', () => insertFn('=CONTAR.SE(')),
+                  bigButton('lookup', 'ProcV', 'Inserir PROCV(valor; tabela; coluna; FALSO)', () => insertFn('=PROCV('))
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          label: 'Dados',
+          groups: [
+            {
+              label: 'Ordenar',
+              rows: [
+                [
+                  bigButton('sortAsc', 'Ascendente', 'Ordenar a seleção por ordem ascendente', () => sortRange(false)),
+                  bigButton('sortDesc', 'Descendente', 'Ordenar a seleção por ordem descendente', () => sortRange(true))
                 ]
               ]
             }

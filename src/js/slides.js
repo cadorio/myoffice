@@ -11,7 +11,7 @@
   const MAX_UNDO = 60;
   const SIZES = [14, 18, 24, 28, 32, 40, 54, 72, 96];
 
-  let ctx, root, stageBox, stage, thumbs, sizeSelect, counterEl;
+  let ctx, root, stageBox, stage, thumbs, sizeSelect, counterEl, notesEl, aiPanel, aiBody;
   let slides = [];
   let idx = 0;
   let selId = null;
@@ -22,33 +22,50 @@
   let seq = 0;
   let drag = null;
   let colorSnapshotTaken = false;
+  let notesSnapshotTaken = false;
 
   const uid = () => 'e' + Date.now().toString(36) + (seq++).toString(36);
   const slide = () => slides[idx];
   const selected = () => slide().els.find((el) => el.id === selId) || null;
 
+  const THEMES = [
+    { id: 'claro', name: 'Claro', bg: '#ffffff', title: '#1c2130', text: '#3b4252' },
+    { id: 'oceano', name: 'Oceano', bg: '#0f2f4f', title: '#ffffff', text: '#d6e6f5' },
+    { id: 'floresta', name: 'Floresta', bg: '#f1f7f2', title: '#14532d', text: '#2f4a3a' },
+    { id: 'por-do-sol', name: 'Pôr do sol', bg: '#fff4ec', title: '#b3401a', text: '#5a3b2e' },
+    { id: 'grafite', name: 'Grafite', bg: '#22252b', title: '#f5f5f5', text: '#c9ccd3' },
+    { id: 'lavanda', name: 'Lavanda', bg: '#f3f0fb', title: '#4c2f91', text: '#40385c' }
+  ];
+  const LAYOUTS = [
+    ['title', 'Diapositivo de título'],
+    ['content', 'Título e conteúdo'],
+    ['two', 'Duas colunas'],
+    ['titleOnly', 'Só título'],
+    ['blank', 'Em branco']
+  ];
+  let theme = THEMES[0];
+
   function textEl(x, y, w, h_, html, extra) {
-    return Object.assign({ id: uid(), type: 'text', x, y, w, h: h_, html, fs: 24, color: '#1c2130', align: 'left' }, extra);
+    return Object.assign({ id: uid(), type: 'text', x, y, w, h: h_, html, fs: 24, color: theme.text, align: 'left' }, extra);
   }
 
-  function titleSlide() {
-    return {
-      bg: '#ffffff',
-      els: [
-        textEl(80, 170, 800, 110, 'Título da apresentação', { fs: 54, bold: true, align: 'center' }),
-        textEl(80, 300, 800, 60, 'Subtítulo', { fs: 28, color: '#5b6475', align: 'center' })
-      ]
-    };
-  }
+  const bulletsHTML = (items) => '<ul>' + items.map((t) => `<li>${MO.escapeHTML(t)}</li>`).join('') + '</ul>';
 
-  function contentSlide() {
-    return {
-      bg: '#ffffff',
-      els: [
-        textEl(60, 40, 840, 80, 'Título do diapositivo', { fs: 40, bold: true }),
-        textEl(60, 140, 840, 340, '<ul><li>Primeiro ponto</li><li>Segundo ponto</li></ul>', { fs: 28 })
-      ]
-    };
+  // Cria um diapositivo com um dos esquemas; c pode trazer { title, subtitle, bullets, notes }.
+  function makeSlide(layout, c = {}) {
+    const els = [];
+    const body = (x, w, items) => textEl(x, 140, w, 340, bulletsHTML(items), { fs: items.length > 5 ? 22 : 28, role: 'body' });
+    if (layout === 'title') {
+      els.push(
+        textEl(80, 170, 800, 110, MO.escapeHTML(c.title || 'Título da apresentação'), { fs: 54, bold: true, align: 'center', role: 'title', color: theme.title }),
+        textEl(80, 300, 800, 60, MO.escapeHTML(c.subtitle || 'Subtítulo'), { fs: 28, align: 'center', role: 'body' })
+      );
+    } else if (layout !== 'blank') {
+      els.push(textEl(60, 40, 840, 80, MO.escapeHTML(c.title || 'Título do diapositivo'), { fs: 40, bold: true, role: 'title', color: theme.title }));
+      if (layout === 'content') els.push(body(60, 840, c.bullets && c.bullets.length ? c.bullets : ['Primeiro ponto', 'Segundo ponto']));
+      if (layout === 'two') els.push(body(60, 405, ['Coluna da esquerda']), body(495, 405, ['Coluna da direita']));
+    }
+    return { bg: theme.bg, notes: c.notes || '', els };
   }
 
   // ---------- Histórico ----------
@@ -101,6 +118,7 @@
           clean.fs = clampNum(el.fs, 8, 200, 24);
           clean.color = MO.HEX.test(el.color) ? el.color : '#1c2130';
           clean.align = ['left', 'center', 'right'].includes(el.align) ? el.align : 'left';
+          if (el.role === 'title' || el.role === 'body') clean.role = el.role;
           if (el.bold) clean.bold = true;
           if (el.italic) clean.italic = true;
         } else if (el.type === 'image') {
@@ -111,7 +129,7 @@
         }
         els.push(clean);
       }
-      return { bg: MO.HEX.test(s && s.bg) ? s.bg : '#ffffff', els };
+      return { bg: MO.HEX.test(s && s.bg) ? s.bg : '#ffffff', notes: typeof (s && s.notes) === 'string' ? s.notes.slice(0, 5000) : '', els };
     });
   }
 
@@ -165,6 +183,7 @@
   function renderStage() {
     stage.replaceChildren(renderSlide(slide(), true));
     fitStage();
+    if (document.activeElement !== notesEl) notesEl.value = slide().notes || '';
     syncToolbar();
   }
 
@@ -303,10 +322,10 @@
 
   // ---------- Ações ----------
 
-  function addSlide() {
+  function addSlide(layout) {
     commitTextEdit();
     change(() => {
-      slides.splice(idx + 1, 0, contentSlide());
+      slides.splice(idx + 1, 0, makeSlide(layout));
       idx++;
       selId = null;
     });
@@ -412,6 +431,160 @@
   }
   const colorDone = () => (colorSnapshotTaken = false);
 
+  function applyTheme(next) {
+    commitTextEdit();
+    change(() => {
+      theme = next;
+      for (const s of slides) {
+        s.bg = next.bg;
+        for (const el of s.els) if (el.type === 'text') el.color = el.role === 'title' ? next.title : next.text;
+      }
+    });
+  }
+
+  // ---------- Assistente de IA ----------
+
+  const ai = () => (window.api && window.api.ai) || null;
+
+  function showAI(...content) {
+    aiBody.replaceChildren(...content.flat());
+    aiPanel.hidden = false;
+    fitStage();
+  }
+
+  function hideAI() {
+    aiPanel.hidden = true;
+    fitStage();
+  }
+
+  const aiBusy = (text) => showAI(h('p', { class: 'ai-status', role: 'status' }, h('span', { class: 'ai-spinner' }), text));
+  const aiError = (text) => showAI(h('p', { class: 'ai-error', role: 'alert' }, text));
+
+  async function configureAI() {
+    if (!ai()) {
+      MO.toast('O assistente de IA só está disponível na aplicação instalada.');
+      return false;
+    }
+    const res = await MO.dialog({
+      title: 'Assistente de IA',
+      message:
+        'O assistente usa o Claude, da Anthropic, e precisa da sua chave da API da Anthropic. ' +
+        'Quando pede uma sugestão, o texto dos diapositivos é enviado para a Anthropic; tudo o resto continua apenas no seu computador.',
+      fields: [{ name: 'key', label: 'Chave da API (deixe vazio para remover)', type: 'password', placeholder: 'sk-ant-…' }],
+      okLabel: 'Guardar'
+    });
+    if (!res) return false;
+    const out = await ai().setKey(res.key);
+    if (out.error) {
+      MO.toast(out.error);
+      return false;
+    }
+    if (!res.key.trim()) MO.toast('Chave removida.');
+    else MO.toast(out.persisted ? 'Chave guardada de forma cifrada.' : 'Chave guardada só até fechar a aplicação.');
+    return out.configured;
+  }
+
+  async function ensureAI() {
+    if (!ai()) {
+      MO.toast('O assistente de IA só está disponível na aplicação instalada.');
+      return false;
+    }
+    return (await ai().status()).configured || configureAI();
+  }
+
+  async function aiGenerate() {
+    commitTextEdit();
+    if (!(await ensureAI())) return;
+    const res = await MO.dialog({
+      title: 'Criar apresentação com IA',
+      message: 'Descreva o tema. Os diapositivos gerados substituem a apresentação atual (pode anular com Ctrl+Z).',
+      fields: [
+        { name: 'topic', label: 'Tema', placeholder: 'Ex.: Plano de marketing para 2027' },
+        { name: 'audience', label: 'Público (opcional)', placeholder: 'Ex.: direção da empresa' },
+        { name: 'count', label: 'Número de diapositivos', type: 'number', value: 6, min: 3, max: 15 }
+      ],
+      okLabel: 'Criar'
+    });
+    if (!res || !res.topic.trim()) return;
+    aiBusy('A criar a apresentação…');
+    const out = await ai().generate(res);
+    if (out.error) return aiError(out.error);
+    change(() => {
+      slides = [makeSlide('title', out), ...out.slides.map((s) => makeSlide('content', s))];
+      idx = 0;
+      selId = null;
+    });
+    hideAI();
+    MO.toast(`Apresentação criada com ${slides.length} diapositivos.`);
+  }
+
+  const plainText = (html) => {
+    const div = h('div');
+    div.innerHTML = html.replace(/<\/(li|p|div)>|<br\s*\/?>/gi, '\n');
+    return div.textContent.trim();
+  };
+
+  function slideTitle(s) {
+    const el = s.els.find((x) => x.type === 'text' && x.role === 'title') || s.els.find((x) => x.type === 'text');
+    return el ? plainText(el.html).split('\n')[0] : '';
+  }
+
+  function applySuggestion(target, sug) {
+    if (!slides.includes(target)) return MO.toast('Esse diapositivo já não existe.');
+    commitTextEdit();
+    change(() => {
+      idx = slides.indexOf(target);
+      selId = null;
+      const texts = target.els.filter((el) => el.type === 'text');
+      const title = texts.find((el) => el.role === 'title') || texts[0];
+      let body = texts.find((el) => el !== title && el.role === 'body') || texts.find((el) => el !== title);
+      if (title && sug.title) title.html = MO.escapeHTML(sug.title);
+      if (sug.bullets.length) {
+        if (!body) {
+          body = textEl(60, 140, 840, 340, '', { fs: 28, role: 'body' });
+          target.els.push(body);
+        }
+        // Caixas baixas (como o subtítulo) recebem uma linha; as restantes, a lista.
+        body.html = body.h < 150 ? MO.escapeHTML(sug.bullets.join(' · ')) : bulletsHTML(sug.bullets);
+      }
+      if (sug.notes) target.notes = sug.notes;
+    });
+    MO.toast('Sugestão aplicada.');
+  }
+
+  async function aiSuggest() {
+    commitTextEdit();
+    if (!(await ensureAI())) return;
+    const target = slide();
+    const slideText = target.els
+      .filter((el) => el.type === 'text')
+      .map((el) => plainText(el.html))
+      .filter(Boolean)
+      .join('\n');
+    if (!slideText) return MO.toast('Este diapositivo ainda não tem texto para melhorar.');
+    aiBusy('A preparar sugestões…');
+    const out = await ai().suggest({
+      slideText,
+      notes: target.notes || '',
+      deckTitles: slides.filter((s) => s !== target).map(slideTitle).filter(Boolean)
+    });
+    if (out.error) return aiError(out.error);
+    showAI(
+      h('p', { class: 'ai-hint' }, `Sugestões para o diapositivo ${slides.indexOf(target) + 1}. Reveja antes de aplicar: o texto é gerado por IA.`),
+      out.suggestions.map((sug) =>
+        h(
+          'article',
+          { class: 'ai-card' },
+          h('div', { class: 'ai-label' }, sug.label || 'Sugestão'),
+          h('h3', null, sug.title),
+          h('ul', null, sug.bullets.map((b) => h('li', null, b))),
+          sug.reason ? h('p', { class: 'ai-reason' }, sug.reason) : null,
+          h('button', { type: 'button', class: 'btn primary', onclick: () => applySuggestion(target, sug) }, 'Aplicar')
+        )
+      )
+    );
+  }
+
   function onKeyDown(e) {
     if (editingId) {
       if (e.key === 'Escape') e.target.blur();
@@ -509,6 +682,28 @@
       if (fs) withSelected((el) => (el.fs = fs), 'text');
     });
 
+    const layoutSelect = h(
+      'select',
+      { class: 'tool-select', title: 'Novo diapositivo com esquema', 'aria-label': 'Novo diapositivo com esquema' },
+      h('option', { value: '' }, 'Esquema…'),
+      LAYOUTS.map(([value, label]) => h('option', { value }, label))
+    );
+    layoutSelect.addEventListener('change', () => {
+      if (layoutSelect.value) addSlide(layoutSelect.value);
+      layoutSelect.selectedIndex = 0;
+    });
+
+    const themeChip = (t) => {
+      const chip = toolButton(
+        [h('span', { class: 'theme-title', style: { color: t.title } }, 'Aa'), h('span', { class: 'theme-name', style: { color: t.text } }, t.name)],
+        'Aplicar o tema ' + t.name,
+        () => applyTheme(t),
+        'theme-chip'
+      );
+      chip.style.background = t.bg;
+      return chip;
+    };
+
     const insertText = () => addElement(textEl(280, 220, 400, 100, 'Texto'));
     const insertRect = () => addElement({ id: uid(), type: 'rect', x: 360, y: 190, w: 240, h: 160, fill: '#1f5fbf' });
     const insertEllipse = () => addElement({ id: uid(), type: 'ellipse', x: 380, y: 170, w: 200, h: 200, fill: '#c8491f' });
@@ -529,12 +724,17 @@
               label: 'Diapositivos',
               rows: [
                 [
-                  bigButton('slideNew', 'Novo', 'Novo diapositivo', addSlide),
+                  bigButton('slideNew', 'Novo', 'Novo diapositivo', () => addSlide('content')),
                   h(
                     'div',
                     { class: 'ribbon-stack' },
-                    iconButton('duplicate', 'Duplicar diapositivo', duplicateSlide, 'Duplicar'),
-                    iconButton('trash', 'Eliminar diapositivo', deleteSlide, 'Eliminar')
+                    layoutSelect,
+                    h(
+                      'div',
+                      { class: 'ribbon-row' },
+                      iconButton('duplicate', 'Duplicar diapositivo', duplicateSlide, 'Duplicar'),
+                      iconButton('trash', 'Eliminar diapositivo', deleteSlide)
+                    )
                   ),
                   h(
                     'div',
@@ -599,10 +799,25 @@
         {
           label: 'Estrutura',
           groups: [
+            { label: 'Temas', rows: [THEMES.map(themeChip)] },
             {
               label: 'Personalizar',
               rows: [[colorButton('Cor de fundo', 'Cor de fundo do diapositivo', '#ffffff', liveColor((v) => (slide().bg = v)), colorDone)]]
             }
+          ]
+        },
+        {
+          label: 'IA',
+          groups: [
+            {
+              label: 'Criar',
+              rows: [[bigButton('sparkle', 'Criar apresentação', 'Criar uma apresentação a partir de um tema, com IA', aiGenerate)]]
+            },
+            {
+              label: 'Melhorar',
+              rows: [[bigButton('sparkle', 'Sugestões', 'Sugestões de IA para o diapositivo atual', aiSuggest)]]
+            },
+            { label: 'Configuração', rows: [[bigButton('key', 'Chave da API', 'Configurar a chave da API do assistente', configureAI)]] }
           ]
         },
         {
@@ -636,8 +851,16 @@
       thumbs = h('div', { class: 'thumbs' });
       stage = h('div', { class: 'stage' });
       stageBox = h('div', { class: 'stage-box' }, stage);
+      notesEl = h('textarea', { class: 'notes', rows: '3', placeholder: 'Clique para adicionar notas do orador', 'aria-label': 'Notas do orador' });
+      aiBody = h('div', { class: 'ai-body' });
+      aiPanel = h(
+        'aside',
+        { class: 'ai-panel', hidden: true, 'aria-label': 'Assistente de IA' },
+        h('header', null, h('strong', null, 'Assistente de IA'), MO.iconButton('close', 'Fechar o painel', hideAI)),
+        aiBody
+      );
       counterEl = h('div', { class: 'statusbar' });
-      root = h('div', { class: 'slides-main', tabindex: '0', 'aria-label': 'Editor de diapositivos' }, thumbs, stageBox);
+      root = h('div', { class: 'slides-main', tabindex: '0', 'aria-label': 'Editor de diapositivos' }, thumbs, h('div', { class: 'stage-col' }, stageBox, notesEl), aiPanel);
       container.append(buildRibbon(), root, counterEl);
 
       stage.addEventListener('pointerdown', onPointerDown);
@@ -661,11 +884,21 @@
         }
       });
       root.addEventListener('keydown', onKeyDown);
+      notesEl.addEventListener('input', () => {
+        if (!notesSnapshotTaken) {
+          snapshot();
+          notesSnapshotTaken = true;
+        }
+        slide().notes = notesEl.value;
+        ctx.dirty();
+      });
+      notesEl.addEventListener('blur', () => (notesSnapshotTaken = false));
       new ResizeObserver(fitStage).observe(stageBox);
     },
 
     newDoc() {
-      slides = [titleSlide()];
+      theme = THEMES[0];
+      slides = [makeSlide('title')];
       idx = 0;
       selId = null;
       editingId = null;
@@ -676,7 +909,7 @@
 
     serialize() {
       commitTextEdit();
-      return JSON.stringify({ format: 'myoffice-slides', version: 1, slides });
+      return JSON.stringify({ format: 'myoffice-slides', version: 1, theme: theme.id, slides });
     },
 
     load(text) {
@@ -684,6 +917,7 @@
       if (!data || data.format !== 'myoffice-slides') throw new Error('Formato inválido');
       const next = cleanSlides(data.slides);
       this.newDoc();
+      theme = THEMES.find((t) => t.id === data.theme) || THEMES[0];
       slides = next;
       renderAll();
     },

@@ -11,6 +11,12 @@ contextBridge.exposeInMainWorld('api', {
   getRecent: () => ipcRenderer.invoke('recent:get'),
   setDirty: (value) => ipcRenderer.send('app:dirty', Boolean(value)),
   ready: () => ipcRenderer.send('app:ready'),
+  ai: {
+    status: () => ipcRenderer.invoke('ai:status'),
+    setKey: (key) => ipcRenderer.invoke('ai:setKey', key),
+    generate: (input) => ipcRenderer.invoke('ai:generate', input),
+    suggest: (input) => ipcRenderer.invoke('ai:suggest', input)
+  },
   onMenu: (callback) => ipcRenderer.on('menu', (_event, action) => callback(action)),
   onOpenFile: (callback) => ipcRenderer.on('open-file', (_event, file) => callback(file))
 });

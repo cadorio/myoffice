@@ -151,4 +151,28 @@ test('nomes de colunas', () => {
   assert.deepEqual(F.parseAddr('C7'), { c: 2, r: 6 });
 });
 
+test('procura e funções condicionais', () => {
+  const v = sheet({
+    A1: 'maçã', B1: '3', C1: '0,5',
+    A2: 'pera', B2: '10', C2: '0,8',
+    A3: 'maçã', B3: '7', C3: '0,6',
+    E1: '=SOMA.SE(A1:A3;"maçã";B1:B3)',
+    E2: '=SUMIF(B1:B3,">5")',
+    E3: '=CONTAR.SE(A1:A3;"maçã")',
+    E4: '=COUNTIF(B1:B3,"<>10")',
+    E5: '=PROCV("pera";A1:C3;3;FALSO)',
+    E6: '=VLOOKUP("kiwi",A1:C3,2,FALSE)',
+    E7: '=VLOOKUP(8,B1:C3,2)',
+    E8: '=PROCV("pera";A1:C3;9;FALSO)'
+  });
+  assert.equal(v('E1'), 10);
+  assert.equal(v('E2'), 17);
+  assert.equal(v('E3'), 2);
+  assert.equal(v('E4'), 2);
+  assert.equal(v('E5'), 0.8);
+  assert.equal(v('E6'), '#N/D');
+  assert.equal(v('E7'), 0.5);
+  assert.equal(v('E8'), '#REF!');
+});
+
 console.log(`${count} grupos de testes passaram.`);
