@@ -730,14 +730,48 @@ body[data-current="home"] #rail { display: flex; }
 
 /* ---------- Temas predefinidos ---------- */
 
-.deco { position: absolute; pointer-events: none; }
-.deco-bar { left: 0; top: 0; bottom: 0; width: 14px; }
-.deco-title { left: 0; right: 0; bottom: 0; height: 28px; }
-.deco-title::before { content: ""; position: absolute; left: 380px; right: 380px; top: -226px; height: 5px; background: inherit; border-radius: 3px; }
+/* Elementos gráficos dos diapositivos. A cor de destaque chega em currentColor. */
+.deco { position: absolute; inset: 0; pointer-events: none; }
+.deco::before, .deco::after { content: ""; position: absolute; }
 
-.tool.theme-chip { position: relative; overflow: hidden; flex: none; }
+.deco-linha::before { left: 60px; top: 124px; width: 180px; height: 5px; border-radius: 3px; background: currentColor; }
+.lead .deco-linha::before { left: 380px; top: 286px; width: 200px; }
+
+.deco-barra::before { left: 0; top: 0; bottom: 0; width: 14px; background: currentColor; }
+.lead .deco-barra::before { top: auto; right: 0; width: auto; height: 28px; }
+.lead .deco-barra::after { left: 380px; right: 380px; top: 286px; height: 5px; border-radius: 3px; background: currentColor; }
+
+.deco-faixa::before { left: 0; right: 0; top: 0; height: 22px; background: currentColor; }
+.lead .deco-faixa::before { top: auto; bottom: 0; height: 120px; }
+.lead .deco-faixa::after { left: 0; right: 0; bottom: 128px; height: 6px; background: currentColor; opacity: 0.45; }
+
+.deco-lateral::before { left: 0; top: 0; bottom: 0; width: 34px; background: currentColor; }
+.deco-lateral::after { left: 34px; top: 0; bottom: 0; width: 8px; background: currentColor; opacity: 0.35; }
+.lead .deco-lateral::after { left: 0; right: 0; top: auto; width: auto; height: 34px; opacity: 1; }
+
+.deco-arco::before { right: -150px; bottom: -190px; width: 440px; height: 440px; border-radius: 50%; background: currentColor; opacity: 0.2; }
+.deco-arco::after { right: -60px; bottom: -110px; width: 230px; height: 230px; border-radius: 50%; background: currentColor; opacity: 0.45; }
+.lead .deco-arco::before { right: -180px; bottom: -220px; width: 620px; height: 620px; }
+.lead .deco-arco::after { left: -90px; right: auto; top: -90px; bottom: auto; width: 240px; height: 240px; }
+
+.deco-canto::before { right: 0; top: 0; width: 190px; height: 130px; background: currentColor; clip-path: polygon(100% 0, 0 0, 100% 100%); }
+.lead .deco-canto::before { width: 320px; height: 220px; }
+.lead .deco-canto::after { left: 0; bottom: 0; width: 320px; height: 220px; background: currentColor; opacity: 0.5; clip-path: polygon(0 100%, 0 0, 100% 100%); }
+
+.deco-moldura::before { inset: 16px; border: 3px solid currentColor; }
+.lead .deco-moldura::before { border-width: 6px; }
+.lead .deco-moldura::after { inset: 28px; border: 1px solid currentColor; }
+
+/* Galerias de temas no friso */
+.theme-gallery { display: flex; gap: 4px; }
+.tool.theme-chip { position: relative; overflow: hidden; flex: none; width: 66px; height: 62px; padding: 3px 4px 3px 10px; gap: 1px; background: #fff; }
+.tool.theme-chip.active { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: -2px; }
 .theme-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; }
-.tool.doc-theme { width: 92px; background: #fff; }
-.tool.doc-theme .theme-title { font-size: 15px; }
-.tool.table-chip { width: 72px; background: #fff; gap: 2px; padding: 5px 6px; }
-.table-head, .table-band { display: block; width: 100%; height: 11px; border-radius: 2px; }
+.theme-title { font-size: 18px; }
+.theme-swatches { display: flex; gap: 1px; }
+.theme-swatches span { width: 7px; height: 6px; }
+.theme-name { font-size: 10px; white-space: nowrap; }
+.tool.variant-chip { width: 66px; }
+.tool.table-chip { width: 58px; height: 46px; background: #fff; gap: 2px; padding: 6px; align-self: center; }
+.table-head, .table-band { display: block; width: 100%; height: 9px; border-radius: 2px; }
+.table-band:last-child { background: #fff; border: 1px solid var(--line); }

@@ -28,28 +28,9 @@
   const slide = () => slides[idx];
   const selected = () => slide().els.find((el) => el.id === selId) || null;
 
-  // Tipos de letra dos temas (só estas chaves são aceites nos ficheiros).
-  const FONTS = {
-    sans: '"Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif',
-    serif: 'Georgia, "Times New Roman", serif',
-    redonda: '"Trebuchet MS", Verdana, Tahoma, sans-serif'
-  };
-
-  // Temas predefinidos: fundo, cor do título, cor do texto, cor de destaque e tipo de letra.
-  const THEMES = [
-    { id: 'claro', name: 'Claro', bg: '#ffffff', title: '#1c2130', text: '#3b4252', accent: '#1f5fbf', font: 'sans' },
-    { id: 'executivo', name: 'Executivo', bg: '#ffffff', title: '#14213d', text: '#3a3f4b', accent: '#b8860b', font: 'serif' },
-    { id: 'oceano', name: 'Oceano', bg: '#0f2f4f', title: '#ffffff', text: '#d6e6f5', accent: '#4fc3f7', font: 'sans' },
-    { id: 'floresta', name: 'Floresta', bg: '#f1f7f2', title: '#14532d', text: '#2f4a3a', accent: '#2e8b57', font: 'redonda' },
-    { id: 'por-do-sol', name: 'Pôr do sol', bg: '#fff4ec', title: '#b3401a', text: '#5a3b2e', accent: '#f08a3c', font: 'redonda' },
-    { id: 'coral', name: 'Coral', bg: '#fff7f5', title: '#a8322d', text: '#4a3432', accent: '#e8685f', font: 'sans' },
-    { id: 'menta', name: 'Menta', bg: '#effaf6', title: '#0b6b57', text: '#27433d', accent: '#1fb08f', font: 'sans' },
-    { id: 'lavanda', name: 'Lavanda', bg: '#f3f0fb', title: '#4c2f91', text: '#40385c', accent: '#8a63d2', font: 'redonda' },
-    { id: 'areia', name: 'Areia', bg: '#faf5ea', title: '#5b4636', text: '#5e5346', accent: '#c08a3e', font: 'serif' },
-    { id: 'grafite', name: 'Grafite', bg: '#22252b', title: '#f5f5f5', text: '#c9ccd3', accent: '#f2a33a', font: 'sans' },
-    { id: 'noite', name: 'Noite', bg: '#101426', title: '#ffffff', text: '#b9c2e8', accent: '#7c8cff', font: 'sans' },
-    { id: 'contraste', name: 'Alto contraste', bg: '#000000', title: '#ffffff', text: '#ffffff', accent: '#ffd400', font: 'sans' }
-  ];
+  const T = MO.Themes;
+  const FONTS = T.FONTS;
+  const PICKER = 'colors-slides';
   const LAYOUTS = [
     ['title', 'Diapositivo de título'],
     ['content', 'Título e conteúdo'],
@@ -57,7 +38,9 @@
     ['titleOnly', 'Só título'],
     ['blank', 'Em branco']
   ];
-  let theme = THEMES[0];
+  // Aspeto em uso: cores e tipos de letra do tema e da variante escolhidos (ver themes.js).
+  let theme = T.slideLook(T.LIST[0], 'claro');
+  let themeRow, variantRow;
 
   function textEl(x, y, w, h_, html, extra) {
     return Object.assign({ id: uid(), type: 'text', x, y, w, h: h_, html, fs: 24, color: theme.text, align: 'left' }, extra);
@@ -79,7 +62,9 @@
       if (layout === 'content') els.push(body(60, 840, c.bullets && c.bullets.length ? c.bullets : ['Primeiro ponto', 'Segundo ponto']));
       if (layout === 'two') els.push(body(60, 405, ['Coluna da esquerda']), body(495, 405, ['Coluna da direita']));
     }
-    return { bg: theme.bg, accent: theme.accent, font: theme.font, deco: layout === 'title' ? 'title' : 'bar', notes: c.notes || '', els };
+    const s = { bg: theme.bg, accent: theme.accent, font: theme.font, headFont: theme.headFont, deco: theme.deco, notes: c.notes || '', els };
+    if (layout === 'title') s.lead = true;
+    return s;
   }
 
   // ---------- Histórico ----------
@@ -146,7 +131,12 @@
       const look = {};
       if (s && MO.HEX.test(s.accent)) look.accent = s.accent;
       if (s && Object.hasOwn(FONTS, s.font)) look.font = s.font;
-      if (s && (s.deco === 'title' || s.deco === 'bar')) look.deco = s.deco;
+      if (s && Object.hasOwn(FONTS, s.headFont)) look.headFont = s.headFont;
+      if (s && T.DECOS.includes(s.deco)) look.deco = s.deco;
+      if (s && s.lead === true) look.lead = true;
+      // Ficheiros de versões anteriores.
+      if (s && s.deco === 'bar') look.deco = 'barra';
+      if (s && s.deco === 'title') Object.assign(look, { deco: 'barra', lead: true });
       return { bg: MO.HEX.test(s && s.bg) ? s.bg : '#ffffff', ...look, notes: typeof (s && s.notes) === 'string' ? s.notes.slice(0, 5000) : '', els };
     });
   }
@@ -154,10 +144,10 @@
   // ---------- Desenho ----------
 
   function renderSlide(s, interactive) {
-    const node = h('div', { class: 'slide', style: { background: s.bg } });
+    const node = h('div', { class: 'slide' + (s.lead ? ' lead' : ''), style: { background: s.bg } });
     if (s.font) node.style.fontFamily = FONTS[s.font];
-    // Elemento decorativo do tema: barra lateral, ou faixas no diapositivo de título.
-    if (s.accent && s.deco) node.append(h('div', { class: 'deco deco-' + s.deco, style: { background: s.accent } }));
+    // Elemento gráfico do tema, desenhado em CSS com a cor de destaque (currentColor).
+    if (s.accent && s.deco) node.append(h('div', { class: 'deco deco-' + s.deco, style: { color: s.accent } }));
     for (const el of s.els) {
       const box = h('div', {
         class: 'el el-' + el.type,
@@ -171,7 +161,8 @@
             color: el.color,
             textAlign: el.align,
             fontWeight: el.bold ? '700' : '400',
-            fontStyle: el.italic ? 'italic' : 'normal'
+            fontStyle: el.italic ? 'italic' : 'normal',
+            fontFamily: el.role === 'title' && s.headFont ? FONTS[s.headFont] : ''
           }
         });
         content.innerHTML = el.html;
@@ -456,14 +447,33 @@
     commitTextEdit();
     change(() => {
       theme = next;
-      for (const s of slides) {
-        s.bg = next.bg;
-        s.accent = next.accent;
-        s.font = next.font;
-        if (!s.deco) s.deco = s === slides[0] ? 'title' : 'bar';
+      slides.forEach((s, i) => {
+        const first = i === 0 && !s.deco;
+        Object.assign(s, { bg: next.bg, accent: next.accent, font: next.font, headFont: next.headFont, deco: next.deco });
+        if (first) s.lead = true;
         for (const el of s.els) if (el.type === 'text') el.color = el.role === 'title' ? next.title : next.text;
-      }
+      });
     });
+    syncThemeUI();
+  }
+
+  function variantChip(variant) {
+    const look = T.slideLook(T.byId(theme.id), variant.id);
+    const chip = toolButton(
+      [h('span', { class: 'theme-bar', style: { background: look.accent } }), h('span', { class: 'theme-title', style: { color: look.title, fontFamily: FONTS[look.headFont] } }, 'Aa'), h('span', { class: 'theme-name', style: { color: look.text } }, variant.name)],
+      'Variante ' + variant.name,
+      () => applyTheme(look),
+      'theme-chip variant-chip' + (variant.id === theme.variant ? ' active' : '')
+    );
+    chip.style.background = look.bg;
+    return chip;
+  }
+
+  // Atualiza as galerias e as cores dos seletores para o tema em uso.
+  function syncThemeUI() {
+    T.markActive(themeRow, theme.id);
+    variantRow.replaceChildren(...T.VARIANTS.map(variantChip));
+    T.setPickerColors(PICKER, T.byId(theme.id));
   }
 
   // ---------- Assistente (motor próprio, ver assistant.js) ----------
@@ -683,20 +693,8 @@
       layoutSelect.selectedIndex = 0;
     });
 
-    const themeChip = (t) => {
-      const chip = toolButton(
-        [
-          h('span', { class: 'theme-bar', style: { background: t.accent } }),
-          h('span', { class: 'theme-title', style: { color: t.title, fontFamily: FONTS[t.font] } }, 'Aa'),
-          h('span', { class: 'theme-name', style: { color: t.text } }, t.name)
-        ],
-        'Aplicar o tema ' + t.name,
-        () => applyTheme(t),
-        'theme-chip'
-      );
-      chip.style.background = t.bg;
-      return chip;
-    };
+    themeRow = h('div', { class: 'theme-gallery' }, T.gallery((t) => applyTheme(T.slideLook(t, theme.variant))));
+    variantRow = h('div', { class: 'theme-gallery' });
 
     const insertText = () => addElement(textEl(280, 220, 400, 100, 'Texto'));
     const insertRect = () => addElement({ id: uid(), type: 'rect', x: 360, y: 190, w: 240, h: 160, fill: '#1f5fbf' });
@@ -755,7 +753,8 @@
                       if (el.type === 'text') el.color = v;
                       else if (el.type !== 'image') el.fill = v;
                     }),
-                    colorDone
+                    colorDone,
+                    PICKER
                   )
                 ]
               ]
@@ -793,10 +792,11 @@
         {
           label: 'Estrutura',
           groups: [
-            { label: 'Temas', rows: [THEMES.map(themeChip)] },
+            { label: 'Temas', rows: [themeRow] },
+            { label: 'Variantes', rows: [variantRow] },
             {
               label: 'Personalizar',
-              rows: [[colorButton('Cor de fundo', 'Cor de fundo do diapositivo', '#ffffff', liveColor((v) => (slide().bg = v)), colorDone)]]
+              rows: [[colorButton('Cor de fundo', 'Cor de fundo do diapositivo', '#ffffff', liveColor((v) => (slide().bg = v)), colorDone, PICKER)]]
             }
           ]
         },
@@ -890,7 +890,8 @@
     },
 
     newDoc() {
-      theme = THEMES[0];
+      theme = T.slideLook(T.LIST[0], 'claro');
+      syncThemeUI();
       slides = [makeSlide('title')];
       idx = 0;
       selId = null;
@@ -902,7 +903,7 @@
 
     serialize() {
       commitTextEdit();
-      return JSON.stringify({ format: 'myoffice-slides', version: 1, theme: theme.id, slides });
+      return JSON.stringify({ format: 'myoffice-slides', version: 1, theme: theme.id, variant: theme.variant, slides });
     },
 
     load(text) {
@@ -910,7 +911,8 @@
       if (!data || data.format !== 'myoffice-slides') throw new Error('Formato inválido');
       const next = cleanSlides(data.slides);
       this.newDoc();
-      theme = THEMES.find((t) => t.id === data.theme) || THEMES[0];
+      theme = T.slideLook(T.byId(data.theme), data.variant);
+      syncThemeUI();
       slides = next;
       renderAll();
     },

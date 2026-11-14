@@ -193,8 +193,9 @@
     return btn;
   };
 
-  MO.colorButton = function (label, title, value, onInput, onDone) {
-    const input = h('input', { type: 'color', value, title, 'aria-label': title });
+  // listId: datalist com as cores do tema, mostradas como amostras no seletor.
+  MO.colorButton = function (label, title, value, onInput, onDone, listId) {
+    const input = h('input', { type: 'color', value, title, 'aria-label': title, list: listId });
     input.addEventListener('input', () => onInput(input.value));
     if (onDone) input.addEventListener('change', () => onDone(input.value));
     return h('label', { class: 'tool color', title }, h('span', null, label), input);

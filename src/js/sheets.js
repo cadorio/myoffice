@@ -279,14 +279,11 @@
     );
   }
 
-  // Estilos de tabela predefinidos: cabeçalho colorido e linhas alternadas.
-  const TABLE_STYLES = [
-    { name: 'Azul', head: '#1f5fbf', band: '#e3edfa' },
-    { name: 'Verde', head: '#127a45', band: '#e2f3ea' },
-    { name: 'Laranja', head: '#c8491f', band: '#fbe9e1' },
-    { name: 'Roxo', head: '#5b3fa8', band: '#ece7f8' },
-    { name: 'Cinzento', head: '#4a5263', band: '#eceef2' }
-  ];
+  // Tema da folha: tipo de letra da grelha, cores dos seletores e estilos de tabela (ver themes.js).
+  const T = MO.Themes;
+  const PICKER = 'colors-sheets';
+  let theme = T.LIST[0];
+  let themeRow, tableRow, gridEl;
 
   function formatAsTable(style) {
     const { r0, r1, c0, c1 } = range();
@@ -297,7 +294,7 @@
           const a = F.addr(r, c);
           const header = r === r0;
           setStyle(a, 'bg', header ? style.head : (r - r0) % 2 === 0 ? style.band : '');
-          setStyle(a, 'c', header ? '#ffffff' : '');
+          setStyle(a, 'c', header ? style.headText : '');
           setStyle(a, 'b', header ? 1 : 0);
         }
       }
@@ -305,13 +302,20 @@
   }
 
   function tableChip(style) {
-    const chip = toolButton(
-      [h('span', { class: 'table-head', style: { background: style.head } }), h('span', { class: 'table-band', style: { background: style.band } }), h('span', { class: 'theme-name' }, style.name)],
+    return toolButton(
+      [h('span', { class: 'table-head', style: { background: style.head } }), h('span', { class: 'table-band', style: { background: style.band } }), h('span', { class: 'table-band' })],
       'Formatar a seleção como tabela: ' + style.name,
       () => formatAsTable(style),
       'theme-chip table-chip'
     );
-    return chip;
+  }
+
+  function setTheme(next) {
+    theme = next;
+    gridEl.style.fontFamily = T.FONTS[theme.body];
+    tableRow.replaceChildren(...T.tableStyles(theme).map(tableChip));
+    T.markActive(themeRow, theme.id);
+    T.setPickerColors(PICKER, theme);
   }
 
   // Ordena as linhas da seleção pela coluna da célula ativa.
@@ -606,6 +610,11 @@
   }
 
   function buildRibbon() {
+    tableRow = h('div', { class: 'theme-gallery' });
+    themeRow = h('div', { class: 'theme-gallery' }, T.gallery((t) => {
+      setTheme(t);
+      ctx.dirty();
+    }));
     const formatSelect = h(
       'select',
       { class: 'tool-select', title: 'Formato do número', 'aria-label': 'Formato do número' },
@@ -632,8 +641,8 @@
               rows: [
                 [toolButton('N', 'Negrito (Ctrl+B)', () => toggleStyle('b'), 'bold'), toolButton('I', 'Itálico (Ctrl+I)', () => toggleStyle('i'), 'italic')],
                 [
-                  colorButton('A', 'Cor do texto', '#c62828', () => {}, (v) => applyStyle('c', v)),
-                  colorButton('ab', 'Cor de preenchimento', '#fff3a3', () => {}, (v) => applyStyle('bg', v))
+                  colorButton('A', 'Cor do texto', '#c62828', () => {}, (v) => applyStyle('c', v), PICKER),
+                  colorButton('ab', 'Cor de preenchimento', '#fff3a3', () => {}, (v) => applyStyle('bg', v), PICKER)
                 ]
               ]
             },
@@ -651,7 +660,7 @@
                 ]
               ]
             },
-            { label: 'Formatar como tabela', rows: [TABLE_STYLES.map(tableChip)] },
+            { label: 'Formatar como tabela', rows: [tableRow] },
             {
               label: 'Edição',
               rows: [
@@ -663,6 +672,10 @@
               ]
             }
           ]
+        },
+        {
+          label: 'Esquema de página',
+          groups: [{ label: 'Temas', rows: [themeRow] }]
         },
         {
           label: 'Fórmulas',
@@ -717,6 +730,7 @@
       fxInput = h('input', { class: 'fx-input', type: 'text', spellcheck: 'false', 'aria-label': 'Conteúdo da célula', placeholder: 'Valor ou fórmula, por exemplo =SOMA(A1:A5)' });
       editorEl = h('input', { class: 'cell-editor', type: 'text', spellcheck: 'false', 'aria-label': 'Editar célula' });
       const table = buildGrid();
+      gridEl = table;
       wrap = h('div', { class: 'sheet-wrap', tabindex: '0', 'aria-label': 'Folha de cálculo' }, h('div', { class: 'sheet-inner' }, table, editorEl));
       statusEl = h('div', { class: 'statusbar' });
       container.append(buildRibbon(), h('div', { class: 'fx-bar' }, nameBox, h('span', { class: 'fx-label' }, 'fx'), fxInput), wrap, statusEl);
@@ -759,16 +773,18 @@
       clip = null;
       cur = { r: 0, c: 0 };
       end = { r: 0, c: 0 };
+      setTheme(T.LIST[0]);
       refresh();
     },
 
     serialize() {
       if (editing) stopEdit(true);
-      return JSON.stringify({ format: 'myoffice-sheet', version: 1, cells });
+      return JSON.stringify({ format: 'myoffice-sheet', version: 1, theme: theme.id, cells });
     },
 
     load(text, ext) {
       let next = {};
+      let nextTheme = T.LIST[0];
       if (ext === 'csv') {
         parseCSV(text).forEach((row, r) =>
           row.forEach((value, c) => {
@@ -779,8 +795,10 @@
         const data = JSON.parse(text);
         if (!data || data.format !== 'myoffice-sheet') throw new Error('Formato inválido');
         next = cleanCells(data.cells);
+        nextTheme = T.byId(data.theme);
       }
       this.newDoc();
+      setTheme(nextTheme);
       cells = next;
       refresh();
     },

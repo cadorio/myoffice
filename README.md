@@ -24,9 +24,19 @@ O assistente segue regras de escrita para apresentações em português; não é
 
 ## Temas predefinidos
 
-- **Diapositivos** — 12 temas (Claro, Executivo, Oceano, Floresta, Pôr do sol, Coral, Menta, Lavanda, Areia, Grafite, Noite e Alto contraste), cada um com fundo, cores, tipo de letra e elemento decorativo. Em Estrutura › Temas; aplicam-se a toda a apresentação.
-- **Texto** — 6 temas de documento (Clássico, Moderno, Elegante, Natureza, Técnico e Vivo), que mudam os tipos de letra e as cores dos títulos. Em Estrutura › Temas do documento.
-- **Folhas** — 5 estilos de tabela (cabeçalho colorido e linhas alternadas). Em Base › Formatar como tabela.
+Os três módulos partilham o mesmo conjunto de 13 temas: Escritório, Executivo, Oceano, Floresta, Pôr do sol, Coral, Menta, Lavanda, Areia, Grafite, Noite, Técnico e Contraste. Cada tema define:
+
+- uma **paleta**: cor escura, cor clara e seis cores de destaque, que aparecem como amostras nos seletores de cor;
+- um **par de tipos de letra**, um para os títulos e outro para o texto;
+- um **elemento gráfico** para os diapositivos (linha, barra, faixa, lateral, arco, canto ou moldura), com uma versão própria para o diapositivo de título.
+
+Onde se aplicam:
+
+- **Diapositivos** — Estrutura › Temas, mais quatro **variantes** de cor de cada tema (Claro, Suave, Vivo e Escuro). Aplicam-se a toda a apresentação. As cores de texto de todas as combinações cumprem o contraste mínimo de 4,5:1.
+- **Texto** — Estrutura › Temas do documento: tipos de letra do texto e dos títulos e cor dos títulos, também no PDF e no HTML exportados.
+- **Folhas** — Esquema de página › Temas: tipo de letra da grelha e estilos de «Formatar como tabela» (um por cor de destaque).
+
+Os temas, nomes e desenhos são próprios do MyOffice; os tipos de letra são os que já existem em cada sistema operativo. O código está em `src/js/themes.js`.
 
 ## Segurança
 
@@ -97,6 +107,7 @@ Operadores: `+ - * / ^ %`, `&` (juntar texto) e comparações `= <> < > <= >=`. 
 main.js        processo principal do Electron: janela, menus, leitura e escrita de ficheiros
 preload.js     ponte segura entre a interface e o processo principal
 src/           interface (HTML, CSS e JavaScript sem dependências)
+  js/themes.js   temas partilhados (paletas, tipos de letra, variantes)
   js/formula.js  motor de fórmulas
   js/writer.js   Texto
   js/sheets.js   Folhas

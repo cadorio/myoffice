@@ -23,40 +23,25 @@
   ];
   const EMPTY = '<p><br></p>';
 
-  // Temas predefinidos do documento: tipo de letra do texto e dos títulos, e cor dos títulos e destaques.
-  const SERIF = 'Georgia, "Times New Roman", serif';
-  const SANS = '"Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif';
-  const THEMES = [
-    { id: 'classico', name: 'Clássico', body: SERIF, head: SERIF, color: '#1c2130', accent: '#9aa1b1' },
-    { id: 'moderno', name: 'Moderno', body: SANS, head: SANS, color: '#1f5fbf', accent: '#1f5fbf' },
-    { id: 'elegante', name: 'Elegante', body: SERIF, head: SERIF, color: '#7a1f3d', accent: '#b8860b' },
-    { id: 'natureza', name: 'Natureza', body: SANS, head: SERIF, color: '#14532d', accent: '#2e8b57' },
-    { id: 'tecnico', name: 'Técnico', body: SANS, head: '"Courier New", Courier, monospace', color: '#33415c', accent: '#5b6475' },
-    { id: 'vivo', name: 'Vivo', body: '"Trebuchet MS", Verdana, sans-serif', head: '"Trebuchet MS", Verdana, sans-serif', color: '#c8491f', accent: '#f08a3c' }
-  ];
-  let theme = THEMES[0];
-
-  const themeVars = (t) => ({ '--doc-font': t.body, '--doc-head-font': t.head, '--doc-head-color': t.color, '--doc-accent': t.accent });
+  // Tema do documento: tipos de letra do texto e dos títulos e cores dos títulos (ver themes.js).
+  const T = MO.Themes;
+  const PICKER = 'colors-writer';
+  let theme = T.LIST[0];
+  let themeRow;
 
   function showTheme(node) {
-    for (const [name, value] of Object.entries(themeVars(theme))) node.style.setProperty(name, value);
+    const look = T.docLook(theme);
+    node.style.setProperty('--doc-font', look.body);
+    node.style.setProperty('--doc-head-font', look.head);
+    node.style.setProperty('--doc-head-color', look.color);
+    node.style.setProperty('--doc-accent', look.accent);
   }
 
-  function applyTheme(next) {
+  function setTheme(next) {
     theme = next;
     showTheme(editor);
-    changed();
-  }
-
-  function themeChip(t) {
-    const chip = toolButton(
-      [h('span', { class: 'theme-title', style: { color: t.color, fontFamily: t.head } }, 'Título'), h('span', { class: 'theme-name', style: { fontFamily: t.body } }, t.name)],
-      'Aplicar o tema ' + t.name,
-      () => applyTheme(t),
-      'theme-chip doc-theme'
-    );
-    chip.style.borderBottom = '3px solid ' + t.accent;
-    return chip;
+    T.markActive(themeRow, theme.id);
+    T.setPickerColors(PICKER, theme);
   }
 
   // Estilos partilhados entre o editor, a impressão e o HTML exportado.
@@ -213,6 +198,10 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
   }
 
   function buildRibbon() {
+    themeRow = h('div', { class: 'theme-gallery' }, T.gallery((t) => {
+      setTheme(t);
+      changed();
+    }));
     return MO.ribbon(
       [
         {
@@ -234,8 +223,8 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
                   toolButton('I', 'Itálico (Ctrl+I)', () => exec('italic'), 'italic'),
                   toolButton('S', 'Sublinhado (Ctrl+U)', () => exec('underline'), 'underline'),
                   toolButton('abc', 'Rasurado', () => exec('strikeThrough'), 'strike'),
-                  colorButton('A', 'Cor do texto', '#c62828', (v) => exec('foreColor', v)),
-                  colorButton('ab', 'Cor de realce', '#fff3a3', (v) => exec('hiliteColor', v)),
+                  colorButton('A', 'Cor do texto', '#c62828', (v) => exec('foreColor', v), null, PICKER),
+                  colorButton('ab', 'Cor de realce', '#fff3a3', (v) => exec('hiliteColor', v), null, PICKER),
                   iconButton('eraser', 'Limpar formatação', () => exec('removeFormat'))
                 ]
               ]
@@ -269,7 +258,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
         },
         {
           label: 'Estrutura',
-          groups: [{ label: 'Temas do documento', rows: [THEMES.map(themeChip)] }]
+          groups: [{ label: 'Temas do documento', rows: [themeRow] }]
         },
         {
           label: 'Inserir',
@@ -294,9 +283,10 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
   }
 
   function standaloneHTML(title) {
+    const look = T.docLook(theme);
     return (
       '<!DOCTYPE html>\n<html lang="pt">\n<head>\n<meta charset="utf-8">\n' +
-      `<title>${MO.escapeHTML(title)}</title>\n<style>${DOC_CSS}\nbody { font-family: ${theme.body}; }\nh1, h2, h3 { font-family: ${theme.head}; color: ${theme.color}; }\nblockquote { border-left-color: ${theme.accent}; }\n</style>\n</head>\n<body>\n${editor.innerHTML}\n</body>\n</html>\n`
+      `<title>${MO.escapeHTML(title)}</title>\n<style>${DOC_CSS}\nbody { font-family: ${look.body}; }\nh1, h2, h3 { font-family: ${look.head}; color: ${look.color}; }\nblockquote { border-left-color: ${look.accent}; }\n</style>\n</head>\n<body>\n${editor.innerHTML}\n</body>\n</html>\n`
     );
   }
 
@@ -339,8 +329,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
     },
 
     newDoc() {
-      theme = THEMES[0];
-      showTheme(editor);
+      setTheme(T.LIST[0]);
       editor.innerHTML = EMPTY;
       savedRange = null;
       updateStats();
@@ -352,12 +341,12 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
 
     load(text, ext) {
       let html;
-      let nextTheme = THEMES[0];
+      let nextTheme = T.LIST[0];
       if (ext === 'modoc') {
         const data = JSON.parse(text);
         if (!data || data.format !== 'myoffice-doc' || typeof data.html !== 'string') throw new Error('Formato inválido');
         html = data.html;
-        nextTheme = THEMES.find((t) => t.id === data.theme) || THEMES[0];
+        nextTheme = T.byId(data.theme);
       } else if (ext === 'txt') {
         html = text
           .split(/\r?\n/)
@@ -367,8 +356,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
         html = text;
       }
       editor.innerHTML = MO.sanitizeHTML(html) || EMPTY;
-      theme = nextTheme;
-      showTheme(editor);
+      setTheme(nextTheme);
       savedRange = null;
       updateStats();
     },
