@@ -41,6 +41,7 @@
   // Aspeto em uso: cores e tipos de letra do tema e da variante escolhidos (ver themes.js).
   let theme = T.slideLook(T.LIST[0], 'claro');
   let themeRow, variantRow;
+  let showStates = () => {};
 
   function textEl(x, y, w, h_, html, extra) {
     return Object.assign({ id: uid(), type: 'text', x, y, w, h: h_, html, fs: 24, color: theme.text, align: 'left' }, extra);
@@ -238,6 +239,8 @@
   function syncToolbar() {
     const el = selected();
     sizeSelect.value = el && el.type === 'text' && SIZES.includes(el.fs) ? String(el.fs) : '';
+    const text = el && el.type === 'text' ? el : null;
+    showStates((key) => text && (key === 'bold' || key === 'italic' ? text[key] : text.align === key));
   }
 
   // ---------- Edição de texto ----------
@@ -854,7 +857,9 @@
       );
       counterEl = h('div', { class: 'statusbar' });
       root = h('div', { class: 'slides-main', tabindex: '0', 'aria-label': 'Editor de diapositivos' }, thumbs, h('div', { class: 'stage-col' }, stageBox, notesEl), aiPanel);
-      container.append(buildRibbon(), root, counterEl);
+      const ribbon = buildRibbon();
+      container.append(ribbon, root, counterEl);
+      showStates = MO.toolStates(ribbon, { Negrito: 'bold', 'Itálico': 'italic', 'Alinhar à esquerda': 'left', Centrar: 'center', 'Alinhar à direita': 'right' });
 
       stage.addEventListener('pointerdown', onPointerDown);
       // Em window (e não com captura do ponteiro) para o duplo clique continuar a chegar ao elemento.

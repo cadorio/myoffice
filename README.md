@@ -22,6 +22,12 @@ No separador **Assistente** dos Diapositivos há um motor de sugestões próprio
 
 O assistente segue regras de escrita para apresentações em português; não é um modelo de linguagem, por isso não escreve conteúdo novo sobre o tema nem conhece factos. O código está em `src/js/assistant.js`.
 
+## Aparência
+
+- **Modo claro e escuro** — a aplicação acompanha o sistema operativo; o botão no canto superior direito muda de modo e a escolha fica guardada. O modo escuro muda a moldura da aplicação; as páginas, a grelha e os diapositivos mantêm as cores do documento.
+- **Friso** — os botões mostram o estado do que está selecionado (negrito, itálico, listas, alinhamento).
+- **Zoom** — na barra de estado do Texto e das Folhas, de 50% a 200% (duplo clique na percentagem repõe 100%).
+
 ## Temas predefinidos
 
 Os três módulos partilham o mesmo conjunto de 13 temas: Escritório, Executivo, Oceano, Floresta, Pôr do sol, Coral, Menta, Lavanda, Areia, Grafite, Noite, Técnico e Contraste. Cada tema define:

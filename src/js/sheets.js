@@ -17,6 +17,7 @@
   };
 
   let ctx, wrap, editorEl, nameBox, fxInput, statusEl;
+  let showStates = () => {};
   let cells = {}; // endereço -> { v: texto introduzido, s: { b, i, a, bg, c } }
   let values = new Map();
   let tds = [];
@@ -159,6 +160,9 @@
     if (!editing) fxInput.value = rawOf(F.addr(cur.r, cur.c));
     if (scroll) tds[end.r][end.c].scrollIntoView({ block: 'nearest', inline: 'nearest' });
     updateStatus(single);
+    const active = cells[F.addr(cur.r, cur.c)];
+    const st = (active && active.s) || {};
+    showStates((key) => (key === 'b' || key === 'i' ? st[key] : st.a === key));
   }
 
   function updateStatus(single) {
@@ -732,8 +736,12 @@
       const table = buildGrid();
       gridEl = table;
       wrap = h('div', { class: 'sheet-wrap', tabindex: '0', 'aria-label': 'Folha de cálculo' }, h('div', { class: 'sheet-inner' }, table, editorEl));
-      statusEl = h('div', { class: 'statusbar' });
-      container.append(buildRibbon(), h('div', { class: 'fx-bar' }, nameBox, h('span', { class: 'fx-label' }, 'fx'), fxInput), wrap, statusEl);
+      statusEl = h('span', { class: 'status-text' });
+      const ribbon = buildRibbon();
+      const inner = wrap.firstChild;
+      const bar = h('div', { class: 'statusbar' }, statusEl, MO.zoomControl((k) => (inner.style.zoom = k)));
+      showStates = MO.toolStates(ribbon, { Negrito: 'b', 'Itálico': 'i', 'Alinhar à esquerda': 'left', Centrar: 'center', 'Alinhar à direita': 'right' });
+      container.append(ribbon, h('div', { class: 'fx-bar' }, nameBox, h('span', { class: 'fx-label' }, 'fx'), fxInput), wrap, bar);
 
       table.addEventListener('mousedown', onMouseDown);
       table.addEventListener('mouseover', (e) => {

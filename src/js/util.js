@@ -254,7 +254,9 @@
     key: 'M8 11a4 4 0 1 0 .1 0zM11.5 13.5 20 5M17 8l2.5 2.5M14.5 10.5l2 2',
     search: 'M10.5 4a6.5 6.5 0 1 0 .1 0zM15.5 15.5 20 20',
     pageBreak: 'M6 3v6h12V3M6 21v-6h12v6M3 12h2M8 12h2M13 12h2M18 12h3',
-    lookup: 'M3 5h18v14H3zM3 10h18M9 5v14M13 14.5h5M16 12.5l2 2-2 2'
+    lookup: 'M3 5h18v14H3zM3 10h18M9 5v14M13 14.5h5M16 12.5l2 2-2 2',
+    sun: 'M12 7.5a4.5 4.5 0 1 0 .1 0zM12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8',
+    moon: 'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z'
   };
 
   MO.icon = function (name) {
@@ -266,6 +268,42 @@
   MO.iconButton = (icon, title, onClick, text) => MO.toolButton([MO.icon(icon), text], title, onClick, text ? 'wide' : '');
 
   MO.bigButton = (icon, label, title, onClick) => MO.toolButton([MO.icon(icon), h('span', null, label)], title, onClick, 'big');
+
+  // Controlo de zoom para a barra de estado. onChange recebe o fator (1 = 100%).
+  MO.zoomControl = function (onChange) {
+    const range = h('input', { type: 'range', min: '50', max: '200', step: '10', value: '100', 'aria-label': 'Zoom' });
+    const out = h('output', null, '100%');
+    const set = (value) => {
+      const pct = Math.max(50, Math.min(200, Math.round(value / 10) * 10));
+      range.value = pct;
+      out.textContent = pct + '%';
+      onChange(pct / 100);
+    };
+    range.addEventListener('input', () => set(Number(range.value)));
+    const step = (delta) => MO.toolButton(delta < 0 ? '−' : '+', delta < 0 ? 'Reduzir' : 'Ampliar', () => set(Number(range.value) + delta));
+    const minus = step(-10);
+    const plus = step(10);
+    minus.className = plus.className = '';
+    out.addEventListener('dblclick', () => set(100));
+    out.title = 'Duplo clique para repor 100%';
+    return h('div', { class: 'zoom' }, minus, range, plus, out);
+  };
+
+  // Liga botões do friso a um estado (ativo/inativo). titles: { 'Início do título': chave }.
+  // Devolve uma função que recebe (chave) => booleano e atualiza os botões.
+  MO.toolStates = function (container, titles) {
+    const pairs = [];
+    container.querySelectorAll('button.tool').forEach((btn) => {
+      for (const [prefix, key] of Object.entries(titles)) if (btn.title.startsWith(prefix)) pairs.push([btn, key]);
+    });
+    return (isOn) => {
+      for (const [btn, key] of pairs) {
+        const on = Boolean(isOn(key));
+        btn.classList.toggle('on', on);
+        btn.setAttribute('aria-pressed', String(on));
+      }
+    };
+  };
 
   // Friso com separadores. tabs: [{ label, groups: [{ label, rows: [[elementos…], …] }] }]
   MO.ribbon = function (tabs, onFile) {

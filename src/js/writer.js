@@ -54,6 +54,27 @@ img { max-width: 100%; } hr { border: 0; border-top: 1px solid #9aa1b1; margin: 
 hr.page-break { border: 0; margin: 0; break-after: page; }`;
 
   let ctx, editor, statusEl, savedRange;
+  let showStates = () => {};
+
+  const STATE_TITLES = {
+    Negrito: 'bold',
+    'Itálico': 'italic',
+    Sublinhado: 'underline',
+    Rasurado: 'strikeThrough',
+    'Lista de marcas': 'insertUnorderedList',
+    'Lista numerada': 'insertOrderedList',
+    'Alinhar à esquerda': 'justifyLeft',
+    Centrar: 'justifyCenter',
+    'Alinhar à direita': 'justifyRight',
+    Justificar: 'justifyFull'
+  };
+
+  // Mostra no friso a formatação do texto onde está o cursor.
+  function updateStates() {
+    const sel = document.getSelection();
+    if (!sel.rangeCount || !editor.contains(sel.anchorNode)) return;
+    showStates((cmd) => document.queryCommandState(cmd));
+  }
 
   function changed() {
     updateStats();
@@ -88,6 +109,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
     document.execCommand('styleWithCSS', false, true);
     document.execCommand(cmd, false, value);
     changed();
+    updateStates();
   }
 
   function setFontSize(pt) {
@@ -300,8 +322,12 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
     init(container, context) {
       ctx = context;
       editor = h('div', { class: 'page', contenteditable: 'true', spellcheck: 'true', role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Documento' });
-      statusEl = h('div', { class: 'statusbar' });
-      container.append(buildRibbon(), h('div', { class: 'page-scroll' }, editor), statusEl);
+      statusEl = h('span', { class: 'status-text' });
+      const ribbon = buildRibbon();
+      const bar = h('div', { class: 'statusbar' }, statusEl, MO.zoomControl((k) => (editor.style.zoom = k)));
+      container.append(ribbon, h('div', { class: 'page-scroll' }, editor), bar);
+      showStates = MO.toolStates(ribbon, STATE_TITLES);
+      document.addEventListener('selectionchange', updateStates);
 
       editor.addEventListener('input', changed);
       document.addEventListener('selectionchange', rememberSelection);

@@ -50,7 +50,10 @@
     document.body.dataset.current = id;
     closeLauncher();
     closeBackstage();
-    if (id === 'home') refreshRecent();
+    if (id === 'home') {
+      greet();
+      refreshRecent();
+    }
     else MO.modules[id].show();
     updateChrome();
   }
@@ -230,6 +233,43 @@
     );
   }
 
+  // ---------- Modo claro / escuro ----------
+
+  function storedMode() {
+    try {
+      return localStorage.getItem('mo-mode');
+    } catch {
+      return null;
+    }
+  }
+
+  function setMode(mode, remember) {
+    document.documentElement.dataset.mode = mode;
+    $('#mode-toggle').replaceChildren(MO.icon(mode === 'dark' ? 'sun' : 'moon'));
+    if (!remember) return;
+    try {
+      localStorage.setItem('mo-mode', mode);
+    } catch {
+      /* sem armazenamento, a escolha vale só para esta sessão */
+    }
+  }
+
+  function initMode() {
+    const system = window.matchMedia('(prefers-color-scheme: dark)');
+    const saved = storedMode();
+    setMode(saved === 'dark' || saved === 'light' ? saved : system.matches ? 'dark' : 'light', false);
+    // Sem escolha guardada, acompanha o sistema operativo.
+    system.addEventListener('change', (e) => {
+      if (!storedMode()) setMode(e.matches ? 'dark' : 'light', false);
+    });
+    $('#mode-toggle').addEventListener('click', () => setMode(document.documentElement.dataset.mode === 'dark' ? 'light' : 'dark', true));
+  }
+
+  function greet() {
+    const hour = new Date().getHours();
+    $('#greeting').textContent = hour < 6 ? 'Boa noite' : hour < 13 ? 'Bom dia' : hour < 20 ? 'Boa tarde' : 'Boa noite';
+  }
+
   // ---------- Ações globais ----------
 
   function about() {
@@ -253,6 +293,7 @@
 
   function init() {
     document.querySelectorAll('[data-icon]').forEach((el) => el.prepend(MO.icon(el.dataset.icon)));
+    initMode();
 
     for (const id of ORDER) {
       docs[id] = { path: null, name: null, dirty: false };
