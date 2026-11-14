@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyOffice</title>
+  <link rel="stylesheet" href="css/app.css">
+  <style id="print-page"></style>
+</head>
+<body>
+  <div id="app">
+    <nav id="rail" aria-label="Aplicações">
+      <div class="logo" aria-hidden="true">M</div>
+      <button type="button" class="rail-btn" data-view="home"><span class="rail-icon">⌂</span>Início</button>
+      <button type="button" class="rail-btn" data-view="writer"><span class="rail-icon">¶</span>Texto</button>
+      <button type="button" class="rail-btn" data-view="sheets"><span class="rail-icon">▦</span>Folhas</button>
+      <button type="button" class="rail-btn" data-view="slides"><span class="rail-icon">▣</span>Diapositivos</button>
+    </nav>
+
+    <div id="main">
+      <header id="topbar">
+        <div id="doc-title">MyOffice</div>
+        <div id="doc-actions">
+          <button type="button" class="btn" data-action="new">Novo</button>
+          <button type="button" class="btn" data-action="open">Abrir</button>
+          <button type="button" class="btn primary" data-action="save">Guardar</button>
+          <button type="button" class="btn" data-action="saveAs">Guardar como</button>
+          <div class="menu-wrap">
+            <button type="button" class="btn" id="export-btn" aria-haspopup="true" aria-expanded="false">Exportar ▾</button>
+            <div id="export-menu" class="menu" hidden></div>
+          </div>
+        </div>
+      </header>
+
+      <section id="view-home" class="view">
+        <div class="home">
+          <h1>Bem-vindo ao MyOffice</h1>
+          <p class="lead">Escreva documentos, faça contas e prepare apresentações — tudo no seu computador, sem ligação à Internet.</p>
+          <div class="cards">
+            <button type="button" class="card writer" data-view="writer">
+              <span class="card-icon">¶</span>
+              <strong>Texto</strong>
+              <span>Cartas, relatórios e notas com formatação, tabelas e imagens.</span>
+            </button>
+            <button type="button" class="card sheets" data-view="sheets">
+              <span class="card-icon">▦</span>
+              <strong>Folhas</strong>
+              <span>Folha de cálculo com fórmulas, como =SOMA(A1:A5) ou =SE(B2&gt;10;"sim";"não").</span>
+            </button>
+            <button type="button" class="card slides" data-view="slides">
+              <span class="card-icon">▣</span>
+              <strong>Diapositivos</strong>
+              <span>Apresentações com texto, imagens e formas, em ecrã inteiro.</span>
+            </button>
+          </div>
+          <p><button type="button" class="btn" data-action="open">Abrir um ficheiro…</button></p>
+          <div id="recent" hidden>
+            <h2>Recentes</h2>
+            <ul id="recent-list"></ul>
+          </div>
+        </div>
+      </section>
+      <section id="view-writer" class="view module" hidden></section>
+      <section id="view-sheets" class="view module" hidden></section>
+      <section id="view-slides" class="view module" hidden></section>
+    </div>
+  </div>
+  <div id="print-area"></div>
+
+  <script src="js/util.js"></script>
+  <script src="js/formula.js"></script>
+  <script src="js/writer.js"></script>
+  <script src="js/sheets.js"></script>
+  <script src="js/slides.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
