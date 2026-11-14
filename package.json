@@ -1,0 +1,110 @@
+{
+  "name": "myoffice",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Suite de escritório para desktop: editor de texto, folha de cálculo e apresentações.",
+  "main": "main.js",
+  "author": {
+    "name": "cadorio",
+    "email": "cadorio@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/cadorio/myoffice",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/formula.test.js && node test/assistant.test.js && node test/license.test.js",
+    "dist": "electron-builder --publish never",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:linux": "electron-builder --linux --publish never",
+    "notices": "node tools/notices.js",
+    "license": "node tools/license.js"
+  },
+  "build": {
+    "appId": "com.github.cadorio.myoffice",
+    "productName": "MyOffice",
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "license.js",
+      "license-public.pem",
+      "preload.js",
+      "src/**/*",
+      "build/icon.png",
+      "THIRD-PARTY-NOTICES.md",
+      "package.json"
+    ],
+    "fileAssociations": [
+      {
+        "ext": "modoc",
+        "name": "Documento MyOffice",
+        "description": "Documento de texto MyOffice",
+        "role": "Editor"
+      },
+      {
+        "ext": "mosheet",
+        "name": "Folha de cálculo MyOffice",
+        "description": "Folha de cálculo MyOffice",
+        "role": "Editor"
+      },
+      {
+        "ext": "moslides",
+        "name": "Apresentação MyOffice",
+        "description": "Apresentação MyOffice",
+        "role": "Editor"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MyOffice",
+      "artifactName": "MyOffice-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.productivity",
+      "artifactName": "MyOffice-${version}-mac-${arch}.${ext}",
+      "hardenedRuntime": true
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Office",
+      "maintainer": "cadorio <cadorio@users.noreply.github.com>",
+      "artifactName": "MyOffice-${version}-linux-${arch}.${ext}",
+      "syncDesktopName": true
+    },
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "onlyLoadAppFromAsar": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^45.3.2",
+    "electron-builder": "^26.18.0",
+    "fflate": "^0.8.3"
+  },
+  "desktopName": "myoffice.desktop"
+}

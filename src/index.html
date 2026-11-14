@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyOffice</title>
+  <link rel="stylesheet" href="css/app.css">
+  <style id="print-page"></style>
+</head>
+<body>
+  <div id="app">
+    <!-- Barra de título, na cor da aplicação ativa -->
+    <header id="topbar">
+      <div class="title-left">
+        <div class="menu-wrap">
+          <button type="button" class="title-btn" id="launcher" title="Aplicações" aria-label="Aplicações" aria-haspopup="true" aria-expanded="false" data-icon="grid"></button>
+          <div id="launcher-menu" class="menu" hidden>
+            <div class="menu-title">Aplicações</div>
+            <button type="button" class="menu-item" data-view="home"><span class="app-tile">M</span>Início</button>
+            <button type="button" class="menu-item" data-view="writer"><span class="app-tile writer">T</span>Texto</button>
+            <button type="button" class="menu-item" data-view="sheets"><span class="app-tile sheets">F</span>Folhas</button>
+            <button type="button" class="menu-item" data-view="slides"><span class="app-tile slides">D</span>Diapositivos</button>
+          </div>
+        </div>
+        <div id="app-name">MyOffice</div>
+        <button type="button" class="title-btn module-only" data-action="save" title="Guardar (Ctrl+S)" aria-label="Guardar" data-icon="save"></button>
+      </div>
+      <div id="doc-title"></div>
+      <div class="title-right">
+        <button type="button" class="title-btn" id="mode-toggle" title="Mudar entre modo claro e escuro" aria-label="Mudar entre modo claro e escuro"></button>
+      </div>
+    </header>
+
+    <div id="body">
+      <nav id="rail" aria-label="Aplicações">
+        <button type="button" class="rail-btn" data-view="home"><span class="app-tile">M</span>Início</button>
+        <button type="button" class="rail-btn" data-view="writer"><span class="app-tile writer">T</span>Texto</button>
+        <button type="button" class="rail-btn" data-view="sheets"><span class="app-tile sheets">F</span>Folhas</button>
+        <button type="button" class="rail-btn" data-view="slides"><span class="app-tile slides">D</span>Diapositivos</button>
+      </nav>
+
+      <div id="main">
+        <section id="view-home" class="view">
+          <div class="home">
+            <div class="hero">
+              <h1 id="greeting">Bem-vindo ao MyOffice</h1>
+              <p>Documentos, folhas de cálculo e apresentações, sempre no seu computador.</p>
+            </div>
+            <h2>Criar novo</h2>
+            <div class="cards">
+              <button type="button" class="card writer" data-view="writer">
+                <span class="card-preview"><span class="mini mini-doc"><i></i><i></i><i></i><i></i><i></i></span><span class="app-tile writer">T</span></span>
+                <strong>Documento</strong>
+                <span>Texto</span>
+              </button>
+              <button type="button" class="card sheets" data-view="sheets">
+                <span class="card-preview"><span class="mini mini-sheet"></span><span class="app-tile sheets">F</span></span>
+                <strong>Folha de cálculo</strong>
+                <span>Folhas</span>
+              </button>
+              <button type="button" class="card slides" data-view="slides">
+                <span class="card-preview"><span class="mini mini-slide"><i></i><i></i><i></i></span><span class="app-tile slides">D</span></span>
+                <strong>Apresentação</strong>
+                <span>Diapositivos</span>
+              </button>
+            </div>
+            <div class="home-row">
+              <h2>Recentes</h2>
+              <button type="button" class="btn" data-action="open">Abrir ficheiro…</button>
+            </div>
+            <ul class="recent-list"></ul>
+            <p class="recent-empty">Os documentos que guardar aparecem aqui.</p>
+          </div>
+        </section>
+        <section id="view-writer" class="view module" hidden></section>
+        <section id="view-sheets" class="view module" hidden></section>
+        <section id="view-slides" class="view module" hidden></section>
+      </div>
+    </div>
+
+    <!-- Vista "Ficheiro" -->
+    <div id="backstage" hidden>
+      <nav class="bs-nav" aria-label="Ficheiro">
+        <button type="button" class="bs-item bs-back" data-action="closeFile" title="Voltar ao documento" aria-label="Voltar ao documento" data-icon="arrowLeft"></button>
+        <button type="button" class="bs-item" data-view="home" data-icon="home">Início</button>
+        <button type="button" class="bs-item" data-action="new" data-icon="fileNew">Novo</button>
+        <button type="button" class="bs-item" data-action="open" data-icon="folder">Abrir</button>
+        <div class="bs-sep"></div>
+        <button type="button" class="bs-item" data-action="save" data-icon="save">Guardar</button>
+        <button type="button" class="bs-item" data-action="saveAs" data-icon="save">Guardar como</button>
+        <button type="button" class="bs-item" data-action="exportPdf" data-icon="export" id="bs-pdf">Exportar como PDF</button>
+        <div class="bs-sep"></div>
+        <button type="button" class="bs-item" data-action="license" id="bs-license" hidden>Licença</button>
+        <button type="button" class="bs-item" data-action="about">Acerca</button>
+      </nav>
+      <div class="bs-pane">
+        <h1 id="bs-title"></h1>
+        <h2>Exportar</h2>
+        <div id="export-list"></div>
+        <h2>Recentes</h2>
+        <ul class="recent-list"></ul>
+        <p class="recent-empty">Os documentos que guardar aparecem aqui.</p>
+      </div>
+    </div>
+  </div>
+  <div id="print-area"></div>
+
+  <script src="vendor/fflate.js"></script>
+  <script src="js/brand.js"></script>
+  <script src="js/notices.js"></script>
+  <script src="js/util.js"></script>
+  <script src="js/themes.js"></script>
+  <script src="js/formula.js"></script>
+  <script src="js/writer.js"></script>
+  <script src="js/sheets.js"></script>
+  <script src="js/ooxml.js"></script>
+  <script src="js/assistant.js"></script>
+  <script src="js/slides.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
