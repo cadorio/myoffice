@@ -793,7 +793,12 @@
     load(text, ext) {
       let next = {};
       let nextTheme = T.LIST[0];
-      if (ext === 'csv') {
+      let clipped = false;
+      if (ext === 'xlsx') {
+        const book = MO.OOXML.importXlsx(text, ROWS, COLS);
+        next = cleanCells(book.cells);
+        clipped = book.clipped;
+      } else if (ext === 'csv') {
         parseCSV(text).forEach((row, r) =>
           row.forEach((value, c) => {
             if (r < ROWS && c < COLS && value !== '') next[F.addr(r, c)] = { v: value.slice(0, MAX_CELL_CHARS) };
@@ -807,11 +812,24 @@
       }
       this.newDoc();
       setTheme(nextTheme);
+      if (clipped) MO.toast(`O livro tem dados fora de ${ROWS} linhas × ${COLS} colunas; essa parte não foi importada.`);
       cells = next;
       refresh();
     },
 
-    exports: [{ label: 'Valores separados por ; (.csv)', ext: 'csv', filterName: 'CSV', mime: 'text/csv', get: toCSV }],
+    exports: [
+      {
+        label: 'Livro do Excel (.xlsx)',
+        ext: 'xlsx',
+        filterName: 'Livro do Excel',
+        mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        get: () => {
+          if (editing) stopEdit(true);
+          return MO.OOXML.exportXlsx(cells, values);
+        }
+      },
+      { label: 'Valores separados por ; (.csv)', ext: 'csv', filterName: 'CSV', mime: 'text/csv', get: toCSV }
+    ],
 
     print() {
       if (editing) stopEdit(true);

@@ -7,7 +7,9 @@ const fs = require('fs/promises');
 const fsSync = require('fs');
 
 const NATIVE_EXT = ['modoc', 'mosheet', 'moslides'];
-const OPEN_EXT = [...NATIVE_EXT, 'html', 'htm', 'txt', 'csv'];
+// Formatos do Word, Excel e PowerPoint: são binários (ZIP) e convertidos na interface.
+const BINARY_EXT = ['docx', 'xlsx', 'pptx'];
+const OPEN_EXT = [...NATIVE_EXT, ...BINARY_EXT, 'html', 'htm', 'txt', 'csv'];
 const MAX_FILE_BYTES = 64 * 1024 * 1024;
 const MAX_RECENT = 8;
 const APP_ROOT = path.join(__dirname, 'src') + path.sep;
@@ -74,7 +76,7 @@ async function readDocument(p) {
   try {
     const stat = await fs.stat(p);
     if (stat.size > MAX_FILE_BYTES) return { error: 'O ficheiro é demasiado grande.' };
-    const content = await fs.readFile(p, 'utf8');
+    const content = BINARY_EXT.includes(extOf(p)) ? new Uint8Array(await fs.readFile(p)) : await fs.readFile(p, 'utf8');
     approvedPaths.add(p);
     await addRecent(p);
     return { path: p, name: path.basename(p), content };
@@ -200,7 +202,7 @@ function fromOurWindow(event) {
   return Boolean(win) && event.sender === win.webContents && event.senderFrame === win.webContents.mainFrame;
 }
 
-const SAVE_EXT = [...NATIVE_EXT, 'html', 'txt', 'csv'];
+const SAVE_EXT = [...NATIVE_EXT, ...BINARY_EXT, 'html', 'txt', 'csv'];
 function cleanExt(filters) {
   const ext = Array.isArray(filters) && filters[0] && Array.isArray(filters[0].extensions) ? String(filters[0].extensions[0]).toLowerCase() : '';
   return SAVE_EXT.includes(ext) ? ext : null;
@@ -261,7 +263,8 @@ function registerIpc() {
       properties: ['openFile'],
       filters: [
         { name: 'Ficheiros suportados', extensions: OPEN_EXT },
-        { name: 'Documentos MyOffice', extensions: NATIVE_EXT }
+        { name: 'Documentos MyOffice', extensions: NATIVE_EXT },
+        { name: 'Word, Excel e PowerPoint', extensions: BINARY_EXT }
       ]
     });
     if (res.canceled || !res.filePaths[0]) return null;
@@ -275,10 +278,14 @@ function registerIpc() {
   });
 
   ipcMain.handle('file:save', async (event, opts) => {
-    if (!fromOurWindow(event) || !opts || typeof opts.content !== 'string') return null;
+    if (!fromOurWindow(event) || !opts) return null;
+    const binary = opts.content instanceof Uint8Array;
+    if (!binary && typeof opts.content !== 'string') return null;
     if (opts.content.length > MAX_FILE_BYTES) return { error: 'O documento é demasiado grande para ser guardado.' };
     const ext = cleanExt(opts.filters);
     if (!ext) return null;
+    // O conteúdo tem de corresponder ao tipo: binário só nos formatos ZIP, texto nos restantes.
+    if (binary !== BINARY_EXT.includes(ext)) return null;
     const filters = [{ name: String(opts.filters[0].name || ext).slice(0, 60), extensions: [ext] }];
     // Escrita direta só em documentos próprios que o utilizador já abriu ou guardou; tudo o resto passa pelo diálogo.
     const direct = typeof opts.path === 'string' && approvedPaths.has(opts.path) && NATIVE_EXT.includes(extOf(opts.path));
@@ -296,7 +303,7 @@ function registerIpc() {
     }
 
     try {
-      await writeAtomic(target, opts.content);
+      await writeAtomic(target, binary ? Buffer.from(opts.content.buffer, opts.content.byteOffset, opts.content.byteLength) : opts.content);
     } catch {
       return { error: 'Não foi possível guardar o ficheiro.' };
     }

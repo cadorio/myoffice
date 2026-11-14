@@ -373,6 +373,8 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
         if (!data || data.format !== 'myoffice-doc' || typeof data.html !== 'string') throw new Error('Formato inválido');
         html = data.html;
         nextTheme = T.byId(data.theme);
+      } else if (ext === 'docx') {
+        html = MO.OOXML.importDocx(text);
       } else if (ext === 'txt') {
         html = text
           .split(/\r?\n/)
@@ -388,6 +390,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
     },
 
     exports: [
+      { label: 'Documento do Word (.docx)', ext: 'docx', filterName: 'Documento do Word', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', get: () => MO.OOXML.exportDocx(editor, T.docLook(theme)) },
       { label: 'Página web (.html)', ext: 'html', filterName: 'Página web', mime: 'text/html', get: (title) => standaloneHTML(title) },
       { label: 'Texto simples (.txt)', ext: 'txt', filterName: 'Texto simples', mime: 'text/plain', get: () => editor.innerText }
     ],

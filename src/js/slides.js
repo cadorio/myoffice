@@ -911,9 +911,9 @@
       return JSON.stringify({ format: 'myoffice-slides', version: 1, theme: theme.id, variant: theme.variant, slides });
     },
 
-    load(text) {
-      const data = JSON.parse(text);
-      if (!data || data.format !== 'myoffice-slides') throw new Error('Formato inválido');
+    load(text, ext) {
+      const data = ext === 'pptx' ? { slides: MO.OOXML.importPptx(text) } : JSON.parse(text);
+      if (ext !== 'pptx' && (!data || data.format !== 'myoffice-slides')) throw new Error('Formato inválido');
       const next = cleanSlides(data.slides);
       this.newDoc();
       theme = T.slideLook(T.byId(data.theme), data.variant);
@@ -922,7 +922,18 @@
       renderAll();
     },
 
-    exports: [],
+    exports: [
+      {
+        label: 'Apresentação do PowerPoint (.pptx)',
+        ext: 'pptx',
+        filterName: 'Apresentação do PowerPoint',
+        mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        get: () => {
+          commitTextEdit();
+          return MO.OOXML.exportPptx(slides, FONTS);
+        }
+      }
+    ],
 
     print() {
       commitTextEdit();

@@ -9,7 +9,8 @@
   const api = window.api || null;
 
   const ORDER = ['writer', 'sheets', 'slides'];
-  const EXT_MODULE = { modoc: 'writer', html: 'writer', htm: 'writer', txt: 'writer', mosheet: 'sheets', csv: 'sheets', moslides: 'slides' };
+  const EXT_MODULE = { modoc: 'writer', html: 'writer', htm: 'writer', txt: 'writer', mosheet: 'sheets', csv: 'sheets', moslides: 'slides', docx: 'writer', xlsx: 'sheets', pptx: 'slides' };
+  const BINARY_EXT = ['docx', 'xlsx', 'pptx'];
   const LETTER = { writer: 'T', sheets: 'F', slides: 'D' };
   const docs = {};
   let current = 'home';
@@ -80,6 +81,7 @@
     if (!confirmDiscard(id)) return;
     const mod = MO.modules[id];
     try {
+      if (BINARY_EXT.includes(ext) !== file.content instanceof Uint8Array) throw new Error('Tipo de conteúdo inesperado');
       mod.load(file.content, ext);
     } catch {
       return MO.toast(`Não foi possível abrir "${file.name}": o ficheiro não é válido.`);
@@ -92,7 +94,7 @@
 
   async function openFile() {
     if (api) return loadFile(await api.open());
-    const picked = await MO.pickFile({ accept: Object.keys(EXT_MODULE).map((e) => '.' + e).join(',') });
+    const picked = await MO.pickFile({ accept: Object.keys(EXT_MODULE).map((e) => '.' + e).join(','), binaryExt: BINARY_EXT });
     if (picked) loadFile({ path: null, name: picked.name, content: picked.content });
   }
 
@@ -128,7 +130,12 @@
     const id = current;
     const title = titleOf(id);
     const name = title + '.' + exp.ext;
-    const content = exp.get(title);
+    let content;
+    try {
+      content = exp.get(title);
+    } catch {
+      return MO.toast('Não foi possível exportar o documento.');
+    }
     if (!api) return MO.download(name, content, exp.mime);
     const res = await api.save({ path: null, content, defaultName: name, filters: [{ name: exp.filterName, extensions: [exp.ext] }], remember: false });
     if (res && res.error) MO.toast(res.error);

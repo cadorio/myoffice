@@ -87,7 +87,8 @@
   };
 
   // Escolhe um ficheiro através do seletor do sistema. as: 'text' | 'dataURL'
-  MO.pickFile = function ({ accept, as = 'text', maxBytes = 64 * 1024 * 1024 }) {
+  // binaryExt: extensões lidas como bytes (Uint8Array) em vez de texto.
+  MO.pickFile = function ({ accept, as = 'text', maxBytes = 64 * 1024 * 1024, binaryExt = [] }) {
     return new Promise((resolve) => {
       const input = h('input', { type: 'file', accept });
       input.addEventListener('cancel', () => resolve(null));
@@ -99,9 +100,11 @@
           return resolve(null);
         }
         const reader = new FileReader();
-        reader.onload = () => resolve({ name: file.name, content: reader.result });
+        const binary = binaryExt.includes(file.name.split('.').pop().toLowerCase());
+        reader.onload = () => resolve({ name: file.name, content: binary ? new Uint8Array(reader.result) : reader.result });
         reader.onerror = () => resolve(null);
-        if (as === 'dataURL') reader.readAsDataURL(file);
+        if (binary) reader.readAsArrayBuffer(file);
+        else if (as === 'dataURL') reader.readAsDataURL(file);
         else reader.readAsText(file);
       });
       input.click();

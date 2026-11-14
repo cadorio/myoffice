@@ -555,7 +555,27 @@
       .join('');
   }
 
-  const api = { FError, colName, colIndex, parseAddr, addr, parseNumber, compute, format, shiftFormula };
+  // Converte uma fórmula para a forma que o Excel guarda nos ficheiros: nomes em inglês e
+  // argumentos separados por vírgulas. Devolve o texto sem o "=" inicial.
+  function toExcel(raw) {
+    return raw
+      .slice(1)
+      .split(/("(?:[^"]|"")*")/)
+      .map((part, i) => {
+        if (i % 2) return part;
+        return part
+          .replace(/[A-Za-zÀ-ÿ_][A-Za-zÀ-ÿ0-9_.]*(?=\s*\()/g, (name) => {
+            const upper = name.toUpperCase();
+            return Object.prototype.hasOwnProperty.call(ALIASES, upper) ? ALIASES[upper] : upper;
+          })
+          .replace(/;/g, ',')
+          .replace(/(?<![A-Za-zÀ-ÿ0-9_.])VERDADEIRO(?![A-Za-zÀ-ÿ0-9_.(])/gi, 'TRUE')
+          .replace(/(?<![A-Za-zÀ-ÿ0-9_.])FALSO(?![A-Za-zÀ-ÿ0-9_.(])/gi, 'FALSE');
+      })
+      .join('');
+  }
+
+  const api = { FError, colName, colIndex, parseAddr, addr, parseNumber, compute, format, shiftFormula, toExcel };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else (root.MO = root.MO || {}).Formula = api;
 })(typeof window !== 'undefined' ? window : globalThis);

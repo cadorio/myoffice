@@ -4,11 +4,23 @@ Suite de escritório para desktop, instalável em Windows, macOS e Linux. Funcio
 
 A interface segue o modelo habitual das suites de escritório: barra de título na cor de cada aplicação, friso com separadores (Base, Inserir, Fórmulas…) e vista **Ficheiro** para abrir, guardar e exportar.
 
-| Módulo | O que faz | Formato próprio | Importa | Exporta |
+| Módulo | O que faz | Formato próprio | Abre também | Exporta |
 | --- | --- | --- | --- | --- |
-| **Texto** | Documentos com estilos, tipos e tamanhos de letra, cores, listas, ligações, imagens, tabelas, quebras de página e localizar/substituir | `.modoc` | `.html`, `.txt` | PDF, HTML, TXT |
-| **Folhas** | Folha de cálculo (100 linhas × 26 colunas) com fórmulas, formatos de número (moeda, percentagem), ordenação, copiar/colar e anular | `.mosheet` | `.csv` | PDF, CSV |
-| **Diapositivos** | Apresentações com esquemas, temas, caixas de texto, imagens, formas e notas do orador; modo de apresentação em ecrã inteiro; assistente de sugestões | `.moslides` | — | PDF |
+| **Texto** | Documentos com estilos, tipos e tamanhos de letra, cores, listas, ligações, imagens, tabelas, quebras de página e localizar/substituir | `.modoc` | `.docx`, `.html`, `.txt` | DOCX, PDF, HTML, TXT |
+| **Folhas** | Folha de cálculo (100 linhas × 26 colunas) com fórmulas, formatos de número, ordenação, copiar/colar e anular | `.mosheet` | `.xlsx`, `.csv` | XLSX, PDF, CSV |
+| **Diapositivos** | Apresentações com esquemas, temas, caixas de texto, imagens, formas e notas do orador; modo de apresentação em ecrã inteiro; assistente de sugestões | `.moslides` | `.pptx` | PPTX, PDF |
+
+## Ficheiros do Word, Excel e PowerPoint
+
+O MyOffice abre e exporta `.docx`, `.xlsx` e `.pptx`. A conversão cobre o conteúdo e a formatação mais comuns; um ficheiro aberto é guardado depois no formato próprio, e o original nunca é alterado.
+
+| Formato | O que é convertido | O que se perde |
+| --- | --- | --- |
+| `.docx` | Títulos, parágrafos e alinhamento, negrito/itálico/sublinhado/rasurado, cor, tamanho e realce, listas, tabelas, ligações, imagens, quebras de página | Cabeçalhos e rodapés, notas, comentários e revisões, colunas, caixas de texto, células de tabela unidas |
+| `.xlsx` | Primeira folha: valores, fórmulas, negrito/itálico, cores, alinhamento e formatos de número e moeda | Outras folhas, gráficos, tabelas dinâmicas, datas (ficam como número), dados para lá de 100 × 26; fórmulas com funções que o MyOffice não tem mostram `#NOME?` |
+| `.pptx` | Texto e posição das caixas, listas, imagens, retângulos e elipses, cor de fundo, notas do orador (só ao abrir) | Animações e transições, gráficos, tabelas, SmartArt, fundos com imagem, cores do tema do PowerPoint; ao exportar, o elemento gráfico do tema e as notas |
+
+Os ficheiros exportados foram validados com o LibreOffice e com as bibliotecas python-docx, openpyxl e python-pptx. Não foram testados no Microsoft Office.
 
 ## Assistente (Diapositivos)
 
@@ -58,7 +70,7 @@ Por fazer: os instaladores não são assinados digitalmente (ver acima) e a veri
 
 ## O que ainda não existe
 
-O MyOffice cobre o trabalho do dia a dia, mas não tem todas as funções do Microsoft 365. Em particular, ainda não tem: abrir e gravar ficheiros `.docx`, `.xlsx` e `.pptx`; gráficos e tabelas dinâmicas; várias folhas por livro; cabeçalhos, rodapés e numeração de páginas; revisão de alterações e comentários; animações e vista do apresentador; coautoria em tempo real e armazenamento na nuvem; correio e calendário.
+O MyOffice cobre o trabalho do dia a dia, mas não tem todas as funções do Microsoft 365. Em particular, ainda não tem: gráficos e tabelas dinâmicas; várias folhas por livro; cabeçalhos, rodapés e numeração de páginas; revisão de alterações e comentários; animações e vista do apresentador; coautoria em tempo real e armazenamento na nuvem; correio e calendário.
 
 ## Instalar
 
@@ -115,6 +127,8 @@ preload.js     ponte segura entre a interface e o processo principal
 src/           interface (HTML, CSS e JavaScript sem dependências)
   js/themes.js   temas partilhados (paletas, tipos de letra, variantes)
   js/formula.js  motor de fórmulas
+  js/ooxml.js    leitura e escrita de .docx, .xlsx e .pptx
+  vendor/        biblioteca de compressão ZIP (fflate)
   js/writer.js   Texto
   js/sheets.js   Folhas
   js/slides.js   Diapositivos
