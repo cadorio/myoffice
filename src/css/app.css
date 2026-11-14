@@ -908,3 +908,7 @@ body[data-current="home"] #rail { display: flex; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+.mo-dialog.wide { width: min(640px, 92vw); }
+.mo-dialog h3 { font-size: 14px; margin: 16px 0 8px; }
+.notices { max-height: 260px; overflow: auto; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); font-size: 11.5px; line-height: 1.45; white-space: pre-wrap; }

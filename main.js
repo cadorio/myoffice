@@ -2,6 +2,7 @@
 
 const { app, BrowserWindow, Menu, dialog, ipcMain, session } = require('electron');
 const { fileURLToPath } = require('url');
+const license = require('./license').createManager(app);
 const path = require('path');
 const fs = require('fs/promises');
 const fsSync = require('fs');
@@ -227,7 +228,12 @@ function lockDownSession() {
   ses.setPermissionCheckHandler((_wc, permission) => permission === 'fullscreen');
 }
 
+const LICENSE_BLOCK = 'O período experimental terminou. Ative uma licença em Ficheiro › Licença para guardar e exportar.';
+
 function registerIpc() {
+  ipcMain.handle('license:status', (event) => (fromOurWindow(event) ? license.status() : null));
+  ipcMain.handle('license:activate', (event, key) => (fromOurWindow(event) ? license.activate(key) : null));
+
   ipcMain.on('app:ready', (event) => {
     if (!fromOurWindow(event)) return;
     rendererReady = true;
@@ -279,6 +285,7 @@ function registerIpc() {
 
   ipcMain.handle('file:save', async (event, opts) => {
     if (!fromOurWindow(event) || !opts) return null;
+    if (!(await license.status()).canSave) return { error: LICENSE_BLOCK };
     const binary = opts.content instanceof Uint8Array;
     if (!binary && typeof opts.content !== 'string') return null;
     if (opts.content.length > MAX_FILE_BYTES) return { error: 'O documento é demasiado grande para ser guardado.' };
@@ -316,6 +323,7 @@ function registerIpc() {
 
   ipcMain.handle('file:exportPdf', async (event, opts) => {
     if (!fromOurWindow(event)) return null;
+    if (!(await license.status()).canSave) return { error: LICENSE_BLOCK };
     const res = await dialog.showSaveDialog(win, {
       title: 'Exportar como PDF',
       defaultPath: path.basename(String((opts && opts.defaultName) || 'Documento.pdf')),

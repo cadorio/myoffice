@@ -66,7 +66,39 @@ Os temas, nomes e desenhos são próprios do MyOffice; os tipos de letra são os
 - **Aplicação instalada** — não inclui ferramentas de programador e não pode ser usada para executar código Node arbitrário (`ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` e `--inspect` estão desativados).
 - **Compilação** — as ações do GitHub Actions estão fixadas por hash de commit.
 
-Por fazer: os instaladores não são assinados digitalmente (ver acima) e a verificação de integridade do pacote da aplicação não está ativa.
+Por fazer: a assinatura digital depende de configurar os certificados (ver Comercialização) e a verificação de integridade do pacote da aplicação não está ativa.
+
+## Comercialização
+
+### Licenças
+O licenciamento é offline: cada chave é um pequeno documento (nome do cliente e validade opcional) assinado com Ed25519. A aplicação traz só a chave pública, por isso verifica chaves mas não as consegue criar.
+
+```bash
+npm run license init                              # uma vez: cria license-public.pem e license-private.pem
+npm run license issue "Nome do cliente"           # emite uma chave sem validade
+npm run license issue "Nome do cliente" 2027-12-31
+npm run license check <chave>
+```
+
+- `license-public.pem` vai para o repositório e é incluída no instalador. `license-private.pem` fica só consigo (está no `.gitignore`); quem a tiver pode emitir licenças, e perdê-la obriga a reemitir todas.
+- Enquanto `license-public.pem` não existir, o licenciamento está desligado e a aplicação funciona sem limites.
+- Com licenciamento ligado há um período experimental de 30 dias. Depois disso a aplicação continua a abrir documentos, mas guardar e exportar exigem uma chave (Ficheiro › Licença).
+- Limite a conhecer: uma chave não fica presa a um computador, por isso pode ser partilhada. Impedi-lo exigiria um servidor de ativação.
+
+### Assinatura dos instaladores
+O workflow assina os instaladores se encontrar estes segredos no repositório (Settings › Secrets and variables › Actions); sem eles, saem por assinar:
+
+- Windows: `WIN_CSC_LINK` (certificado `.pfx` em base64) e `WIN_CSC_KEY_PASSWORD`
+- macOS: `MAC_CSC_LINK` (certificado `.p12` em base64), `MAC_CSC_KEY_PASSWORD`, e para a notarização `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` e `APPLE_TEAM_ID`
+
+### Nome do produto
+O nome está em dois sítios: `src/js/brand.js` (interface) e `productName` no `package.json` (instalador). Os identificadores `appId`, `name` e as extensões dos ficheiros devem ser revistos na mesma altura.
+
+### Licenças de terceiros
+`THIRD-PARTY-NOTICES.md` lista os componentes incluídos e as respetivas licenças; o mesmo texto aparece em Ficheiro › Acerca. Depois de atualizar dependências: `npm run notices`.
+
+### Por fazer antes de vender
+Escolher o nome e verificar a marca; contrato de licença de utilizador e política de privacidade; atualizações automáticas (precisam de um servidor onde publicar as versões e de uma exceção ao bloqueio de rede); pagamento e entrega das chaves; testar os instaladores em Windows e macOS.
 
 ## O que ainda não existe
 
@@ -93,7 +125,7 @@ Requer Node.js 22 ou superior.
 ```bash
 npm install
 npm start          # abre a aplicação
-npm test           # testes do motor de fórmulas e do assistente
+npm test           # testes do motor de fórmulas, do assistente e do licenciamento
 npm run dist       # cria o instalador para o sistema atual (pasta dist/)
 ```
 
@@ -123,6 +155,8 @@ Operadores: `+ - * / ^ %`, `&` (juntar texto) e comparações `= <> < > <= >=`. 
 
 ```
 main.js        processo principal do Electron: janela, menus, leitura e escrita de ficheiros
+license.js     verificação de chaves de licença e período experimental
+tools/         ferramentas do vendedor (emitir licenças, gerar avisos de terceiros)
 preload.js     ponte segura entre a interface e o processo principal
 src/           interface (HTML, CSS e JavaScript sem dependências)
   js/themes.js   temas partilhados (paletas, tipos de letra, variantes)

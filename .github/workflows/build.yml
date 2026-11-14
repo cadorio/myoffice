@@ -37,11 +37,34 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      # Assinatura de código: só acontece se os segredos existirem no repositório
+      # (Settings › Secrets and variables › Actions). Sem eles, os instaladores saem por assinar.
+      #   Windows: WIN_CSC_LINK (certificado .pfx em base64) e WIN_CSC_KEY_PASSWORD
+      #   macOS:   MAC_CSC_LINK (certificado .p12 em base64), MAC_CSC_KEY_PASSWORD,
+      #            APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD e APPLE_TEAM_ID (notarização)
+      - name: Preparar assinatura
+        shell: bash
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          put() { if [ -n "$2" ]; then echo "$1=$2" >> "$GITHUB_ENV"; fi; }
+          if [ "$RUNNER_OS" = "Windows" ] && [ -n "$WIN_CSC_LINK" ]; then
+            put CSC_LINK "$WIN_CSC_LINK"; put CSC_KEY_PASSWORD "$WIN_CSC_KEY_PASSWORD"
+          elif [ "$RUNNER_OS" = "macOS" ] && [ -n "$MAC_CSC_LINK" ]; then
+            put CSC_LINK "$MAC_CSC_LINK"; put CSC_KEY_PASSWORD "$MAC_CSC_KEY_PASSWORD"
+            put APPLE_ID "$APPLE_ID"; put APPLE_APP_SPECIFIC_PASSWORD "$APPLE_APP_SPECIFIC_PASSWORD"; put APPLE_TEAM_ID "$APPLE_TEAM_ID"
+          else
+            echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "$GITHUB_ENV"
+            echo "Sem certificado: o instalador não será assinado."
+          fi
       - name: Criar instalador
         run: npx electron-builder ${{ matrix.args }} --publish never
-        env:
-          # Sem certificado: os instaladores não são assinados.
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: MyOffice-${{ matrix.name }}

@@ -12,11 +12,13 @@
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
-    "test": "node test/formula.test.js && node test/assistant.test.js",
+    "test": "node test/formula.test.js && node test/assistant.test.js && node test/license.test.js",
     "dist": "electron-builder --publish never",
     "dist:win": "electron-builder --win --publish never",
     "dist:mac": "electron-builder --mac --publish never",
-    "dist:linux": "electron-builder --linux --publish never"
+    "dist:linux": "electron-builder --linux --publish never",
+    "notices": "node tools/notices.js",
+    "license": "node tools/license.js"
   },
   "build": {
     "appId": "com.github.cadorio.myoffice",
@@ -27,9 +29,12 @@
     },
     "files": [
       "main.js",
+      "license.js",
+      "license-public.pem",
       "preload.js",
       "src/**/*",
       "build/icon.png",
+      "THIRD-PARTY-NOTICES.md",
       "package.json"
     ],
     "fileAssociations": [
@@ -76,7 +81,8 @@
         "dmg"
       ],
       "category": "public.app-category.productivity",
-      "artifactName": "MyOffice-${version}-mac-${arch}.${ext}"
+      "artifactName": "MyOffice-${version}-mac-${arch}.${ext}",
+      "hardenedRuntime": true
     },
     "linux": {
       "target": [

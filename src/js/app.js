@@ -30,11 +30,11 @@
       const state = d.dirty ? ' • Por guardar' : d.path || d.name ? ' • Guardado' : '';
       $('#app-name').textContent = MO.modules[current].label;
       $('#doc-title').textContent = titleOf(current) + state;
-      document.title = `${titleOf(current)}${d.dirty ? ' •' : ''} — MyOffice`;
+      document.title = `${titleOf(current)}${d.dirty ? ' •' : ''} — ${MO.BRAND.name}`;
     } else {
-      $('#app-name').textContent = 'MyOffice';
+      $('#app-name').textContent = MO.BRAND.name;
       $('#doc-title').textContent = '';
-      document.title = 'MyOffice';
+      document.title = MO.BRAND.name;
     }
     document.querySelectorAll('.rail-btn').forEach((btn) => {
       const active = btn.dataset.view === current;
@@ -279,17 +279,57 @@
 
   // ---------- Ações globais ----------
 
+  const BRAND = MO.BRAND.name;
+  const dateText = (iso) => new Date(iso).toLocaleDateString('pt-PT');
+
   function about() {
-    MO.dialog({
-      title: 'MyOffice',
-      message: 'Suite de escritório para desktop: Texto, Folhas e Diapositivos. Funciona sem ligação à Internet e os seus documentos ficam apenas no seu computador.',
-      cancelLabel: null,
-      okLabel: 'Fechar'
+    const dlg = h(
+      'dialog',
+      { class: 'mo-dialog wide' },
+      h('h2', null, BRAND),
+      h('p', null, 'Suite de escritório para desktop: Texto, Folhas e Diapositivos. Funciona sem ligação à Internet e os seus documentos ficam apenas no seu computador.'),
+      h('h3', null, 'Componentes de terceiros'),
+      h('pre', { class: 'notices', tabindex: '0' }, MO.NOTICES || ''),
+      h('div', { class: 'dialog-actions' }, h('button', { type: 'button', class: 'btn primary', onclick: () => dlg.close() }, 'Fechar'))
+    );
+    dlg.addEventListener('close', () => dlg.remove());
+    document.body.append(dlg);
+    dlg.showModal();
+  }
+
+  // ---------- Licença (só na aplicação instalada e com licenciamento configurado) ----------
+
+  function licenseText(st) {
+    if (st.licensed) return `Licenciado a ${st.name || 'utilizador registado'}` + (st.expires ? `, válido até ${dateText(st.expires)}.` : '.');
+    if (st.trialDaysLeft > 0) return `Período experimental: ${st.trialDaysLeft === 1 ? 'resta 1 dia' : `restam ${st.trialDaysLeft} dias`}.`;
+    return 'O período experimental terminou. Pode continuar a abrir documentos, mas para guardar e exportar precisa de uma licença.';
+  }
+
+  async function licenseDialog() {
+    if (!api) return;
+    const st = await api.license.status();
+    if (!st.enabled) return;
+    const res = await MO.dialog({
+      title: 'Licença',
+      message: licenseText(st) + (st.reason ? ` (${st.reason})` : ''),
+      fields: [{ name: 'key', label: 'Chave de licença', placeholder: 'Cole aqui a chave que recebeu' }],
+      okLabel: 'Ativar'
     });
+    if (!res || !res.key.trim()) return;
+    const out = await api.license.activate(res.key);
+    MO.toast(out.error ? out.error : 'Licença ativada. Obrigado!');
+  }
+
+  async function initLicense() {
+    if (!api) return;
+    const st = await api.license.status();
+    if (!st.enabled) return;
+    $('#bs-license').hidden = false;
+    if (!st.licensed && st.trialDaysLeft <= 7) MO.toast(licenseText(st));
   }
 
   function run(action) {
-    const actions = { new: newDoc, open: openFile, save: () => save(false), saveAs: () => save(true), exportPdf, about, closeFile: closeBackstage };
+    const actions = { new: newDoc, open: openFile, save: () => save(false), saveAs: () => save(true), exportPdf, about, license: licenseDialog, closeFile: closeBackstage };
     if (actions[action]) {
       closeBackstage();
       actions[action]();
@@ -335,6 +375,7 @@
       api.onMenu(run);
       api.onOpenFile(loadFile);
       api.ready();
+      initLicense();
     } else {
       document.addEventListener('keydown', (e) => {
         if (!(e.ctrlKey || e.metaKey) || e.altKey) return;

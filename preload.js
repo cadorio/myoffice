@@ -11,6 +11,10 @@ contextBridge.exposeInMainWorld('api', {
   getRecent: () => ipcRenderer.invoke('recent:get'),
   setDirty: (value) => ipcRenderer.send('app:dirty', Boolean(value)),
   ready: () => ipcRenderer.send('app:ready'),
+  license: {
+    status: () => ipcRenderer.invoke('license:status'),
+    activate: (key) => ipcRenderer.invoke('license:activate', key)
+  },
   onMenu: (callback) => ipcRenderer.on('menu', (_event, action) => callback(action)),
   onOpenFile: (callback) => ipcRenderer.on('open-file', (_event, file) => callback(file))
 });
