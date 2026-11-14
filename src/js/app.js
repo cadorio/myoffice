@@ -1,6 +1,6 @@
 'use strict';
 
-// Estrutura comum: navegação entre módulos e gestão de ficheiros.
+// Estrutura comum: barra de título, vista "Ficheiro", navegação entre módulos e gestão de ficheiros.
 (function () {
   const MO = window.MO;
   const { h } = MO;
@@ -10,6 +10,7 @@
 
   const ORDER = ['writer', 'sheets', 'slides'];
   const EXT_MODULE = { modoc: 'writer', html: 'writer', htm: 'writer', txt: 'writer', mosheet: 'sheets', csv: 'sheets', moslides: 'slides' };
+  const LETTER = { writer: 'T', sheets: 'F', slides: 'D' };
   const docs = {};
   let current = 'home';
 
@@ -23,13 +24,15 @@
 
   function updateChrome() {
     const inModule = current !== 'home';
-    $('#doc-actions').classList.toggle('home-only', !inModule);
     if (inModule) {
       const d = docs[current];
-      $('#doc-title').textContent = titleOf(current) + (d.dirty ? ' •' : '');
+      const state = d.dirty ? ' • Por guardar' : d.path || d.name ? ' • Guardado' : '';
+      $('#app-name').textContent = MO.modules[current].label;
+      $('#doc-title').textContent = titleOf(current) + state;
       document.title = `${titleOf(current)}${d.dirty ? ' •' : ''} — MyOffice`;
     } else {
-      $('#doc-title').textContent = 'MyOffice';
+      $('#app-name').textContent = 'MyOffice';
+      $('#doc-title').textContent = '';
       document.title = 'MyOffice';
     }
     document.querySelectorAll('.rail-btn').forEach((btn) => {
@@ -37,8 +40,6 @@
       btn.classList.toggle('active', active);
       if (active) btn.setAttribute('aria-current', 'page');
       else btn.removeAttribute('aria-current');
-      const d = docs[btn.dataset.view];
-      btn.classList.toggle('dirty', Boolean(d && d.dirty));
     });
     if (api) api.setDirty(ORDER.some((id) => docs[id].dirty));
   }
@@ -47,7 +48,8 @@
     current = id;
     document.querySelectorAll('.view').forEach((view) => (view.hidden = view.id !== 'view-' + id));
     document.body.dataset.current = id;
-    closeExportMenu();
+    closeLauncher();
+    closeBackstage();
     if (id === 'home') refreshRecent();
     else MO.modules[id].show();
     updateChrome();
@@ -149,53 +151,80 @@
     }
   }
 
-  // ---------- Menu Exportar ----------
+  // ---------- Iniciador de aplicações ----------
 
-  function closeExportMenu() {
-    $('#export-menu').hidden = true;
-    $('#export-btn').setAttribute('aria-expanded', 'false');
+  function closeLauncher() {
+    $('#launcher-menu').hidden = true;
+    $('#launcher').setAttribute('aria-expanded', 'false');
   }
 
-  function toggleExportMenu() {
-    const menu = $('#export-menu');
-    if (!menu.hidden) return closeExportMenu();
+  function toggleLauncher() {
+    const menu = $('#launcher-menu');
+    menu.hidden = !menu.hidden;
+    $('#launcher').setAttribute('aria-expanded', String(!menu.hidden));
+  }
+
+  // ---------- Vista "Ficheiro" ----------
+
+  function closeBackstage() {
+    const bs = $('#backstage');
+    if (bs.hidden) return;
+    bs.hidden = true;
+    if (current !== 'home') MO.modules[current].show();
+  }
+
+  function openBackstage() {
+    if (current === 'home') return;
+    const mod = MO.modules[current];
+    $('#bs-title').textContent = titleOf(current);
+    $('#bs-pdf').lastChild.textContent = api ? 'Exportar como PDF' : 'Imprimir / PDF';
     const items = [
-      { label: api ? 'Documento PDF (.pdf)' : 'Imprimir / PDF…', run: exportPdf },
-      ...MO.modules[current].exports.map((exp) => ({ label: exp.label, run: () => exportAs(exp) }))
+      { label: api ? 'Documento PDF (.pdf)' : 'Imprimir ou guardar como PDF', run: exportPdf },
+      ...mod.exports.map((exp) => ({ label: exp.label, run: () => exportAs(exp) }))
     ];
-    menu.replaceChildren(
+    $('#export-list').replaceChildren(
       ...items.map((item) =>
         h(
           'button',
           {
             type: 'button',
-            class: 'menu-item',
+            class: 'export-item',
             onclick: () => {
-              closeExportMenu();
+              closeBackstage();
               item.run();
             }
           },
+          MO.icon('export'),
           item.label
         )
       )
     );
-    menu.hidden = false;
-    $('#export-btn').setAttribute('aria-expanded', 'true');
+    refreshRecent();
+    $('#backstage').hidden = false;
+    $('.bs-back').focus();
   }
 
   // ---------- Recentes (só na aplicação instalada) ----------
 
   async function refreshRecent() {
-    if (!api) return;
-    const list = await api.getRecent();
-    $('#recent').hidden = !list.length;
-    $('#recent-list').replaceChildren(
-      ...list.map((item) =>
-        h(
-          'li',
-          null,
-          h('button', { type: 'button', class: 'recent-item', title: item.path, onclick: async () => loadFile(await api.openRecent(item.path)) }, item.name)
-        )
+    const list = api ? await api.getRecent() : [];
+    document.querySelectorAll('.recent-empty').forEach((el) => (el.hidden = list.length > 0));
+    document.querySelectorAll('.recent-list').forEach((ul) =>
+      ul.replaceChildren(
+        ...list.map((item) => {
+          const id = EXT_MODULE[item.name.split('.').pop().toLowerCase()] || 'writer';
+          return h(
+            'li',
+            null,
+            h(
+              'button',
+              { type: 'button', class: 'recent-item', title: item.path, onclick: async () => loadFile(await api.openRecent(item.path)) },
+              h('span', { class: 'app-tile ' + id }, LETTER[id]),
+              h('span', { class: 'recent-name' }, item.name),
+              h('span', { class: 'recent-path' }, item.path)
+            )
+          );
+        })
       )
     );
   }
@@ -212,12 +241,18 @@
   }
 
   function run(action) {
-    const actions = { new: newDoc, open: openFile, save: () => save(false), saveAs: () => save(true), exportPdf, about };
-    if (actions[action]) actions[action]();
-    else if (action === 'home' || MO.modules[action]) show(action);
+    const actions = { new: newDoc, open: openFile, save: () => save(false), saveAs: () => save(true), exportPdf, about, closeFile: closeBackstage };
+    if (actions[action]) {
+      closeBackstage();
+      actions[action]();
+    } else if (action === 'home' || MO.modules[action]) {
+      show(action);
+    }
   }
 
   function init() {
+    document.querySelectorAll('[data-icon]').forEach((el) => el.prepend(MO.icon(el.dataset.icon)));
+
     for (const id of ORDER) {
       docs[id] = { path: null, name: null, dirty: false };
       MO.modules[id].init($('#view-' + id), {
@@ -225,7 +260,8 @@
           if (docs[id].dirty) return;
           docs[id].dirty = true;
           updateChrome();
-        }
+        },
+        file: openBackstage
       });
       MO.modules[id].newDoc();
     }
@@ -235,9 +271,15 @@
       const actionBtn = e.target.closest('[data-action]');
       if (viewBtn) show(viewBtn.dataset.view);
       else if (actionBtn) run(actionBtn.dataset.action);
-      if (!e.target.closest('.menu-wrap')) closeExportMenu();
+      if (!e.target.closest('.menu-wrap')) closeLauncher();
     });
-    $('#export-btn').addEventListener('click', toggleExportMenu);
+    $('#launcher').addEventListener('click', toggleLauncher);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (!$('#launcher-menu').hidden) closeLauncher();
+      else if (!$('#backstage').hidden && !document.querySelector('dialog[open]')) closeBackstage();
+    });
 
     if (api) {
       // Os atalhos de teclado vêm do menu da aplicação.

@@ -3,7 +3,7 @@
 // Módulo "Texto": editor de documentos.
 (function () {
   const MO = window.MO;
-  const { h, toolButton, colorButton, sep } = MO;
+  const { h, toolButton, colorButton, iconButton, bigButton } = MO;
 
   const FONTS = [
     ['Tipo de letra', 'inherit'],
@@ -15,7 +15,7 @@
   ];
   const SIZES = [9, 10, 11, 12, 14, 16, 18, 24, 32, 48];
   const BLOCKS = [
-    ['Parágrafo', 'p'],
+    ['Normal', 'p'],
     ['Título 1', 'h1'],
     ['Título 2', 'h2'],
     ['Título 3', 'h3'],
@@ -136,40 +136,73 @@ img { max-width: 100%; } hr { border: 0; border-top: 1px solid #9aa1b1; margin: 
     return el;
   }
 
-  function buildToolbar() {
-    return h(
-      'div',
-      { class: 'toolbar' },
-      toolButton('↶', 'Anular (Ctrl+Z)', () => exec('undo')),
-      toolButton('↷', 'Refazer (Ctrl+Y)', () => exec('redo')),
-      sep(),
-      select(BLOCKS, 'Estilo do parágrafo', (v) => exec('formatBlock', v)),
-      select(FONTS, 'Tipo de letra', (v) => exec('fontName', v)),
-      select([['Tamanho', ''], ...SIZES.map((s) => [String(s), String(s)])], 'Tamanho da letra', (v) => v && setFontSize(v), true),
-      sep(),
-      toolButton('N', 'Negrito (Ctrl+B)', () => exec('bold'), 'bold'),
-      toolButton('I', 'Itálico (Ctrl+I)', () => exec('italic'), 'italic'),
-      toolButton('S', 'Sublinhado (Ctrl+U)', () => exec('underline'), 'underline'),
-      toolButton('R', 'Rasurado', () => exec('strikeThrough'), 'strike'),
-      colorButton('A', 'Cor do texto', '#1c2130', (v) => exec('foreColor', v)),
-      colorButton('▮', 'Cor de realce', '#fff3a3', (v) => exec('hiliteColor', v)),
-      sep(),
-      toolButton('⇤', 'Alinhar à esquerda', () => exec('justifyLeft')),
-      toolButton('↔', 'Centrar', () => exec('justifyCenter')),
-      toolButton('⇥', 'Alinhar à direita', () => exec('justifyRight')),
-      toolButton('☰', 'Justificar', () => exec('justifyFull')),
-      sep(),
-      toolButton('•', 'Lista de marcas', () => exec('insertUnorderedList')),
-      toolButton('1.', 'Lista numerada', () => exec('insertOrderedList')),
-      toolButton('«', 'Diminuir avanço', () => exec('outdent')),
-      toolButton('»', 'Aumentar avanço', () => exec('indent')),
-      sep(),
-      toolButton('Ligação', 'Inserir ligação', insertLink, 'wide'),
-      toolButton('Imagem', 'Inserir imagem', insertImage, 'wide'),
-      toolButton('Tabela', 'Inserir tabela', insertTable, 'wide'),
-      toolButton('―', 'Linha horizontal', () => insertHTML('<hr>' + EMPTY)),
-      sep(),
-      toolButton('Limpar', 'Limpar formatação', () => exec('removeFormat'), 'wide')
+  function styleChip(label, tag) {
+    const btn = toolButton(label, 'Estilo: ' + label, () => exec('formatBlock', tag), 'style-chip style-' + tag);
+    return btn;
+  }
+
+  function buildRibbon() {
+    return MO.ribbon(
+      [
+        {
+          label: 'Base',
+          groups: [
+            {
+              label: 'Anular',
+              rows: [[iconButton('undo', 'Anular (Ctrl+Z)', () => exec('undo'))], [iconButton('redo', 'Refazer (Ctrl+Y)', () => exec('redo'))]]
+            },
+            {
+              label: 'Tipo de letra',
+              rows: [
+                [
+                  select(FONTS, 'Tipo de letra', (v) => exec('fontName', v)),
+                  select([['Tamanho', ''], ...SIZES.map((s) => [String(s), String(s)])], 'Tamanho da letra', (v) => v && setFontSize(v), true)
+                ],
+                [
+                  toolButton('N', 'Negrito (Ctrl+B)', () => exec('bold'), 'bold'),
+                  toolButton('I', 'Itálico (Ctrl+I)', () => exec('italic'), 'italic'),
+                  toolButton('S', 'Sublinhado (Ctrl+U)', () => exec('underline'), 'underline'),
+                  toolButton('abc', 'Rasurado', () => exec('strikeThrough'), 'strike'),
+                  colorButton('A', 'Cor do texto', '#c62828', (v) => exec('foreColor', v)),
+                  colorButton('ab', 'Cor de realce', '#fff3a3', (v) => exec('hiliteColor', v)),
+                  iconButton('eraser', 'Limpar formatação', () => exec('removeFormat'))
+                ]
+              ]
+            },
+            {
+              label: 'Parágrafo',
+              rows: [
+                [
+                  iconButton('bullets', 'Lista de marcas', () => exec('insertUnorderedList')),
+                  iconButton('numbers', 'Lista numerada', () => exec('insertOrderedList')),
+                  iconButton('outdent', 'Diminuir avanço', () => exec('outdent')),
+                  iconButton('indent', 'Aumentar avanço', () => exec('indent'))
+                ],
+                [
+                  iconButton('alignLeft', 'Alinhar à esquerda', () => exec('justifyLeft')),
+                  iconButton('alignCenter', 'Centrar', () => exec('justifyCenter')),
+                  iconButton('alignRight', 'Alinhar à direita', () => exec('justifyRight')),
+                  iconButton('justify', 'Justificar', () => exec('justifyFull'))
+                ]
+              ]
+            },
+            {
+              label: 'Estilos',
+              rows: [BLOCKS.map(([label, tag]) => styleChip(label, tag))]
+            }
+          ]
+        },
+        {
+          label: 'Inserir',
+          groups: [
+            { label: 'Tabelas', rows: [[bigButton('table', 'Tabela', 'Inserir tabela', insertTable)]] },
+            { label: 'Ilustrações', rows: [[bigButton('image', 'Imagem', 'Inserir imagem', insertImage)]] },
+            { label: 'Ligações', rows: [[bigButton('link', 'Ligação', 'Inserir ligação', insertLink)]] },
+            { label: 'Elementos', rows: [[bigButton('line', 'Linha', 'Linha horizontal', () => insertHTML('<hr>' + EMPTY))]] }
+          ]
+        }
+      ],
+      () => ctx.file()
     );
   }
 
@@ -191,7 +224,7 @@ img { max-width: 100%; } hr { border: 0; border-top: 1px solid #9aa1b1; margin: 
       ctx = context;
       editor = h('div', { class: 'page', contenteditable: 'true', spellcheck: 'true', role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Documento' });
       statusEl = h('div', { class: 'statusbar' });
-      container.append(buildToolbar(), h('div', { class: 'page-scroll' }, editor), statusEl);
+      container.append(buildRibbon(), h('div', { class: 'page-scroll' }, editor), statusEl);
 
       editor.addEventListener('input', changed);
       document.addEventListener('selectionchange', rememberSelection);

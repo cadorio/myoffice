@@ -4,7 +4,7 @@
 (function () {
   const MO = window.MO;
   const F = MO.Formula;
-  const { h, toolButton, colorButton, sep } = MO;
+  const { h, toolButton, colorButton, iconButton, bigButton } = MO;
 
   const ROWS = 100;
   const COLS = 26;
@@ -277,22 +277,26 @@
     return Boolean(cells[a]) && typeof values.get(a) === 'number';
   };
 
-  // Propõe a soma dos números contíguos acima (ou à esquerda) da célula ativa.
-  function autoSum() {
+  // Propõe a função aplicada aos números contíguos acima (ou à esquerda) da célula ativa.
+  function autoFn(fn) {
     if (editing) return;
     const { r, c } = cur;
-    let formula = '=SOMA()';
+    let formula = `=${fn}()`;
     let top = r;
     while (top > 0 && isNumberAt(top - 1, c)) top--;
     if (top < r) {
-      formula = `=SOMA(${F.addr(top, c)}:${F.addr(r - 1, c)})`;
+      formula = `=${fn}(${F.addr(top, c)}:${F.addr(r - 1, c)})`;
     } else {
       let left = c;
       while (left > 0 && isNumberAt(r, left - 1)) left--;
-      if (left < c) formula = `=SOMA(${F.addr(r, left)}:${F.addr(r, c - 1)})`;
+      if (left < c) formula = `=${fn}(${F.addr(r, left)}:${F.addr(r, c - 1)})`;
     }
     startEdit(formula);
-    if (formula === '=SOMA()') editorEl.setSelectionRange(6, 6);
+    if (formula.endsWith('()')) editorEl.setSelectionRange(formula.length - 1, formula.length - 1);
+  }
+
+  function insertFn(text) {
+    if (!editing) startEdit(text);
   }
 
   // ---------- Área de transferência ----------
@@ -525,24 +529,71 @@
     e.preventDefault();
   }
 
-  function buildToolbar() {
-    return h(
-      'div',
-      { class: 'toolbar' },
-      toolButton('↶', 'Anular (Ctrl+Z)', () => timeTravel(undoStack, redoStack)),
-      toolButton('↷', 'Refazer (Ctrl+Y)', () => timeTravel(redoStack, undoStack)),
-      sep(),
-      toolButton('N', 'Negrito (Ctrl+B)', () => toggleStyle('b'), 'bold'),
-      toolButton('I', 'Itálico (Ctrl+I)', () => toggleStyle('i'), 'italic'),
-      colorButton('A', 'Cor do texto', '#1c2130', () => {}, (v) => applyStyle('c', v)),
-      colorButton('▮', 'Cor de preenchimento', '#fff3a3', () => {}, (v) => applyStyle('bg', v)),
-      sep(),
-      toolButton('⇤', 'Alinhar à esquerda', () => applyStyle('a', 'left')),
-      toolButton('↔', 'Centrar', () => applyStyle('a', 'center')),
-      toolButton('⇥', 'Alinhar à direita', () => applyStyle('a', 'right')),
-      sep(),
-      toolButton('Σ Soma', 'Soma automática', autoSum, 'wide'),
-      toolButton('Limpar formato', 'Limpar formatação das células selecionadas', clearFormat, 'wide')
+  function buildRibbon() {
+    return MO.ribbon(
+      [
+        {
+          label: 'Base',
+          groups: [
+            {
+              label: 'Anular',
+              rows: [
+                [iconButton('undo', 'Anular (Ctrl+Z)', () => timeTravel(undoStack, redoStack))],
+                [iconButton('redo', 'Refazer (Ctrl+Y)', () => timeTravel(redoStack, undoStack))]
+              ]
+            },
+            {
+              label: 'Tipo de letra',
+              rows: [
+                [toolButton('N', 'Negrito (Ctrl+B)', () => toggleStyle('b'), 'bold'), toolButton('I', 'Itálico (Ctrl+I)', () => toggleStyle('i'), 'italic')],
+                [
+                  colorButton('A', 'Cor do texto', '#c62828', () => {}, (v) => applyStyle('c', v)),
+                  colorButton('ab', 'Cor de preenchimento', '#fff3a3', () => {}, (v) => applyStyle('bg', v))
+                ]
+              ]
+            },
+            {
+              label: 'Alinhamento',
+              rows: [
+                [
+                  iconButton('alignLeft', 'Alinhar à esquerda', () => applyStyle('a', 'left')),
+                  iconButton('alignCenter', 'Centrar', () => applyStyle('a', 'center')),
+                  iconButton('alignRight', 'Alinhar à direita', () => applyStyle('a', 'right'))
+                ]
+              ]
+            },
+            {
+              label: 'Edição',
+              rows: [
+                [
+                  bigButton('sum', 'Soma', 'Soma automática', () => autoFn('SOMA')),
+                  bigButton('eraser', 'Limpar formato', 'Limpar formatação das células selecionadas', clearFormat),
+                  bigButton('trash', 'Limpar', 'Apagar o conteúdo das células selecionadas (Delete)', clearRange)
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          label: 'Fórmulas',
+          groups: [
+            {
+              label: 'Biblioteca de funções',
+              rows: [
+                [
+                  bigButton('sum', 'Soma', 'Inserir SOMA', () => autoFn('SOMA')),
+                  bigButton('average', 'Média', 'Inserir MÉDIA', () => autoFn('MÉDIA')),
+                  bigButton('count', 'Contar', 'Inserir CONTAR', () => autoFn('CONTAR')),
+                  bigButton('max', 'Máximo', 'Inserir MÁXIMO', () => autoFn('MÁXIMO')),
+                  bigButton('min', 'Mínimo', 'Inserir MÍNIMO', () => autoFn('MÍNIMO')),
+                  bigButton('branch', 'Se', 'Inserir SE(condição; valor se verdadeiro; valor se falso)', () => insertFn('=SE('))
+                ]
+              ]
+            }
+          ]
+        }
+      ],
+      () => ctx.file()
     );
   }
 
@@ -561,7 +612,7 @@
       const table = buildGrid();
       wrap = h('div', { class: 'sheet-wrap', tabindex: '0', 'aria-label': 'Folha de cálculo' }, h('div', { class: 'sheet-inner' }, table, editorEl));
       statusEl = h('div', { class: 'statusbar' });
-      container.append(buildToolbar(), h('div', { class: 'fx-bar' }, nameBox, h('span', { class: 'fx-label' }, 'fx'), fxInput), wrap, statusEl);
+      container.append(buildRibbon(), h('div', { class: 'fx-bar' }, nameBox, h('span', { class: 'fx-label' }, 'fx'), fxInput), wrap, statusEl);
 
       table.addEventListener('mousedown', onMouseDown);
       table.addEventListener('mouseover', (e) => {

@@ -3,7 +3,7 @@
 // Módulo "Diapositivos": apresentações.
 (function () {
   const MO = window.MO;
-  const { h, toolButton, colorButton, sep } = MO;
+  const { h, toolButton, colorButton, iconButton, bigButton } = MO;
 
   const W = 960;
   const H = 540;
@@ -436,16 +436,16 @@
       });
     } else if ((e.key === 'ArrowUp' || e.key === 'PageUp') && !el) goTo(idx - 1);
     else if ((e.key === 'ArrowDown' || e.key === 'PageDown') && !el) goTo(idx + 1);
-    else if (e.key === 'F5') present();
+    else if (e.key === 'F5') present(0);
     else return;
     e.preventDefault();
   }
 
   // ---------- Modo de apresentação ----------
 
-  function present() {
+  function present(from) {
     commitTextEdit();
-    let i = idx;
+    let i = Math.max(0, Math.min(slides.length - 1, from));
     let wasFullscreen = false;
     const overlay = h('div', { class: 'present', tabindex: '0', 'aria-label': 'Apresentação' });
 
@@ -497,7 +497,7 @@
 
   // ---------- Construção da interface ----------
 
-  function buildToolbar() {
+  function buildRibbon() {
     sizeSelect = h(
       'select',
       { class: 'tool-select', title: 'Tamanho da letra', 'aria-label': 'Tamanho da letra' },
@@ -509,47 +509,118 @@
       if (fs) withSelected((el) => (el.fs = fs), 'text');
     });
 
-    return h(
-      'div',
-      { class: 'toolbar' },
-      toolButton('↶', 'Anular (Ctrl+Z)', () => timeTravel(undoStack, redoStack)),
-      toolButton('↷', 'Refazer (Ctrl+Y)', () => timeTravel(redoStack, undoStack)),
-      sep(),
-      toolButton('+ Diapositivo', 'Novo diapositivo', addSlide, 'wide'),
-      toolButton('Duplicar', 'Duplicar diapositivo', duplicateSlide, 'wide'),
-      toolButton('↑', 'Mover diapositivo para cima', () => moveSlide(-1)),
-      toolButton('↓', 'Mover diapositivo para baixo', () => moveSlide(1)),
-      toolButton('Eliminar', 'Eliminar diapositivo', deleteSlide, 'wide'),
-      colorButton('Fundo', 'Cor de fundo do diapositivo', '#ffffff', liveColor((v) => (slide().bg = v)), colorDone),
-      sep(),
-      toolButton('Texto', 'Inserir caixa de texto', () => addElement(textEl(280, 220, 400, 100, 'Texto')), 'wide'),
-      toolButton('Imagem', 'Inserir imagem', addImage, 'wide'),
-      toolButton('▭', 'Inserir retângulo', () => addElement({ id: uid(), type: 'rect', x: 360, y: 190, w: 240, h: 160, fill: '#4f5bd5' })),
-      toolButton('◯', 'Inserir elipse', () => addElement({ id: uid(), type: 'ellipse', x: 380, y: 170, w: 200, h: 200, fill: '#e2702b' })),
-      sep(),
-      sizeSelect,
-      toolButton('N', 'Negrito', () => toggleInline('bold', 'bold'), 'bold'),
-      toolButton('I', 'Itálico', () => toggleInline('italic', 'italic'), 'italic'),
-      toolButton('⇤', 'Alinhar à esquerda', () => withSelected((el) => (el.align = 'left'), 'text')),
-      toolButton('↔', 'Centrar', () => withSelected((el) => (el.align = 'center'), 'text')),
-      toolButton('⇥', 'Alinhar à direita', () => withSelected((el) => (el.align = 'right'), 'text')),
-      colorButton(
-        'Cor',
-        'Cor do elemento selecionado',
-        '#1c2130',
-        liveColor((v, el) => {
-          if (!el) return;
-          if (el.type === 'text') el.color = v;
-          else if (el.type !== 'image') el.fill = v;
-        }),
-        colorDone
-      ),
-      sep(),
-      toolButton('Frente', 'Trazer para a frente', () => reorder(true), 'wide'),
-      toolButton('Trás', 'Enviar para trás', () => reorder(false), 'wide'),
-      toolButton('✕', 'Eliminar elemento (Delete)', deleteSelected),
-      h('span', { class: 'tool-spacer' }),
-      toolButton('▶ Apresentar', 'Iniciar apresentação (F5)', present, 'wide accent')
+    const insertText = () => addElement(textEl(280, 220, 400, 100, 'Texto'));
+    const insertRect = () => addElement({ id: uid(), type: 'rect', x: 360, y: 190, w: 240, h: 160, fill: '#1f5fbf' });
+    const insertEllipse = () => addElement({ id: uid(), type: 'ellipse', x: 380, y: 170, w: 200, h: 200, fill: '#c8491f' });
+
+    return MO.ribbon(
+      [
+        {
+          label: 'Base',
+          groups: [
+            {
+              label: 'Anular',
+              rows: [
+                [iconButton('undo', 'Anular (Ctrl+Z)', () => timeTravel(undoStack, redoStack))],
+                [iconButton('redo', 'Refazer (Ctrl+Y)', () => timeTravel(redoStack, undoStack))]
+              ]
+            },
+            {
+              label: 'Diapositivos',
+              rows: [
+                [
+                  bigButton('slideNew', 'Novo', 'Novo diapositivo', addSlide),
+                  h(
+                    'div',
+                    { class: 'ribbon-stack' },
+                    iconButton('duplicate', 'Duplicar diapositivo', duplicateSlide, 'Duplicar'),
+                    iconButton('trash', 'Eliminar diapositivo', deleteSlide, 'Eliminar')
+                  ),
+                  h(
+                    'div',
+                    { class: 'ribbon-stack' },
+                    iconButton('up', 'Mover diapositivo para cima', () => moveSlide(-1)),
+                    iconButton('down', 'Mover diapositivo para baixo', () => moveSlide(1))
+                  )
+                ]
+              ]
+            },
+            {
+              label: 'Tipo de letra',
+              rows: [
+                [sizeSelect],
+                [
+                  toolButton('N', 'Negrito', () => toggleInline('bold', 'bold'), 'bold'),
+                  toolButton('I', 'Itálico', () => toggleInline('italic', 'italic'), 'italic'),
+                  colorButton(
+                    'A',
+                    'Cor do elemento selecionado',
+                    '#c62828',
+                    liveColor((v, el) => {
+                      if (!el) return;
+                      if (el.type === 'text') el.color = v;
+                      else if (el.type !== 'image') el.fill = v;
+                    }),
+                    colorDone
+                  )
+                ]
+              ]
+            },
+            {
+              label: 'Parágrafo',
+              rows: [
+                [
+                  iconButton('alignLeft', 'Alinhar à esquerda', () => withSelected((el) => (el.align = 'left'), 'text')),
+                  iconButton('alignCenter', 'Centrar', () => withSelected((el) => (el.align = 'center'), 'text')),
+                  iconButton('alignRight', 'Alinhar à direita', () => withSelected((el) => (el.align = 'right'), 'text'))
+                ]
+              ]
+            },
+            {
+              label: 'Dispor',
+              rows: [
+                [iconButton('front', 'Trazer para a frente', () => reorder(true), 'Frente'), iconButton('close', 'Eliminar elemento (Delete)', deleteSelected)],
+                [iconButton('back', 'Enviar para trás', () => reorder(false), 'Trás')]
+              ]
+            }
+          ]
+        },
+        {
+          label: 'Inserir',
+          groups: [
+            { label: 'Texto', rows: [[bigButton('textBox', 'Caixa de texto', 'Inserir caixa de texto', insertText)]] },
+            { label: 'Ilustrações', rows: [[bigButton('image', 'Imagem', 'Inserir imagem', addImage)]] },
+            {
+              label: 'Formas',
+              rows: [[bigButton('rect', 'Retângulo', 'Inserir retângulo', insertRect), bigButton('ellipse', 'Elipse', 'Inserir elipse', insertEllipse)]]
+            }
+          ]
+        },
+        {
+          label: 'Estrutura',
+          groups: [
+            {
+              label: 'Personalizar',
+              rows: [[colorButton('Cor de fundo', 'Cor de fundo do diapositivo', '#ffffff', liveColor((v) => (slide().bg = v)), colorDone)]]
+            }
+          ]
+        },
+        {
+          label: 'Apresentação',
+          groups: [
+            {
+              label: 'Iniciar apresentação',
+              rows: [
+                [
+                  bigButton('play', 'Do início', 'Iniciar apresentação do início (F5)', () => present(0)),
+                  bigButton('playCurrent', 'Do diapositivo atual', 'Iniciar apresentação no diapositivo atual', () => present(idx))
+                ]
+              ]
+            }
+          ]
+        }
+      ],
+      () => ctx.file()
     );
   }
 
@@ -567,7 +638,7 @@
       stageBox = h('div', { class: 'stage-box' }, stage);
       counterEl = h('div', { class: 'statusbar' });
       root = h('div', { class: 'slides-main', tabindex: '0', 'aria-label': 'Editor de diapositivos' }, thumbs, stageBox);
-      container.append(buildToolbar(), root, counterEl);
+      container.append(buildRibbon(), root, counterEl);
 
       stage.addEventListener('pointerdown', onPointerDown);
       // Em window (e não com captura do ponteiro) para o duplo clique continuar a chegar ao elemento.

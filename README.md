@@ -2,6 +2,8 @@
 
 Suite de escritório para desktop, instalável em Windows, macOS e Linux. Funciona sem ligação à Internet e os documentos ficam apenas no seu computador.
 
+A interface segue o modelo habitual das suites de escritório: barra de título na cor de cada aplicação, friso com separadores (Base, Inserir, Fórmulas…) e vista **Ficheiro** para abrir, guardar e exportar.
+
 | Módulo | O que faz | Formato próprio | Importa | Exporta |
 | --- | --- | --- | --- | --- |
 | **Texto** | Documentos com títulos, tipos e tamanhos de letra, cores, listas, ligações, imagens e tabelas | `.modoc` | `.html`, `.txt` | PDF, HTML, TXT |

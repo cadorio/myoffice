@@ -175,4 +175,100 @@
   };
 
   MO.sep = () => h('span', { class: 'tool-sep' });
+
+  // ---------- Ícones (SVG de traço, desenhados para esta aplicação) ----------
+
+  const ICONS = {
+    undo: 'M8 6 3 11l5 5M3 11h11a5.5 5.5 0 0 1 0 11h-3',
+    redo: 'M16 6l5 5-5 5M21 11H10a5.5 5.5 0 0 0 0 11h3',
+    alignLeft: 'M4 6h16M4 10h10M4 14h16M4 18h10',
+    alignCenter: 'M4 6h16M7 10h10M4 14h16M7 18h10',
+    alignRight: 'M4 6h16M10 10h10M4 14h16M10 18h10',
+    justify: 'M4 6h16M4 10h16M4 14h16M4 18h16',
+    bullets: 'M9 6h11M9 12h11M9 18h11M4.5 6h.5M4.5 12h.5M4.5 18h.5',
+    numbers: 'M10 6h10M10 12h10M10 18h10M4 5l1.5-1v5M4 15h2.5L4 19h2.5',
+    outdent: 'M11 6h9M11 12h9M11 18h9M7 9l-3 3 3 3',
+    indent: 'M11 6h9M11 12h9M11 18h9M4 9l3 3-3 3',
+    table: 'M3 5h18v14H3zM3 10h18M3 15h18M9 5v14M15 5v14',
+    image: 'M3 5h18v14H3zM3 17l5-5 4 4 3-3 6 6M15.5 9h.5',
+    link: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1',
+    line: 'M4 12h16',
+    textBox: 'M3 5h18v14H3zM8 9h8M12 9v7',
+    rect: 'M4 6h16v12H4z',
+    ellipse: 'M12 5.5c4.4 0 8 2.9 8 6.5s-3.6 6.5-8 6.5-8-2.9-8-6.5 3.6-6.5 8-6.5z',
+    slideNew: 'M3 5h15v10H3zM19 16v6M16 19h6',
+    duplicate: 'M8 8h12v12H8zM4 16V4h12',
+    trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',
+    up: 'M12 19V5M6 11l6-6 6 6',
+    down: 'M12 5v14M6 13l6 6 6-6',
+    play: 'M7 4l13 8-13 8z',
+    playCurrent: 'M3 5h18v11H3zM10 8l5 2.5-5 2.5zM8 20h8',
+    sum: 'M17 5H7l6 7-6 7h10',
+    eraser: 'M4 20h16M7 16l8-10 5 4-8 10H9z',
+    front: 'M10 10h10v10H10zM4 14V4h10',
+    back: 'M4 4h10v10H4zM14 10h6v10H10v-6',
+    close: 'M6 6l12 12M18 6 6 18',
+    save: 'M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6',
+    grid: 'M5 5h.5M12 5h.5M19 5h.5M5 12h.5M12 12h.5M19 12h.5M5 19h.5M12 19h.5M19 19h.5',
+    arrowLeft: 'M19 12H5M11 6l-6 6 6 6',
+    home: 'M4 11l8-7 8 7v9h-5v-6H9v6H4z',
+    folder: 'M3 6h6l2 2h10v11H3z',
+    fileNew: 'M6 3h8l4 4v14H6zM14 3v4h4',
+    export: 'M12 3v12M7 10l5 5 5-5M4 20h16',
+    fill: 'M4 4h16v16H4zM4 15h16',
+    average: 'M5 19 19 5M12 4.5a7.5 7.5 0 1 0 .1 0z',
+    count: 'M5 8h14M5 16h14M9 4 7 20M17 4l-2 16',
+    max: 'M4 20h16M7 20V10M12 20V4M17 20v-7',
+    min: 'M4 20h16M7 20v-7M12 20v-3M17 20V8',
+    branch: 'M6 4v16M6 12h6a6 6 0 0 0 6-6V4M12 12a6 6 0 0 1 6 6v2'
+  };
+
+  MO.icon = function (name) {
+    const span = h('span', { class: 'icon' + (name === 'grid' ? ' dots' : ''), 'aria-hidden': 'true' });
+    span.innerHTML = `<svg viewBox="0 0 24 24"><path d="${ICONS[name] || ''}"/></svg>`;
+    return span;
+  };
+
+  MO.iconButton = (icon, title, onClick, text) => MO.toolButton([MO.icon(icon), text], title, onClick, text ? 'wide' : '');
+
+  MO.bigButton = (icon, label, title, onClick) => MO.toolButton([MO.icon(icon), h('span', null, label)], title, onClick, 'big');
+
+  // Friso com separadores. tabs: [{ label, groups: [{ label, rows: [[elementos…], …] }] }]
+  MO.ribbon = function (tabs, onFile) {
+    const fileTab = h('button', { type: 'button', class: 'ribbon-tab file', onclick: onFile }, 'Ficheiro');
+    const tabBar = h('div', { class: 'ribbon-tabs', role: 'tablist' }, fileTab);
+    const panels = [];
+    const buttons = [];
+
+    function activate(index) {
+      panels.forEach((panel, i) => (panel.hidden = i !== index));
+      buttons.forEach((btn, i) => {
+        btn.classList.toggle('active', i === index);
+        btn.setAttribute('aria-selected', String(i === index));
+      });
+    }
+
+    tabs.forEach((tab, index) => {
+      const panel = h(
+        'div',
+        { class: 'ribbon-panel', role: 'tabpanel', 'aria-label': tab.label },
+        tab.groups.map((group) =>
+          h(
+            'div',
+            { class: 'ribbon-group' },
+            h('div', { class: 'ribbon-rows' }, group.rows.map((row) => h('div', { class: 'ribbon-row' }, row))),
+            h('div', { class: 'ribbon-label' }, group.label)
+          )
+        )
+      );
+      const btn = h('button', { type: 'button', class: 'ribbon-tab', role: 'tab' }, tab.label);
+      btn.addEventListener('mousedown', (e) => e.preventDefault());
+      btn.addEventListener('click', () => activate(index));
+      panels.push(panel);
+      buttons.push(btn);
+      tabBar.append(btn);
+    });
+    activate(0);
+    return h('div', { class: 'ribbon' }, tabBar, panels);
+  };
 })();
