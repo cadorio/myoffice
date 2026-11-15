@@ -485,6 +485,24 @@
     }
   }
 
+  // As fórmulas são reanalisadas a cada recálculo; guardar a árvore de cada texto evita repetir esse trabalho.
+  const parsed = new Map();
+  function parseCached(src) {
+    let ast = parsed.get(src);
+    if (ast === undefined) {
+      if (parsed.size > 20000) parsed.clear();
+      try {
+        ast = parse(src);
+      } catch (e) {
+        ast = e; // os erros de sintaxe também ficam guardados
+      }
+      parsed.set(src, ast);
+    }
+    if (ast instanceof FError) throw ast;
+    if (ast instanceof Error) throw new FError('#ERRO!');
+    return ast;
+  }
+
   // Calcula o valor de todas as células. Devolve um Map endereço -> valor
   // (número, texto, booleano ou FError).
   function compute(cells, rows = 100, cols = 26) {
@@ -501,7 +519,7 @@
         if (visiting.has(a)) return new FError('#CICLO!');
         visiting.add(a);
         try {
-          val = scalar(evaluate(parse(raw.slice(1)), ctx));
+          val = scalar(evaluate(parseCached(raw.slice(1)), ctx));
           if (val === null) val = 0;
           if (typeof val === 'number' && !Number.isFinite(val)) val = new FError('#NUM!');
         } catch (e) {
@@ -529,11 +547,14 @@
     return out;
   }
 
+  // Criar um formatador é caro; reutiliza-se o mesmo para todas as células.
+  const GENERAL = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 10, useGrouping: false });
+
   function format(v) {
     if (v === null || v === undefined) return '';
     if (v instanceof FError) return v.code;
     if (typeof v === 'boolean') return v ? 'VERDADEIRO' : 'FALSO';
-    if (typeof v === 'number') return v.toLocaleString('pt-PT', { maximumFractionDigits: 10, useGrouping: false });
+    if (typeof v === 'number') return GENERAL.format(v);
     return String(v);
   }
 

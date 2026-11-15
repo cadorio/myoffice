@@ -68,6 +68,7 @@
     if (current === 'home' || !confirmDiscard(current)) return;
     MO.modules[current].newDoc();
     docs[current] = { path: null, name: null, dirty: false };
+    dropDraft(current);
     MO.modules[current].show();
     updateChrome();
   }
@@ -89,6 +90,7 @@
     // Ficheiros importados (HTML, TXT, CSV) são guardados depois no formato próprio.
     const native = ext === mod.ext;
     docs[id] = { path: native ? file.path : null, name: file.name, dirty: false };
+    dropDraft(id);
     show(id);
   }
 
@@ -122,6 +124,7 @@
       d.name = defaultName;
     }
     d.dirty = false;
+    dropDraft(id);
     updateChrome();
     MO.toast('Guardado.');
   }
@@ -240,6 +243,64 @@
     );
   }
 
+  // ---------- Recuperação automática (só na aplicação instalada) ----------
+
+  const DRAFT_INTERVAL = 30000;
+  const stale = new Set(); // módulos alterados desde o último rascunho
+
+  function dropDraft(id) {
+    stale.delete(id);
+    if (api) api.drafts.clear(id);
+  }
+
+  async function writeDrafts() {
+    for (const id of [...stale]) {
+      if (!docs[id].dirty) continue;
+      stale.delete(id);
+      let content;
+      try {
+        content = MO.modules[id].serialize();
+      } catch {
+        continue;
+      }
+      await api.drafts.save({ module: id, name: docs[id].name, path: docs[id].path, content });
+    }
+  }
+
+  async function initRecovery() {
+    const drafts = await api.drafts.list();
+    if (drafts.length) {
+      const names = drafts.map((d) => `• ${d.name ? baseName(d.name) : MO.modules[d.module].defaultName + ' sem título'} (${MO.modules[d.module].label})`).join('\n');
+      const res = await MO.dialog({
+        title: 'Recuperar documentos',
+        message: `A aplicação fechou com alterações por guardar. Quer recuperar?\n${names}`,
+        okLabel: 'Recuperar',
+        cancelLabel: 'Descartar'
+      });
+      if (res) {
+        let last = null;
+        for (const draft of drafts) {
+          try {
+            MO.modules[draft.module].load(draft.content, MO.modules[draft.module].ext);
+            docs[draft.module] = { path: draft.path, name: draft.name, dirty: true };
+            stale.add(draft.module);
+            last = draft.module;
+          } catch {
+            MO.toast('Não foi possível recuperar um dos documentos.');
+          }
+        }
+        if (last) show(last);
+        updateChrome();
+      } else {
+        api.drafts.clear();
+      }
+    }
+    // O rascunho é escrito num momento de inatividade, para não interromper quem está a escrever.
+    setInterval(() => {
+      if (stale.size) (window.requestIdleCallback || setTimeout)(() => writeDrafts(), { timeout: 5000 });
+    }, DRAFT_INTERVAL);
+  }
+
   // ---------- Modo claro / escuro ----------
 
   function storedMode() {
@@ -346,6 +407,7 @@
       docs[id] = { path: null, name: null, dirty: false };
       MO.modules[id].init($('#view-' + id), {
         dirty() {
+          stale.add(id);
           if (docs[id].dirty) return;
           docs[id].dirty = true;
           updateChrome();
@@ -376,6 +438,7 @@
       api.onOpenFile(loadFile);
       api.ready();
       initLicense();
+      initRecovery();
     } else {
       document.addEventListener('keydown', (e) => {
         if (!(e.ctrlKey || e.metaKey) || e.altKey) return;

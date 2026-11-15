@@ -56,6 +56,12 @@ O assistente segue regras de escrita para apresentações em português; não é
 - **Friso** — os botões mostram o estado do que está selecionado (negrito, itálico, listas, alinhamento).
 - **Zoom** — na barra de estado do Texto e das Folhas, de 50% a 200% (duplo clique na percentagem repõe 100%).
 
+## Fiabilidade
+
+- **Recuperação automática** — de 30 em 30 segundos a aplicação guarda um rascunho dos documentos com alterações por guardar. Se fechar de forma inesperada, ao reabrir pergunta se quer recuperá-los. Os rascunhos são apagados ao guardar ou ao sair sem guardar.
+- **Se a aplicação deixar de responder** — aparece um aviso com as opções de esperar ou recarregar; se a página falhar, a janela recarrega sozinha.
+- **Documentos grandes** — as apresentações com muitas fotografias e as folhas cheias de fórmulas foram otimizadas: o histórico de anulação não duplica as imagens, as miniaturas e as células só são redesenhadas quando mudam.
+
 ## Temas predefinidos
 
 Os três módulos partilham o mesmo conjunto de 13 temas: Escritório, Executivo, Oceano, Floresta, Pôr do sol, Coral, Menta, Lavanda, Areia, Grafite, Noite, Técnico e Contraste. Cada tema define:

@@ -9,6 +9,11 @@ contextBridge.exposeInMainWorld('api', {
   save: (opts) => ipcRenderer.invoke('file:save', opts),
   exportPdf: (opts) => ipcRenderer.invoke('file:exportPdf', opts),
   getRecent: () => ipcRenderer.invoke('recent:get'),
+  drafts: {
+    save: (draft) => ipcRenderer.invoke('draft:save', draft),
+    list: () => ipcRenderer.invoke('draft:list'),
+    clear: (id) => ipcRenderer.invoke('draft:clear', id)
+  },
   setDirty: (value) => ipcRenderer.send('app:dirty', Boolean(value)),
   ready: () => ipcRenderer.send('app:ready'),
   license: {

@@ -11,10 +11,12 @@
   const MAX_UNDO = 100;
   const MAX_CELL_CHARS = 32767;
   const NUMBER_FORMATS = {
-    num2: { minimumFractionDigits: 2, maximumFractionDigits: 2 },
-    eur: { style: 'currency', currency: 'EUR' },
-    pct: { style: 'percent', maximumFractionDigits: 2 }
+    num2: new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    eur: new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }),
+    pct: new Intl.NumberFormat('pt-PT', { style: 'percent', maximumFractionDigits: 2 })
   };
+  // O que está desenhado em cada célula, para só tocar no ecrã quando algo muda.
+  let drawn = new Map();
 
   let ctx, wrap, editorEl, nameBox, fxInput, statusEl;
   let showStates = () => {};
@@ -117,7 +119,13 @@
     const cell = cells[a];
     const v = cell ? values.get(a) : null;
     const s = (cell && cell.s) || {};
-    td.textContent = typeof v === 'number' && Object.hasOwn(NUMBER_FORMATS, s.f) ? v.toLocaleString('pt-PT', NUMBER_FORMATS[s.f]) : F.format(v);
+    const text = typeof v === 'number' && Object.hasOwn(NUMBER_FORMATS, s.f) ? NUMBER_FORMATS[s.f].format(v) : F.format(v);
+    const kind = typeof v === 'number' ? 'n' : typeof v === 'boolean' ? 'b' : v instanceof F.FError ? 'e' : '';
+    const key = `${text}\u0000${kind}\u0000${s.b || ''}${s.i || ''}\u0000${s.a || ''}\u0000${s.bg || ''}\u0000${s.c || ''}`;
+    if (drawn.get(a) === key) return;
+    if (cell) drawn.set(a, key);
+    else drawn.delete(a);
+    td.textContent = text;
     td.classList.toggle('num', typeof v === 'number');
     td.classList.toggle('err', v instanceof F.FError);
     td.classList.toggle('bool', typeof v === 'boolean');
@@ -773,6 +781,7 @@
     },
 
     newDoc() {
+      for (const a of drawn.keys()) drawn.set(a, null); // força o redesenho completo
       editing = null;
       editorEl.style.display = 'none';
       cells = {};
