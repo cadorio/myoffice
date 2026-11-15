@@ -191,6 +191,33 @@ function createWindow() {
       detail: 'Se sair agora, essas alterações serão perdidas.'
     });
     if (choice === 0) e.preventDefault();
+    // O utilizador escolheu descartar as alterações. Síncrono, porque a aplicação termina logo a seguir.
+    else for (const id of DRAFT_MODULES) fsSync.rmSync(draftFile(id), { force: true });
+  });
+
+  // Se a página deixar de responder, o utilizador pode esperar ou recarregar; os rascunhos de
+  // recuperação automática permitem retomar o trabalho depois de recarregar.
+  win.on('unresponsive', () => {
+    const choice = dialog.showMessageBoxSync(win, {
+      type: 'warning',
+      buttons: ['Esperar', 'Recarregar'],
+      defaultId: 0,
+      cancelId: 0,
+      message: 'A aplicação não está a responder.',
+      detail: 'Pode esperar que termine ou recarregar. Ao recarregar, as alterações desde a última recuperação automática (até 30 segundos) perdem-se.'
+    });
+    if (choice === 1 && win) {
+      dirty = false;
+      rendererReady = false;
+      win.webContents.forcefullyCrashRenderer();
+      win.reload();
+    }
+  });
+  win.webContents.on('render-process-gone', (_event, details) => {
+    if (details.reason === 'clean-exit' || !win) return;
+    dirty = false;
+    rendererReady = false;
+    win.reload();
   });
 
   win.on('closed', () => {
@@ -201,6 +228,50 @@ function createWindow() {
 // Só a página principal da nossa janela pode usar o IPC (nunca um iframe ou outra origem).
 function fromOurWindow(event) {
   return Boolean(win) && event.sender === win.webContents && event.senderFrame === win.webContents.mainFrame;
+}
+
+// ---------- Recuperação automática ----------
+// A interface envia de 30 em 30 segundos uma cópia dos documentos com alterações por guardar.
+const DRAFT_MODULES = ['writer', 'sheets', 'slides'];
+const draftFile = (id) => path.join(app.getPath('userData'), 'drafts', id + '.json');
+
+async function saveDraft(draft) {
+  if (!draft || !DRAFT_MODULES.includes(draft.module) || typeof draft.content !== 'string' || draft.content.length > MAX_FILE_BYTES) return false;
+  try {
+    await fs.mkdir(path.dirname(draftFile(draft.module)), { recursive: true });
+    const name = typeof draft.name === 'string' ? draft.name.slice(0, 255) : null;
+    const origin = typeof draft.path === 'string' && approvedPaths.has(draft.path) ? draft.path : null;
+    await writeAtomic(draftFile(draft.module), JSON.stringify({ name, path: origin, saved: Date.now(), content: draft.content }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function listDrafts() {
+  const out = [];
+  for (const id of DRAFT_MODULES) {
+    try {
+      const draft = JSON.parse(await fs.readFile(draftFile(id), 'utf8'));
+      if (typeof draft.content !== 'string') continue;
+      // O caminho original só é devolvido se ainda existir; volta a ficar autorizado para gravação.
+      let origin = null;
+      if (typeof draft.path === 'string' && NATIVE_EXT.includes(extOf(draft.path)) && fsSync.existsSync(draft.path)) {
+        origin = draft.path;
+        approvedPaths.add(origin);
+      }
+      out.push({ module: id, name: typeof draft.name === 'string' ? draft.name : null, path: origin, saved: Number(draft.saved) || 0, content: draft.content });
+    } catch {
+      /* sem rascunho para este módulo */
+    }
+  }
+  return out;
+}
+
+async function clearDrafts(id) {
+  for (const module of id ? [id] : DRAFT_MODULES) {
+    if (DRAFT_MODULES.includes(module)) await fs.rm(draftFile(module), { force: true }).catch(() => {});
+  }
 }
 
 const SAVE_EXT = [...NATIVE_EXT, ...BINARY_EXT, 'html', 'txt', 'csv'];
@@ -243,6 +314,10 @@ function registerIpc() {
       openInRenderer(p);
     }
   });
+
+  ipcMain.handle('draft:save', (event, draft) => (fromOurWindow(event) ? saveDraft(draft) : false));
+  ipcMain.handle('draft:list', (event) => (fromOurWindow(event) ? listDrafts() : []));
+  ipcMain.handle('draft:clear', (event, id) => (fromOurWindow(event) ? clearDrafts(typeof id === 'string' ? id : null) : null));
 
   ipcMain.on('app:dirty', (event, value) => {
     if (fromOurWindow(event)) dirty = Boolean(value);

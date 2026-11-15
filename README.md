@@ -4,6 +4,22 @@ Suite de escritório para desktop, instalável em Windows, macOS e Linux. Funcio
 
 A interface segue o modelo habitual das suites de escritório: barra de título na cor de cada aplicação, friso com separadores (Base, Inserir, Fórmulas…) e vista **Ficheiro** para abrir, guardar e exportar.
 
+## Capturas de ecrã
+
+| Início | Texto |
+| --- | --- |
+| ![Página inicial](docs/screenshots/inicio.png) | ![Editor de texto](docs/screenshots/texto.png) |
+
+| Folhas | Diapositivos |
+| --- | --- |
+| ![Folha de cálculo](docs/screenshots/folhas.png) | ![Apresentações com temas](docs/screenshots/diapositivos.png) |
+
+| Assistente de sugestões | Modo escuro |
+| --- | --- |
+| ![Assistente dos Diapositivos](docs/screenshots/assistente.png) | ![Modo escuro](docs/screenshots/modo-escuro.png) |
+
+## Módulos
+
 | Módulo | O que faz | Formato próprio | Abre também | Exporta |
 | --- | --- | --- | --- | --- |
 | **Texto** | Documentos com estilos, tipos e tamanhos de letra, cores, listas, ligações, imagens, tabelas, quebras de página e localizar/substituir | `.modoc` | `.docx`, `.html`, `.txt` | DOCX, PDF, HTML, TXT |
@@ -39,6 +55,12 @@ O assistente segue regras de escrita para apresentações em português; não é
 - **Modo claro e escuro** — a aplicação acompanha o sistema operativo; o botão no canto superior direito muda de modo e a escolha fica guardada. O modo escuro muda a moldura da aplicação; as páginas, a grelha e os diapositivos mantêm as cores do documento.
 - **Friso** — os botões mostram o estado do que está selecionado (negrito, itálico, listas, alinhamento).
 - **Zoom** — na barra de estado do Texto e das Folhas, de 50% a 200% (duplo clique na percentagem repõe 100%).
+
+## Fiabilidade
+
+- **Recuperação automática** — de 30 em 30 segundos a aplicação guarda um rascunho dos documentos com alterações por guardar. Se fechar de forma inesperada, ao reabrir pergunta se quer recuperá-los. Os rascunhos são apagados ao guardar ou ao sair sem guardar.
+- **Se a aplicação deixar de responder** — aparece um aviso com as opções de esperar ou recarregar; se a página falhar, a janela recarrega sozinha.
+- **Documentos grandes** — as apresentações com muitas fotografias e as folhas cheias de fórmulas foram otimizadas: o histórico de anulação não duplica as imagens, as miniaturas e as células só são redesenhadas quando mudam.
 
 ## Temas predefinidos
 

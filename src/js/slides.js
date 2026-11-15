@@ -70,16 +70,20 @@
 
   // ---------- Histórico ----------
 
+  // Cópia dos diapositivos para o histórico. Copia a estrutura mas partilha os textos longos
+  // (as imagens vêm como texto em base64), para cada passo do histórico não duplicar as fotografias.
+  const copySlides = (list) => list.map((s) => ({ ...s, els: s.els.map((el) => ({ ...el })) }));
+
   function snapshot() {
-    undoStack.push(JSON.stringify({ slides, idx }));
+    undoStack.push({ slides: copySlides(slides), idx });
     if (undoStack.length > MAX_UNDO) undoStack.shift();
     redoStack = [];
   }
 
   function timeTravel(from, to) {
     if (!from.length) return;
-    to.push(JSON.stringify({ slides, idx }));
-    const state = JSON.parse(from.pop());
+    to.push({ slides: copySlides(slides), idx });
+    const state = from.pop();
     slides = state.slides;
     idx = Math.min(state.idx, slides.length - 1);
     selId = null;
@@ -144,6 +148,33 @@
 
   // ---------- Desenho ----------
 
+  // As imagens ficam guardadas como texto (data:), mas desenhá-las assim obriga o browser a
+  // descodificar o texto inteiro em cada elemento criado. Cada imagem é convertida uma vez num
+  // endereço blob:, que o browser reutiliza no palco e nas miniaturas.
+  const blobURLs = new Map();
+  function imageURL(dataURL) {
+    let url = blobURLs.get(dataURL);
+    if (!url) {
+      try {
+        const comma = dataURL.indexOf(',');
+        const bin = atob(dataURL.slice(comma + 1).replace(/\s+/g, ''));
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        url = URL.createObjectURL(new Blob([bytes], { type: dataURL.slice(5, dataURL.indexOf(';')) }));
+      } catch {
+        url = dataURL;
+      }
+      blobURLs.set(dataURL, url);
+    }
+    return url;
+  }
+
+  function releaseImages() {
+    for (const url of blobURLs.values()) if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+    blobURLs.clear();
+    thumbCache = [];
+  }
+
   function renderSlide(s, interactive) {
     const node = h('div', { class: 'slide' + (s.lead ? ' lead' : ''), style: { background: s.bg } });
     if (s.font) node.style.fontFamily = FONTS[s.font];
@@ -169,7 +200,7 @@
         content.innerHTML = el.html;
         box.append(content);
       } else if (el.type === 'image') {
-        box.append(h('img', { src: el.src, alt: '', draggable: 'false' }));
+        box.append(h('img', { src: imageURL(el.src), alt: '', draggable: 'false' }));
       } else {
         box.style.background = el.fill;
       }
@@ -200,19 +231,30 @@
     syncToolbar();
   }
 
+  // Assinatura do aspeto de um diapositivo (as imagens contam pelo tamanho e pelo fim do texto).
+  const signature = (s) => JSON.stringify(s, (key, value) => (key === 'src' ? value.length + value.slice(-32) : key === 'notes' || key === 'id' ? undefined : value));
+
+  // Só redesenha as miniaturas dos diapositivos que mudaram.
+  let thumbCache = [];
   function renderThumbs() {
-    thumbs.replaceChildren(
-      ...slides.map((s, i) => {
-        const btn = h(
-          'button',
-          { type: 'button', class: 'thumb' + (i === idx ? ' active' : ''), title: 'Diapositivo ' + (i + 1), 'aria-label': 'Diapositivo ' + (i + 1) },
-          h('span', { class: 'thumb-num' }, i + 1),
-          h('span', { class: 'thumb-frame' }, renderSlide(s, false))
-        );
+    thumbCache.length = Math.min(thumbCache.length, slides.length);
+    slides.forEach((s, i) => {
+      const sig = signature(s);
+      let entry = thumbCache[i];
+      if (!entry) {
+        const frame = h('span', { class: 'thumb-frame' });
+        const btn = h('button', { type: 'button', class: 'thumb', title: 'Diapositivo ' + (i + 1), 'aria-label': 'Diapositivo ' + (i + 1) }, h('span', { class: 'thumb-num' }, i + 1), frame);
         btn.addEventListener('click', () => goTo(i));
-        return btn;
-      })
-    );
+        entry = thumbCache[i] = { btn, frame, sig: null };
+      }
+      if (entry.sig !== sig) {
+        entry.frame.replaceChildren(renderSlide(s, false));
+        entry.sig = sig;
+      }
+      entry.btn.classList.toggle('active', i === idx);
+      if (thumbs.children[i] !== entry.btn) thumbs.insertBefore(entry.btn, thumbs.children[i] || null);
+    });
+    while (thumbs.children.length > slides.length) thumbs.lastChild.remove();
     counterEl.textContent = `Diapositivo ${idx + 1} de ${slides.length}`;
     const active = thumbs.children[idx];
     if (active) active.scrollIntoView({ block: 'nearest' });
@@ -895,6 +937,7 @@
     },
 
     newDoc() {
+      releaseImages();
       theme = T.slideLook(T.LIST[0], 'claro');
       syncThemeUI();
       slides = [makeSlide('title')];

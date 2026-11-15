@@ -552,7 +552,9 @@ body[data-current="home"] #rail { display: flex; }
 }
 .sheet-inner { position: relative; width: max-content; }
 
-.grid { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 13px; user-select: none; }
+/* A largura explícita (46 + 26 × 104) é o que ativa o esquema fixo: sem ela, cada alteração de
+   uma célula obrigava o browser a recalcular a largura de todas as colunas. */
+.grid { width: 2750px; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 13px; user-select: none; }
 .grid th, .grid td {
   border-right: 1px solid #e3e6ee;
   border-bottom: 1px solid #e3e6ee;
@@ -912,3 +914,5 @@ body[data-current="home"] #rail { display: flex; }
 .mo-dialog.wide { width: min(640px, 92vw); }
 .mo-dialog h3 { font-size: 14px; margin: 16px 0 8px; }
 .notices { max-height: 260px; overflow: auto; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); font-size: 11.5px; line-height: 1.45; white-space: pre-wrap; }
+
+.mo-dialog p { white-space: pre-line; }
