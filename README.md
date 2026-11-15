@@ -38,17 +38,20 @@ O MyOffice abre e exporta `.docx`, `.xlsx` e `.pptx`. A conversão cobre o conte
 
 Os ficheiros exportados foram validados com o LibreOffice e com as bibliotecas python-docx, openpyxl e python-pptx. Não foram testados no Microsoft Office.
 
-## Assistente (Diapositivos)
+## Assistente e IA local (Diapositivos)
 
-No separador **Assistente** dos Diapositivos há um motor de sugestões próprio, incluído na aplicação. Funciona sem ligação à Internet, sem chave e sem custos, e nenhum texto sai do computador.
+No separador **Assistente** dos Diapositivos:
 
-- **Criar apresentação** — indica-se o tema, o público e o número de diapositivos. O assistente reconhece o tipo de apresentação (plano, relatório, formação, produto ou geral) e cria a estrutura adequada, com os tópicos a preencher e conselhos nas notas do orador.
-- **Sugestões** — analisa o diapositivo atual e mostra dicas (texto a mais, tópicos longos, falta de números ou de notas) e versões alternativas que se aplicam com um clique e se anulam com Ctrl+Z:
-  - *Mais conciso*: fica a ideia principal de cada frase, sem expressões de enchimento; o texto original passa para as notas do orador.
-  - *Uma ideia por tópico*: separa frases com várias ideias.
-  - *Números primeiro*: sobe os tópicos com dados concretos.
+- **Modelo de IA** — descarrega (uma única vez, com Internet) um modelo de linguagem aberto que passa a correr neste computador, sem Internet e sem custos. Nenhum texto dos documentos sai do computador. O ficheiro é verificado (SHA-256) antes de ser usado.
+  - *Phi-3.5 mini* (2,4 GB, licença MIT) — melhor qualidade, recomendado para 8 GB de memória ou mais.
+  - *Qwen2.5 1.5B* (1,1 GB, Apache 2.0) — mais rápido e leve, mas repete-se e erra mais.
+- **Criar apresentação** — com modelo instalado, a IA escreve os diapositivos (títulos, tópicos e notas) a partir do tema; demora cerca de meio minuto a três minutos, conforme o computador. Sem modelo, o assistente cria a estrutura adequada com os tópicos a preencher.
+- **Sugestões** — dicas e versões alternativas do diapositivo por regras de escrita; com modelo instalado, «Pedir versões à IA» acrescenta duas versões reescritas pela IA.
 
-O assistente segue regras de escrita para apresentações em português; não é um modelo de linguagem, por isso não escreve conteúdo novo sobre o tema nem conhece factos. O código está em `src/js/assistant.js`.
+Limites a conhecer:
+- A IA pode inventar factos ou escrever com grafia do Brasil (as palavras mais comuns são convertidas automaticamente). O conteúdo deve ser revisto.
+- O modelo corre num processo separado: se falhar (por exemplo por falta de memória), aparece um aviso e a aplicação continua a funcionar.
+- Testado em Linux. Num dos processadores de teste o Phi-3.5 não arrancou e a aplicação mostrou o aviso; nesse caso deve usar-se o Qwen2.5. Falta testar em Windows e macOS.
 
 ## Aparência
 
@@ -85,7 +88,7 @@ Os temas, nomes e desenhos são próprios do MyOffice; os tipos de letra são os
 - **Ficheiros** — só são lidos e escritos ficheiros escolhidos pelo utilizador nos diálogos do sistema, e só nos formatos suportados. A gravação é atómica: uma falha a meio não corrompe o documento.
 - **Documentos abertos** — o conteúdo é limpo antes de ser mostrado: scripts, objetos incorporados, ligações `javascript:`, imagens remotas e estilos capazes de se sobrepor à interface são removidos; os campos dos ficheiros são validados um a um.
 - **CSV** — ao exportar, o texto começado por `=`, `+`, `-` ou `@` é neutralizado, para não ser executado como fórmula noutras folhas de cálculo.
-- **Aplicação instalada** — não inclui ferramentas de programador e não pode ser usada para executar código Node arbitrário (`ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` e `--inspect` estão desativados).
+- **Aplicação instalada** — não inclui ferramentas de programador; `NODE_OPTIONS` e `--inspect` estão desativados. `ELECTRON_RUN_AS_NODE` está ativo porque a biblioteca de IA precisa dele para verificar o seu módulo nativo; isto permite usar o executável como Node.js, o que só é relevante para quem já tem acesso ao computador.
 - **Compilação** — as ações do GitHub Actions estão fixadas por hash de commit.
 
 Por fazer: a assinatura digital depende de configurar os certificados (ver Comercialização) e a verificação de integridade do pacote da aplicação não está ativa.

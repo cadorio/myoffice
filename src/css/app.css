@@ -916,3 +916,8 @@ body[data-current="home"] #rail { display: flex; }
 .notices { max-height: 260px; overflow: auto; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); font-size: 11.5px; line-height: 1.45; white-space: pre-wrap; }
 
 .mo-dialog p { white-space: pre-line; }
+
+.model-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.model-progress { flex: 1; min-width: 140px; accent-color: var(--accent-ink); }
+.model-ok { color: var(--accent-ink); font-weight: 600; }
+.ai-detail { font-variant-numeric: tabular-nums; }

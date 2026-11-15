@@ -12,7 +12,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
-    "test": "node test/formula.test.js && node test/assistant.test.js && node test/license.test.js",
+    "test": "node test/formula.test.js && node test/assistant.test.js && node test/license.test.js && node test/ai-download.test.js",
     "dist": "electron-builder --publish never",
     "dist:win": "electron-builder --win --publish never",
     "dist:mac": "electron-builder --mac --publish never",
@@ -29,13 +29,20 @@
     },
     "files": [
       "main.js",
+      "ai.js",
+      "ai-worker.mjs",
+      "ai-download.js",
       "license.js",
       "license-public.pem",
       "preload.js",
       "src/**/*",
       "build/icon.png",
       "THIRD-PARTY-NOTICES.md",
-      "package.json"
+      "package.json",
+      "!node_modules/@node-llama-cpp/*-cuda*/**",
+      "!node_modules/@node-llama-cpp/*-vulkan*/**",
+      "!node_modules/node-llama-cpp/llama/llama.cpp/**",
+      "!node_modules/node-llama-cpp/docs/**"
     ],
     "fileAssociations": [
       {
@@ -95,16 +102,23 @@
       "syncDesktopName": true
     },
     "electronFuses": {
-      "runAsNode": false,
+      "runAsNode": true,
       "enableNodeOptionsEnvironmentVariable": false,
       "enableNodeCliInspectArguments": false,
       "onlyLoadAppFromAsar": true
-    }
+    },
+    "asarUnpack": [
+      "node_modules/node-llama-cpp/**",
+      "node_modules/@node-llama-cpp/**"
+    ]
   },
   "devDependencies": {
     "electron": "^45.3.2",
     "electron-builder": "^26.18.0",
     "fflate": "^0.8.3"
   },
-  "desktopName": "myoffice.desktop"
+  "desktopName": "myoffice.desktop",
+  "dependencies": {
+    "node-llama-cpp": "^3.22.3"
+  }
 }
