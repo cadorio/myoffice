@@ -11,19 +11,33 @@ O MyOffice reúne três ferramentas numa única aplicação: **Texto**, **Folhas
 
 ## Capturas de ecrã
 
-As imagens seguintes são capturas reais da aplicação MyOffice.
+As imagens abaixo mostram os módulos e funcionalidades do MyOffice. Clica numa imagem para a abrir em tamanho completo.
 
-| Ecrã inicial | MyOffice Texto |
-| --- | --- |
-| ![Ecrã inicial do MyOffice 1.2.0, anterior ao novo Workspace](docs/screenshots/inicio.png) | ![Editor MyOffice Texto](docs/screenshots/texto.png) |
+### Ecrã inicial
 
-| MyOffice Folhas | MyOffice Diapositivos |
-| --- | --- |
-| ![Folha de cálculo MyOffice](docs/screenshots/folhas.png) | ![Editor de apresentações MyOffice](docs/screenshots/diapositivos.png) |
+![Ecrã inicial do MyOffice](docs/screenshots/inicio.png)
 
-| Assistente de apresentações | Modo escuro |
-| --- | --- |
-| ![Assistente dos Diapositivos](docs/screenshots/assistente.png) | ![MyOffice em modo escuro](docs/screenshots/modo-escuro.png) |
+> Nota: esta captura corresponde ao ecrã inicial da versão 1.2.0. A captura do novo Workspace da versão 1.3.0 será adicionada após a validação visual da nova interface.
+
+### MyOffice Texto
+
+![Editor de texto MyOffice](docs/screenshots/texto.png)
+
+### MyOffice Folhas
+
+![Folha de cálculo MyOffice](docs/screenshots/folhas.png)
+
+### MyOffice Diapositivos
+
+![Editor de apresentações MyOffice](docs/screenshots/diapositivos.png)
+
+### Assistente de apresentações
+
+![Assistente de apresentações do MyOffice](docs/screenshots/assistente.png)
+
+### Modo escuro
+
+![MyOffice em modo escuro](docs/screenshots/modo-escuro.png)
 
 ## O que inclui
 
