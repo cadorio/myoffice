@@ -718,42 +718,6 @@
       h('button', { type: 'button', class: 'btn primary', onclick: () => applySuggestion(target, sug) }, 'Aplicar')
     );
 
-  // Analisa a composição sem alterar, recortar ou substituir fotografias.
-  function photoLayoutTips(target) {
-    const images = target.els.filter((el) => el.type === 'image');
-    const texts = target.els.filter((el) => el.type === 'text');
-    const tips = [];
-    if (!images.length) return tips;
-    if (images.length > 1) {
-      for (let i = 0; i < images.length; i++) {
-        for (let j = i + 1; j < images.length; j++) {
-          const a = images[i], b = images[j];
-          const overlapW = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
-          const overlapH = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
-          if (overlapW * overlapH > Math.min(a.w * a.h, b.w * b.h) * 0.12) {
-            tips.push('Duas fotografias sobrepõem-se bastante. Considere alinhá-las lado a lado ou criar uma composição em grelha.');
-            i = images.length;
-            break;
-          }
-        }
-      }
-    }
-    for (const img of images) {
-      const outside = img.x < 0 || img.y < 0 || img.x + img.w > W || img.y + img.h > H;
-      if (outside) tips.push('Uma fotografia ultrapassa os limites do diapositivo. Ajuste a posição ou o tamanho para evitar cortes na apresentação.');
-      if (img.w < 120 || img.h < 90) tips.push('Há uma fotografia com dimensões reduzidas. Aumente-a se for importante que o público consiga ver os detalhes.');
-      const overlapsText = texts.some((t) => {
-        const w = Math.max(0, Math.min(img.x + img.w, t.x + t.w) - Math.max(img.x, t.x));
-        const h_ = Math.max(0, Math.min(img.y + img.h, t.y + t.h) - Math.max(img.y, t.y));
-        return w * h_ > Math.min(img.w * img.h, t.w * t.h) * 0.08;
-      });
-      if (overlapsText) tips.push('Uma fotografia sobrepõe-se a uma caixa de texto. Verifique se não tapa palavras e se existe contraste suficiente.');
-    }
-    if (images.length === 1 && !texts.length) tips.push('O diapositivo contém apenas uma fotografia. Pode acrescentar um título ou uma legenda curta para dar contexto.');
-    if (images.length >= 2 && !tips.length) tips.push('As fotografias estão disponíveis para uma composição visual. Mantenha margens e espaçamento consistentes entre elas.');
-    return [...new Set(tips)];
-  }
-
   async function aiSuggest() {
     commitTextEdit();
     const target = slide();
@@ -766,7 +730,7 @@
     const images = target.els.filter((el) => el.type === 'image');
     const out = MO.Assistant.suggest(input);
     if (out.error && !images.length) return MO.toast(out.error);
-    const visualTips = photoLayoutTips(target);
+    const visualTips = MO.Assistant.suggestComposition(target.els);
     const writingTips = out.error ? [] : out.tips;
     const suggestions = out.error ? [] : out.suggestions;
     const n = slides.indexOf(target) + 1;
