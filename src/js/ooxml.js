@@ -259,7 +259,18 @@
     }
 
     const body = first(doc, 'body');
-    return body ? blocksOf(body).join('') : '';
+    const readSectionText = (kind) => {
+      const rel = Object.values(rels).find((item) => item.type === kind && !item.external);
+      const part = rel && parseXML(files, rel.path);
+      if (!part) return '';
+      return all(part, 't').map((node) => node.textContent).join('').slice(0, 250);
+    };
+    const headerText = readSectionText('header');
+    const footerText = readSectionText('footer');
+    const footerRel = Object.values(rels).find((item) => item.type === 'footer' && !item.external);
+    const footerPart = footerRel && parseXML(files, footerRel.path);
+    const pageNumbers = Boolean(footerPart && all(footerPart, 'instrText').some((node) => /\\bPAGE\\b/i.test(node.textContent)));
+    return { html: body ? blocksOf(body).join('') : '', headerText, footerText: footerText.replace(/Página\\s*1?$/i, '').replace(/\\s*·\\s*$/, '').trim(), pageNumbers };
   }
 
   // root: elemento com o conteúdo do documento (o editor); look: tipos de letra e cores do tema.
