@@ -320,7 +320,7 @@
 
   // MyOffice Intelligence: núcleo independente, local e validado. Nesta fase usa análise
   // determinística; o motor generativo próprio será acrescentado sem alterar este contrato.
-  const TASKS = new Set(['review', 'analyse', 'slide-review', 'deck-outline']);
+  const TASKS = new Set(['review', 'analyse']);
   function request(input) {
     const task = input && input.task;
     if (!TASKS.has(task)) return { error: 'Tarefa de inteligência não suportada.' };
