@@ -1,7 +1,9 @@
-name: Instaladores
+name: Instalador Windows
 
-# Gera os instaladores em cada push para main e, numa tag vX.Y.Z, publica-os numa Release.
+# Compila o instalador Windows x64 em PRs, pushes para main e tags de versão.
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
     tags: ['v*']
@@ -12,15 +14,8 @@ permissions:
 
 jobs:
   build:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Windows
-            os: windows-2022
-            args: --win
+    name: Windows x64
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -31,46 +26,30 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      # Assinatura de código: só acontece se os segredos existirem no repositório
-      # (Settings › Secrets and variables › Actions). Sem eles, os instaladores saem por assinar.
-      #   Windows: WIN_CSC_LINK (certificado .pfx em base64) e WIN_CSC_KEY_PASSWORD
-      #   macOS:   MAC_CSC_LINK (certificado .p12 em base64), MAC_CSC_KEY_PASSWORD,
-      #            APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD e APPLE_TEAM_ID (notarização)
+      # A assinatura Windows é opcional e requer WIN_CSC_LINK e WIN_CSC_KEY_PASSWORD.
       - name: Preparar assinatura
         shell: bash
         env:
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          put() { if [ -n "$2" ]; then echo "$1=$2" >> "$GITHUB_ENV"; fi; }
-          if [ "$RUNNER_OS" = "Windows" ] && [ -n "$WIN_CSC_LINK" ]; then
-            put CSC_LINK "$WIN_CSC_LINK"; put CSC_KEY_PASSWORD "$WIN_CSC_KEY_PASSWORD"
-          elif [ "$RUNNER_OS" = "macOS" ] && [ -n "$MAC_CSC_LINK" ]; then
-            put CSC_LINK "$MAC_CSC_LINK"; put CSC_KEY_PASSWORD "$MAC_CSC_KEY_PASSWORD"
-            put APPLE_ID "$APPLE_ID"; put APPLE_APP_SPECIFIC_PASSWORD "$APPLE_APP_SPECIFIC_PASSWORD"; put APPLE_TEAM_ID "$APPLE_TEAM_ID"
+          if [ -n "$WIN_CSC_LINK" ]; then
+            echo "CSC_LINK=$WIN_CSC_LINK" >> "$GITHUB_ENV"
+            echo "CSC_KEY_PASSWORD=$WIN_CSC_KEY_PASSWORD" >> "$GITHUB_ENV"
           else
             echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "$GITHUB_ENV"
             echo "Sem certificado: o instalador não será assinado."
           fi
-      - name: Criar instalador
-        run: npx electron-builder ${{ matrix.args }} --publish never
+      - name: Criar instalador Windows x64
+        run: npx electron-builder --win --x64 --publish never
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: MyOffice-${{ matrix.name }}
+          name: MyOffice-Windows
           if-no-files-found: error
-          path: |
-            dist/*.exe
-            dist/*.dmg
-            dist/*.AppImage
-            dist/*.deb
+          path: dist/*.exe
 
   release:
-    name: Publicar Release
+    name: Publicar Release Windows
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
