@@ -71,8 +71,10 @@
   function addSheet() {
     if (editing) stopEdit(true);
     snapshotSheet();
-    const id = 'sheet-' + nextSheetNumber++;
-    const name = 'Folha' + nextSheetNumber;
+    if (workbookSheets.length >= 100) return MO.toast('O livro já atingiu o limite de 100 folhas.');
+    const number = nextSheetNumber++;
+    const id = 'sheet-' + number;
+    const name = 'Folha' + number;
     workbookSheets.push({ id, name, cells: {} });
     activateSheet(id);
     renderSheetTabs();
@@ -1064,6 +1066,16 @@
         const book = MO.OOXML.importXlsx(text, ROWS, COLS);
         next = cleanCells(book.cells);
         clipped = book.clipped;
+        const used = new Set();
+        loadedSheets = (book.sheets || [{ name: 'Folha1', cells: book.cells }]).slice(0, 100).map((sheet, i) => {
+          let name = String(sheet.name || `Folha${i + 1}`).trim().slice(0, 31) || `Folha${i + 1}`;
+          if (/[\\\\/?*:[\\]]/.test(name)) name = `Folha${i + 1}`;
+          if (used.has(name.toLocaleLowerCase('pt-PT'))) name = `Folha${i + 1}`;
+          used.add(name.toLocaleLowerCase('pt-PT'));
+          return { id: `sheet-${i + 1}`, name, cells: cleanCells(sheet.cells) };
+        });
+        loadedActiveSheetId = loadedSheets[0].id;
+        next = loadedSheets[0].cells;
       } else if (ext === 'csv') {
         parseCSV(text).forEach((row, r) =>
           row.forEach((value, c) => {
@@ -1093,7 +1105,7 @@
       this.newDoc();
       setTheme(nextTheme);
       if (clipped) MO.toast(`O livro tem dados fora de ${ROWS} linhas × ${COLS} colunas; essa parte não foi importada.`);
-      if (ext === 'xlsx' || ext === 'csv') resetWorkbook(next);
+      if (ext === 'csv') resetWorkbook(next);
       else {
         workbookSheets = loadedSheets || [{ id: 'sheet-1', name: 'Folha1', cells: next }];
         activeSheetId = loadedActiveSheetId || workbookSheets[0].id;
@@ -1112,7 +1124,12 @@
         mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         get: () => {
           if (editing) stopEdit(true);
-          return MO.OOXML.exportXlsx(cells, values);
+          snapshotSheet();
+          return MO.OOXML.exportXlsx(workbookSheets.map((sheet) => ({
+            name: sheet.name,
+            cells: sheet.cells,
+            values: sheet.id === activeSheetId ? values : new Map()
+          })));
         }
       },
       { label: 'Valores separados por ; (.csv)', ext: 'csv', filterName: 'CSV', mime: 'text/csv', get: toCSV }
