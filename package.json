@@ -12,7 +12,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
-    "test": "node test/formula.test.js && node test/assistant.test.js && node test/license.test.js && node test/ai-download.test.js",
+    "test": "node test/formula.test.js && node test/assistant.test.js && node test/license.test.js && node test/ai-download.test.js && node test/package-metadata.test.js",
     "dist": "electron-builder --publish never",
     "dist:win": "electron-builder --win --publish never",
     "notices": "node tools/notices.js",
