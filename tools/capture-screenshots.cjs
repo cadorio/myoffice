@@ -8,7 +8,8 @@ const { pathToFileURL } = require('node:url');
   const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, deviceScaleFactor: 1 });
   page.setDefaultTimeout(10000);
   page.on('console', (message) => console.log('BROWSER:', message.text()));
-  page.on('pageerror', (error) => console.error('PAGE ERROR:', error.message));
+  const pageErrors = [];
+  page.on('pageerror', (error) => { pageErrors.push(error.message); console.error('PAGE ERROR:', error.message); });
 
   console.log('A abrir o MyOffice...');
   await page.goto(pathToFileURL(path.resolve('src/index.html')).href, { waitUntil: 'load', timeout: 60000 });
@@ -53,7 +54,30 @@ const { pathToFileURL } = require('node:url');
 
   await capture('writer', 'texto.png');
   await capture('sheets', 'folhas.png');
+
+  // Testa a criação de um gráfico com dados reais introduzidos na grelha.
+  const enterCell = async (row, col, value) => {
+    await page.locator('#view-sheets td[data-r="' + row + '"][data-c="' + col + '"]').click();
+    await page.keyboard.type(value);
+    await page.keyboard.press('Enter');
+  };
+  await enterCell(0, 0, 'Mês');
+  await enterCell(0, 1, 'Vendas');
+  await enterCell(1, 0, 'Janeiro');
+  await enterCell(1, 1, '120');
+  await enterCell(2, 0, 'Fevereiro');
+  await enterCell(2, 1, '150');
+  await page.locator('#view-sheets td[data-r="0"][data-c="0"]').click();
+  await page.locator('#view-sheets td[data-r="2"][data-c="1"]').click({ modifiers: ['Shift'] });
+  await page.locator('#view-sheets button[aria-label*="Criar gráfico"]').click();
+  await page.locator('.mo-chart-dialog').waitFor({ state: 'visible' });
+  await page.locator('.mo-chart-preview svg').waitFor({ state: 'visible' });
+  await page.locator('.mo-chart-close').click();
+  if (!(await page.locator('#view-sheets button[aria-label*="Analisar os dados"]').count())) {
+    throw new Error('O assistente IA de Folhas não está disponível na faixa.');
+  }
   await capture('slides', 'diapositivos.png');
+  if (pageErrors.length) throw new Error('Erros na interface: ' + pageErrors.join(' | '));
 
   // Captura o painel Assistente aberto a partir do separador da faixa de ferramentas.
   console.log('A abrir o painel Assistente...');
