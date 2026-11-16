@@ -437,6 +437,8 @@
     document.querySelectorAll('[data-icon]').forEach((el) => el.prepend(MO.icon(el.dataset.icon)));
     initMode();
 
+    MO.AssistantApp.init($('#view-assistant'));
+
     for (const id of ORDER) {
       docs[id] = { path: null, name: null, dirty: false };
       MO.modules[id].init($('#view-' + id), {
