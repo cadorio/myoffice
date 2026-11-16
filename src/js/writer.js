@@ -426,10 +426,11 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
         pageNumbers = Boolean(data.pageNumbers);
         nextTheme = T.byId(data.theme);
       } else if (ext === 'docx') {
-        html = MO.OOXML.importDocx(text);
-        headerText = '';
-        footerText = '';
-        pageNumbers = false;
+        const imported = MO.OOXML.importDocx(text);
+        html = imported.html;
+        headerText = String(imported.headerText || '').slice(0, 250);
+        footerText = String(imported.footerText || '').slice(0, 250);
+        pageNumbers = Boolean(imported.pageNumbers);
       } else if (ext === 'txt') {
         headerText = '';
         footerText = '';
