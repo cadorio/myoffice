@@ -51,6 +51,7 @@ A captura mostra o painel Assistente aberto no editor de Diapositivos, com as su
 - **Espaço de trabalho MyOffice Horizon** — página inicial renovada com acesso direto às ferramentas, modelos editáveis e pesquisa de ficheiros recentes.
 - **Seis modelos prontos a usar** — relatório, ata de reunião, orçamento mensal com fórmulas, gestor de tarefas, apresentação de projeto e apresentação de aula.
 - **Análise visual em Folhas** — gráficos de colunas e linhas a partir de uma seleção de dados, com exportação SVG.
+- **Assistente IA transversal** — revisão e resumo de documentos em Texto e análise de tabelas em Folhas, com modelos executados localmente no computador.
 - **Filtros rápidos em Folhas** — mostrar apenas as linhas que correspondem a um texto na coluna ativa; a ordenação ascendente e descendente também está disponível.
 - **Três módulos integrados** — alternar entre documentos, folhas de cálculo e apresentações.
 - **Abertura de ficheiros Office** — importar DOCX, XLSX e PPTX e exportar para esses formatos.
@@ -64,7 +65,7 @@ A captura mostra o painel Assistente aberto no editor de Diapositivos, com as su
 
 Para criar um gráfico, selecione uma tabela com os nomes das categorias na primeira coluna e valores numéricos na segunda. No separador **Dados**, escolha **Gráfico** e alterne entre colunas e linhas. O gráfico pode ser exportado em SVG para utilização noutros documentos.
 
-Os filtros rápidos aplicam-se às linhas da seleção e podem ser removidos com **Limpar filtro**. Nesta versão, os gráficos são pré-visualizações exportáveis e os filtros são temporários: ainda não ficam guardados no ficheiro nem são objetos incorporados na folha.
+Os filtros rápidos aplicam-se às linhas da seleção e podem ser removidos com **Limpar filtro**. Nesta versão, os gráficos são pré-visualizações exportáveis e os filtros são temporários: ainda não ficam guardados no ficheiro nem são objetos incorporados na folha. A análise por IA é opcional, requer descarregar um dos modelos disponíveis e é executada localmente; sem um modelo instalado, os restantes módulos continuam a funcionar normalmente.
 
 ## Instalação
 
