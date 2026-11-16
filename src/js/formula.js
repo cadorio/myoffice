@@ -369,11 +369,11 @@
     },
     MIN: (a) => {
       const n = nums(a);
-      return n.length ? Math.min(...n) : 0;
+      return n.reduce((best, value) => Math.min(best, value), n.length ? Infinity : 0);
     },
     MAX: (a) => {
       const n = nums(a);
-      return n.length ? Math.max(...n) : 0;
+      return n.reduce((best, value) => Math.max(best, value), n.length ? -Infinity : 0);
     },
     COUNT: (a) => flat(a).filter((v) => typeof v === 'number').length,
     COUNTA: (a) => flat(a).filter((v) => v !== null && v !== '').length,
