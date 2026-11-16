@@ -49,3 +49,15 @@ assert.deepEqual(ok, { tips: [], suggestions: [] });
 assert.ok(A.suggest({ title: '', bullets: [] }).error);
 
 console.log('Testes do assistente passaram.');
+
+
+// Sugestões de composição com fotografias: deteta problemas sem alterar os elementos.
+const visual = A.suggestComposition([
+  { type: 'image', x: 800, y: 430, w: 240, h: 150 },
+  { type: 'text', x: 760, y: 400, w: 180, h: 100 }
+]);
+assert.ok(visual.some((tip) => tip.includes('ultrapassa os limites')));
+assert.ok(visual.some((tip) => tip.includes('sobrepõe-se a uma caixa de texto')));
+assert.deepEqual(A.suggestComposition([{ type: 'image', x: 100, y: 100, w: 300, h: 200 }]), [
+  'O diapositivo contém apenas uma fotografia. Pode acrescentar um título ou uma legenda curta para dar contexto.'
+]);
