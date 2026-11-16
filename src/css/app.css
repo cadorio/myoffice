@@ -519,6 +519,22 @@ body[data-current="home"] #rail { display: flex; }
 .page hr, .print-doc hr { border: 0; border-top: 1px solid #9aa1b1; margin: 12pt 0; }
 .page a { color: #2f48c9; }
 
+.print-page-header, .print-page-footer {
+  color: #555;
+  font-size: 9pt;
+  padding: 0 0 6pt;
+  margin: 0 0 12pt;
+  border-bottom: 1px solid #d1d5db;
+}
+.print-page-footer {
+  padding: 6pt 0 0;
+  margin: 16pt 0 0;
+  border-bottom: 0;
+  border-top: 1px solid #d1d5db;
+  text-align: center;
+}
+
+
 /* ---------- Folhas ---------- */
 
 .fx-bar {
