@@ -528,6 +528,125 @@
     return '﻿' + lines.join('\r\n') + '\r\n';
   }
 
+  // ---------- Gráficos e filtros ----------
+
+  let chartDialog = null;
+  let chartRange = null;
+
+  function selectedChartData() {
+    const { r0, r1, c0, c1 } = chartRange || range();
+    if (r1 - r0 < 1 || c1 - c0 < 1) return null;
+    const points = [];
+    for (let r = r0 + 1; r <= r1; r++) {
+      const label = F.format(values.get(F.addr(r, c0)) ?? cells[F.addr(r, c0)]?.v ?? '');
+      const value = values.get(F.addr(r, c0 + 1));
+      if (typeof value === 'number' && Number.isFinite(value)) points.push({ label: label || `Linha ${r + 1}`, value });
+    }
+    return points.length ? { points, title: `${F.addr(r0, c0)}:${F.addr(r1, c1)}` } : null;
+  }
+
+  function renderChart(type) {
+    if (!chartDialog) return;
+    const host = chartDialog.querySelector('.mo-chart-preview');
+    const data = selectedChartData();
+    host.replaceChildren();
+    if (!data) {
+      host.textContent = 'Selecione pelo menos duas colunas: categorias na primeira e valores numéricos na segunda.';
+      return;
+    }
+    const max = Math.max(1, ...data.points.map((p) => Math.abs(p.value)));
+    const width = 720, height = 310, left = 52, bottom = 48, top = 22;
+    const plotH = height - top - bottom;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'Gráfico de valores da seleção');
+    const add = (tag, attrs, text) => {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, String(v)));
+      if (text != null) el.textContent = text;
+      svg.append(el);
+      return el;
+    };
+    [0, .25, .5, .75, 1].forEach((step) => {
+      const y = top + plotH * step;
+      add('line', { x1: left, x2: width - 12, y1: y, y2: y, stroke: 'currentColor', opacity: .13 });
+      add('text', { x: left - 10, y: y + 4, 'text-anchor': 'end', fill: 'currentColor', 'font-size': 11 }, F.format(max * (1 - step)));
+    });
+    const slot = (width - left - 20) / data.points.length;
+    const coords = data.points.map((p, i) => ({
+      x: left + slot * (i + .5),
+      y: top + plotH - (p.value / max) * plotH,
+      label: p.label,
+      value: p.value
+    }));
+    if (type === 'line') {
+      add('polyline', { points: coords.map((p) => `${p.x},${p.y}`).join(' '), fill: 'none', stroke: '#16865b', 'stroke-width': 3, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
+      coords.forEach((p) => add('circle', { cx: p.x, cy: p.y, r: 5, fill: '#16865b' }));
+    } else {
+      const barW = Math.max(8, Math.min(54, slot * .62));
+      coords.forEach((p) => add('rect', { x: p.x - barW / 2, y: p.y, width: barW, height: Math.max(0, top + plotH - p.y), rx: 4, fill: '#16865b' }));
+    }
+    coords.forEach((p) => {
+      add('text', { x: p.x, y: height - 25, 'text-anchor': 'middle', fill: 'currentColor', 'font-size': 11 }, p.label.slice(0, 12));
+      add('title', {}, `${p.label}: ${F.format(p.value)}`);
+    });
+    host.append(svg);
+    chartDialog.querySelector('.mo-chart-range').textContent = `Intervalo: ${data.title} · ${data.points.length} valores`;
+  }
+
+  function openChart() {
+    if (editing) stopEdit(true);
+    chartRange = { ...range() };
+    if (chartRange.c1 - chartRange.c0 < 1 || chartRange.r1 - chartRange.r0 < 1) {
+      return MO.toast('Selecione uma tabela com categorias na primeira coluna e valores na segunda.');
+    }
+    chartDialog = h('dialog', { class: 'mo-chart-dialog', 'aria-labelledby': 'mo-chart-title' });
+    const type = h('select', { class: 'tool-select', 'aria-label': 'Tipo de gráfico' },
+      h('option', { value: 'bar' }, 'Colunas'),
+      h('option', { value: 'line' }, 'Linhas')
+    );
+    type.addEventListener('change', () => renderChart(type.value));
+    const preview = h('div', { class: 'mo-chart-preview' });
+    const close = () => { chartDialog.close(); chartDialog.remove(); chartDialog = null; chartRange = null; };
+    const exportSvg = () => {
+      const svg = preview.querySelector('svg');
+      if (!svg) return MO.toast('Não há gráfico para exportar.');
+      const source = new XMLSerializer().serializeToString(svg);
+      const url = URL.createObjectURL(new Blob([source], { type: 'image/svg+xml;charset=utf-8' }));
+      const a = h('a', { href: url, download: 'grafico-myoffice.svg' });
+      document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    };
+    chartDialog.append(
+      h('header', { class: 'mo-chart-head' }, h('div', null, h('h2', { id: 'mo-chart-title' }, 'Análise visual'), h('p', null, 'Gráfico baseado nos dados da seleção')), type, h('button', { class: 'mo-chart-close', type: 'button', onclick: close, 'aria-label': 'Fechar' }, '×')),
+      preview,
+      h('p', { class: 'mo-chart-range' }),
+      h('footer', { class: 'mo-chart-actions' }, h('button', { type: 'button', class: 'btn', onclick: exportSvg }, 'Exportar SVG'), h('button', { type: 'button', class: 'btn primary', onclick: close }, 'Concluir'))
+    );
+    chartDialog.addEventListener('click', (e) => { if (e.target === chartDialog) close(); });
+    document.body.append(chartDialog);
+    chartDialog.showModal();
+    renderChart(type.value);
+  }
+
+  function filterSelection() {
+    if (editing) stopEdit(true);
+    const { r0, r1 } = range();
+    const col = cur.c;
+    const term = window.prompt('Mostrar apenas as linhas em que esta coluna contém:');
+    if (term == null) return;
+    const needle = term.trim().toLocaleLowerCase('pt-PT');
+    for (let r = 0; r < ROWS; r++) {
+      const row = tds[r][0].parentElement;
+      row.hidden = Boolean(needle) && r > r0 && r <= r1 && !F.format(values.get(F.addr(r, col))).toLocaleLowerCase('pt-PT').includes(needle);
+    }
+    MO.toast(needle ? 'Filtro aplicado à seleção.' : 'Filtro removido.');
+  }
+
+  function clearFilter() {
+    for (let r = 0; r < ROWS; r++) tds[r][0].parentElement.hidden = false;
+  }
+
   // ---------- Construção da interface ----------
 
   function buildGrid() {
@@ -718,7 +837,10 @@
               rows: [
                 [
                   bigButton('sortAsc', 'Ascendente', 'Ordenar a seleção por ordem ascendente', () => sortRange(false)),
-                  bigButton('sortDesc', 'Descendente', 'Ordenar a seleção por ordem descendente', () => sortRange(true))
+                  bigButton('sortDesc', 'Descendente', 'Ordenar a seleção por ordem descendente', () => sortRange(true)),
+                  bigButton('filter', 'Filtrar', 'Filtrar as linhas da seleção pela coluna ativa', filterSelection),
+                  bigButton('filter', 'Limpar filtro', 'Mostrar novamente todas as linhas', clearFilter),
+                  bigButton('chart', 'Gráfico', 'Criar gráfico a partir da seleção', openChart)
                 ]
               ]
             }
