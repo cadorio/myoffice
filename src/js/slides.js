@@ -536,102 +536,8 @@
     fitStage();
   }
 
-  // ---------- IA local (modelo de linguagem a correr neste computador, ver ai.js) ----------
-
-  const localAI = () => (window.api && window.api.ai) || null;
-  let aiStage = null; // elementos do painel "a trabalhar"
-
-  async function aiActive() {
-    return localAI() ? (await localAI().status()).active : null;
-  }
-
-  function aiBusy(text) {
-    const stage = h('span', null, text);
-    const detail = h('span', { class: 'ai-detail' });
-    aiStage = { stage, detail };
-    showAI(
-      h('p', { class: 'ai-status', role: 'status' }, h('span', { class: 'ai-spinner' }), stage),
-      h('p', { class: 'ai-hint' }, detail),
-      h('p', { class: 'ai-hint' }, 'O modelo corre no seu computador; pode demorar um a três minutos, conforme a máquina.'),
-      h('button', { type: 'button', class: 'btn', onclick: () => localAI().cancel() }, 'Cancelar')
-    );
-  }
-
-  function onAIEvent(message) {
-    if (message.type === 'download') {
-      const bar = document.querySelector('.model-progress');
-      if (bar) {
-        bar.value = message.received / message.total;
-        bar.nextSibling.textContent = `${(message.received / 1e9).toFixed(2)} de ${(message.total / 1e9).toFixed(2)} GB`;
-      }
-    } else if (aiStage && message.type === 'stage') {
-      aiStage.stage.textContent = message.text;
-    } else if (aiStage && message.type === 'progress') {
-      aiStage.detail.textContent = `${message.chars} caracteres escritos`;
-    }
-  }
-
-  const sizeText = (bytes) => (bytes / 1e9).toFixed(1).replace('.', ',') + ' GB';
-
-  // Gestão dos modelos: descarregar (uma vez, com Internet) ou remover.
-  async function modelDialog() {
-    if (!localAI()) return MO.toast('A IA local só está disponível na aplicação instalada.');
-    const body = h('div');
-    const dlg = h(
-      'dialog',
-      { class: 'mo-dialog wide' },
-      h('h2', null, 'Modelo de IA'),
-      h('p', null, 'A IA escreve o conteúdo dos diapositivos a partir de um tema. Corre neste computador: o descarregamento do modelo é a única vez em que é precisa a Internet, e os seus documentos nunca saem daqui.'),
-      body,
-      h('div', { class: 'dialog-actions' }, h('button', { type: 'button', class: 'btn primary', onclick: () => dlg.close() }, 'Fechar'))
-    );
-    async function draw() {
-      const st = await localAI().status();
-      body.replaceChildren(
-        ...st.models.map((m) => {
-          const actions = h('div', { class: 'model-actions' });
-          if (m.downloading) {
-            actions.append(h('progress', { class: 'model-progress', max: '1', value: '0' }), h('span', { class: 'ai-detail' }, 'A descarregar…'), h('button', { type: 'button', class: 'btn', onclick: () => localAI().cancel() }, 'Cancelar'));
-          } else if (m.installed) {
-            actions.append(
-              h('span', { class: 'model-ok' }, m.id === st.active ? 'Instalado e em uso' : 'Instalado'),
-              h('button', {
-                type: 'button',
-                class: 'btn',
-                onclick: async () => {
-                  await localAI().remove(m.id);
-                  draw();
-                }
-              }, 'Remover')
-            );
-          } else {
-            actions.append(
-              h('button', {
-                type: 'button',
-                class: 'btn primary',
-                onclick: async () => {
-                  const pending = localAI().download(m.id);
-                  await draw();
-                  const res = await pending;
-                  MO.toast(res.error ? res.error : `Modelo ${m.name} instalado.`);
-                  if (dlg.isConnected) draw();
-                }
-              }, `Descarregar (${sizeText(m.bytes)})`)
-            );
-          }
-          return h('article', { class: 'ai-card' }, h('div', { class: 'ai-label' }, m.label), h('h3', null, m.name), h('p', { class: 'ai-reason' }, `${m.note} Licença: ${m.license}.`), actions);
-        })
-      );
-    }
-    dlg.addEventListener('close', () => dlg.remove());
-    document.body.append(dlg);
-    await draw();
-    dlg.showModal();
-  }
-
   async function aiGenerate() {
     commitTextEdit();
-    const active = await aiActive();
     const res = await MO.dialog({
       title: 'Criar apresentação',
       message: active
@@ -641,29 +547,20 @@
       fields: [
         { name: 'topic', label: 'Tema', placeholder: 'Ex.: Plano de marketing para 2027' },
         { name: 'audience', label: 'Público (opcional)', placeholder: 'Ex.: direção da empresa' },
-        { name: 'count', label: 'Número de diapositivos', type: 'number', value: active ? 5 : 6, min: 3, max: active ? 6 : 10 }
+        { name: 'count', label: 'Número de diapositivos', type: 'number', value: 6, min: 3, max: 10 }
       ],
       okLabel: 'Criar'
     });
     if (!res) return;
-    let out;
-    if (active) {
-      aiBusy('A preparar…');
-      out = await localAI().generate(res);
-      aiStage = null;
-      if (out.error) return showAI(h('p', { class: 'ai-error', role: 'alert' }, out.error));
-      hideAI();
-    } else {
-      out = MO.Assistant.generateDeck(res);
-      if (out.error) return MO.toast(out.error);
-    }
+    const out = MO.Assistant.generateDeck(res);
+    if (out.error) return MO.toast(out.error);
     change(() => {
       slides = [makeSlide('title', out), ...out.slides.map((s) => makeSlide('content', s))];
       idx = 0;
       selId = null;
     });
     root.focus({ preventScroll: true });
-    MO.toast(active ? `Apresentação escrita pela IA: ${slides.length} diapositivos. Reveja o conteúdo.` : `Apresentação criada com a estrutura «${out.type}»: ${slides.length} diapositivos.`);
+    MO.toast(`Estrutura de apresentação criada: ${slides.length} diapositivos. Complete e reveja o conteúdo.`);
   }
 
   // Texto de um elemento, uma linha por parágrafo ou item de lista.
@@ -974,7 +871,6 @@
               label: 'Melhorar',
               rows: [[bigButton('sparkle', 'Sugestões', 'Sugestões para o diapositivo atual', aiSuggest)]]
             },
-            { label: 'IA local', rows: [[bigButton('export', 'Modelo de IA', 'Descarregar ou remover o modelo de IA local', modelDialog)]] }
           ]
         },
         {
@@ -1052,7 +948,6 @@
         ctx.dirty();
       });
       notesEl.addEventListener('blur', () => (notesSnapshotTaken = false));
-      if (localAI()) localAI().onEvent(onAIEvent);
       new ResizeObserver(fitStage).observe(stageBox);
     },
 
