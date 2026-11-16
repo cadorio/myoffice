@@ -24,6 +24,7 @@
   let workbookSheets = [];
   let activeSheetId = 'sheet-1';
   let sheetBar;
+  let validationList;
   let nextSheetNumber = 2;
 
   function snapshotSheet() {
@@ -300,6 +301,17 @@
     paintSelection(true);
     editing = { a, viaBar: Boolean(viaBar) };
     const text = initial != null ? initial : rawOf(a);
+    const sheet = workbookSheets.find((s) => s.id === activeSheetId);
+    const rule = sheet && (sheet.validations || []).find((v) => cur.r >= v.r0 && cur.r <= v.r1 && cur.c >= v.c0 && cur.c <= v.c1);
+    editorEl.removeAttribute('list');
+    fxInput.removeAttribute('list');
+    if (validationList) validationList.remove();
+    if (rule) {
+      validationList = h('datalist', { id: 'myoffice-validation-list' }, ...rule.options.map((option) => h('option', { value: option })));
+      wrap.append(validationList);
+      editorEl.setAttribute('list', 'myoffice-validation-list');
+      fxInput.setAttribute('list', 'myoffice-validation-list');
+    }
     fxInput.value = text;
     if (viaBar) return;
     const td = tds[cur.r][cur.c];
@@ -319,7 +331,20 @@
     if (!editing) return;
     const { a, viaBar } = editing;
     const value = viaBar ? fxInput.value : editorEl.value;
+    const sheet = workbookSheets.find((s) => s.id === activeSheetId);
+    const rule = sheet && (sheet.validations || []).find((v) => {
+      const pos = F.parseAddr(a);
+      return pos.r >= v.r0 && pos.r <= v.r1 && pos.c >= v.c0 && pos.c <= v.c1;
+    });
+    if (commit && rule && value !== '' && !rule.options.includes(value)) {
+      MO.toast('Valor inválido. Escolha uma das opções permitidas.');
+      if (viaBar) fxInput.focus(); else { editorEl.focus(); editorEl.setSelectionRange(0, editorEl.value.length); }
+      return;
+    }
     editing = null;
+    if (validationList) { validationList.remove(); validationList = null; }
+    editorEl.removeAttribute('list');
+    fxInput.removeAttribute('list');
     editorEl.style.display = 'none';
     if (commit && value !== rawOf(a)) mutate(() => setRaw(a, value));
     else paintSelection(false);
@@ -755,6 +780,20 @@
     MO.toast(sheet.filter.term ? 'Filtro guardado neste livro.' : 'Filtro removido.');
   }
 
+  function setDataValidation() {
+    if (editing) stopEdit(true);
+    const { r0, r1, c0, c1 } = range();
+    const raw = window.prompt('Opções permitidas, separadas por ponto e vírgula (ex.: Pendente;Em curso;Concluído):');
+    if (raw == null) return;
+    const options = [...new Set(raw.split(';').map((v) => v.trim()).filter(Boolean))].slice(0, 100);
+    const sheet = workbookSheets.find((s) => s.id === activeSheetId);
+    if (!sheet) return;
+    sheet.validations = (sheet.validations || []).filter((v) => v.r1 < r0 || v.r0 > r1 || v.c1 < c0 || v.c0 > c1);
+    if (options.length) sheet.validations.push({ r0, r1, c0, c1, options });
+    ctx.dirty();
+    MO.toast(options.length ? 'Lista de validação aplicada à seleção.' : 'Validação removida da seleção.');
+  }
+
   function clearFilter() {
     const sheet = workbookSheets.find((s) => s.id === activeSheetId);
     if (sheet) delete sheet.filter;
@@ -955,6 +994,7 @@
                   bigButton('sortDesc', 'Descendente', 'Ordenar a seleção por ordem descendente', () => sortRange(true)),
                   bigButton('filter', 'Filtrar', 'Filtrar as linhas da seleção pela coluna ativa', filterSelection),
                   bigButton('filter', 'Limpar filtro', 'Mostrar novamente todas as linhas', clearFilter),
+                  bigButton('list', 'Validação', 'Criar lista de opções permitidas para as células selecionadas', setDataValidation),
                   bigButton('chart', 'Gráfico', 'Criar gráfico a partir da seleção', openChart),
                   bigButton('sparkle', 'Analisar com IA', 'Analisar os dados selecionados com IA local', aiAnalyseSelection)
                 ]
@@ -1087,7 +1127,7 @@
           if (/[\\\\/?*:[\\]]/.test(name)) name = `Folha${i + 1}`;
           if (used.has(name.toLocaleLowerCase('pt-PT'))) name = `Folha${i + 1}`;
           used.add(name.toLocaleLowerCase('pt-PT'));
-          return { id: `sheet-${i + 1}`, name, cells: cleanCells(sheet.cells), filter: null };
+          return { id: `sheet-${i + 1}`, name, cells: cleanCells(sheet.cells), filter: null, validations: [] };
         });
         loadedActiveSheetId = loadedSheets[0].id;
         next = loadedSheets[0].cells;
@@ -1108,7 +1148,8 @@
             if (used.has(name.toLocaleLowerCase('pt-PT'))) name = `Folha${i + 1}`;
             used.add(name.toLocaleLowerCase('pt-PT'));
             const filter = s.filter && Number.isInteger(s.filter.r0) && Number.isInteger(s.filter.r1) && Number.isInteger(s.filter.col) && s.filter.r0 >= 0 && s.filter.r1 < ROWS && s.filter.r1 > s.filter.r0 && s.filter.col >= 0 && s.filter.col < COLS ? { r0: s.filter.r0, r1: s.filter.r1, col: s.filter.col, term: String(s.filter.term || '').slice(0, 200).toLocaleLowerCase('pt-PT') } : null;
-            return { id: String(s.id || `sheet-${i + 1}`), name, cells: cleanCells(s.cells), filter };
+            const validations = Array.isArray(s.validations) ? s.validations.slice(0, 500).map((v) => ({ r0: v.r0, r1: v.r1, c0: v.c0, c1: v.c1, options: Array.isArray(v.options) ? v.options.slice(0, 100).map((x) => String(x).slice(0, 200)) : [] })).filter((v) => Number.isInteger(v.r0) && Number.isInteger(v.r1) && Number.isInteger(v.c0) && Number.isInteger(v.c1) && v.r0 >= 0 && v.r1 < ROWS && v.r1 >= v.r0 && v.c0 >= 0 && v.c1 < COLS && v.c1 >= v.c0 && v.options.length) : [];
+            return { id: String(s.id || `sheet-${i + 1}`), name, cells: cleanCells(s.cells), filter, validations };
           });
           loadedActiveSheetId = loadedSheets.some((s) => s.id === data.activeSheetId) ? data.activeSheetId : loadedSheets[0].id;
           next = loadedSheets.find((s) => s.id === loadedActiveSheetId).cells;
