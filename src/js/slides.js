@@ -540,10 +540,7 @@
     commitTextEdit();
     const res = await MO.dialog({
       title: 'Criar apresentação',
-      message: active
-        ? 'Indique o tema. A IA local escreve os diapositivos, com tópicos e notas do orador. Substitui a apresentação atual; pode anular com Ctrl+Z.'
-        : 'Indique o tema. Sem modelo de IA instalado, o assistente cria só a estrutura adequada (plano, relatório, formação…), com os tópicos a preencher. ' +
-          'Para a IA escrever o conteúdo, instale um modelo em Assistente › Modelo de IA.',
+      message: 'Indique o tema. O assistente cria uma estrutura inicial com tópicos e notas para completar. Substitui a apresentação atual; pode anular com Ctrl+Z.',
       fields: [
         { name: 'topic', label: 'Tema', placeholder: 'Ex.: Plano de marketing para 2027' },
         { name: 'audience', label: 'Público (opcional)', placeholder: 'Ex.: direção da empresa' },
