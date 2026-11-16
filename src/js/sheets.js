@@ -967,10 +967,12 @@
       wrap = h('div', { class: 'sheet-wrap', tabindex: '0', 'aria-label': 'Folha de cálculo' }, h('div', { class: 'sheet-inner' }, table, editorEl));
       statusEl = h('span', { class: 'status-text' });
       const ribbon = buildRibbon();
+      sheetBar = h('div', { class: 'sheet-tabs', role: 'tablist', 'aria-label': 'Folhas do livro' });
       const inner = wrap.firstChild;
       const bar = h('div', { class: 'statusbar' }, statusEl, MO.zoomControl((k) => (inner.style.zoom = k)));
       showStates = MO.toolStates(ribbon, { Negrito: 'b', 'Itálico': 'i', 'Alinhar à esquerda': 'left', Centrar: 'center', 'Alinhar à direita': 'right' });
-      container.append(ribbon, h('div', { class: 'fx-bar' }, nameBox, h('span', { class: 'fx-label' }, 'fx'), fxInput), wrap, bar);
+      container.append(ribbon, h('div', { class: 'fx-bar' }, nameBox, h('span', { class: 'fx-label' }, 'fx'), fxInput), sheetBar, wrap, bar);
+      resetWorkbook();
 
       table.addEventListener('mousedown', onMouseDown);
       table.addEventListener('mouseover', (e) => {
@@ -1006,6 +1008,7 @@
       editing = null;
       editorEl.style.display = 'none';
       cells = {};
+      resetWorkbook();
       undoStack = [];
       redoStack = [];
       clip = null;
@@ -1047,7 +1050,8 @@
 
     serialize() {
       if (editing) stopEdit(true);
-      return JSON.stringify({ format: 'myoffice-sheet', version: 1, theme: theme.id, cells });
+      snapshotSheet();
+      return JSON.stringify({ format: 'myoffice-sheet', version: 2, theme: theme.id, activeSheetId, sheets: workbookSheets });
     },
 
     load(text, ext) {
@@ -1067,13 +1071,33 @@
       } else {
         const data = JSON.parse(text);
         if (!data || data.format !== 'myoffice-sheet') throw new Error('Formato inválido');
-        next = cleanCells(data.cells);
         nextTheme = T.byId(data.theme);
+        if (data.version >= 2 && Array.isArray(data.sheets) && data.sheets.length) {
+          const used = new Set();
+          workbookSheets = data.sheets.slice(0, 100).map((s, i) => {
+            let name = String(s.name || `Folha${i + 1}`).trim().slice(0, 31) || `Folha${i + 1}`;
+            if (used.has(name.toLocaleLowerCase('pt-PT'))) name = `Folha${i + 1}`;
+            used.add(name.toLocaleLowerCase('pt-PT'));
+            return { id: String(s.id || `sheet-${i + 1}`), name, cells: cleanCells(s.cells) };
+          });
+          activeSheetId = workbookSheets.some((s) => s.id === data.activeSheetId) ? data.activeSheetId : workbookSheets[0].id;
+          next = workbookSheets.find((s) => s.id === activeSheetId).cells;
+          nextSheetNumber = workbookSheets.length + 1;
+        } else {
+          next = cleanCells(data.cells);
+          workbookSheets = [{ id: 'sheet-1', name: 'Folha1', cells: next }];
+          activeSheetId = 'sheet-1';
+          nextSheetNumber = 2;
+        }
       }
       this.newDoc();
       setTheme(nextTheme);
       if (clipped) MO.toast(`O livro tem dados fora de ${ROWS} linhas × ${COLS} colunas; essa parte não foi importada.`);
-      cells = next;
+      if (ext === 'xlsx' || ext === 'csv') resetWorkbook(next);
+      else {
+        cells = next;
+        renderSheetTabs();
+      }
       refresh();
     },
 
