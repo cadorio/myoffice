@@ -36,8 +36,8 @@ const { pathToFileURL } = require('node:url');
 
   // Captura o painel Assistente aberto a partir do separador da faixa de ferramentas.
   console.log('A abrir o painel Assistente...');
-  await page.getByRole('button', { name: 'Assistente', exact: true }).click();
-  await page.getByRole('button', { name: /Sugestões/ }).click();
+  await page.locator('.ribbon-tabs .ribbon-tab').filter({ hasText: 'Assistente' }).click();
+  await page.locator('button.tool').filter({ hasText: 'Sugestões' }).click();
   await page.locator('.ai-panel:not([hidden])').waitFor({ state: 'visible' });
   await page.waitForTimeout(500);
   await page.screenshot({ path: path.join(out, 'assistente.png'), fullPage: false });
