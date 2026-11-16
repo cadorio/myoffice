@@ -250,16 +250,18 @@ async function assist(input) {
   const module = input && input.module;
   const task = input && input.task;
   const content = typeof (input && input.content) === 'string' ? input.content.trim().slice(0, 6000) : '';
-  if (!['writer', 'sheets'].includes(module) || !['review', 'analyse'].includes(task) || !content) {
+  if (!['writer', 'sheets', 'assistant'].includes(module) || !['review', 'analyse', 'chat'].includes(task) || !content) {
     return { error: 'Não há conteúdo suficiente para analisar.' };
   }
-  const context = module === 'writer'
-    ? 'Estás a apoiar o utilizador no MyOffice Texto. Resume ou revê o documento, identifica pontos pouco claros e propõe melhorias sem alterar os factos.'
-    : 'Estás a apoiar o utilizador no MyOffice Folhas. Analisa a tabela fornecida, identifica tendências e anomalias e sugere perguntas úteis. Não calcules valores que não estejam nos dados.';
+  const context = module === 'assistant'
+    ? 'És o MyOffice Assistente, uma IA simples integrada numa suite de escritório. Ajudas o utilizador a utilizar Texto, Folhas e Diapositivos, esclarecer dúvidas informáticas relacionadas com produtividade, criar rascunhos, estruturar documentos e apresentações e explicar fórmulas. Dá instruções práticas, passo a passo, em português de Portugal. Se não souberes uma funcionalidade específica do MyOffice, assume a incerteza e não inventes menus ou botões. Não afirmes que alteraste ficheiros ou executaste ações. Mantém respostas claras e curtas.'
+    : module === 'writer'
+      ? 'Estás a apoiar o utilizador no MyOffice Texto. Resume ou revê o documento, identifica pontos pouco claros e propõe melhorias sem alterar os factos.'
+      : 'Estás a apoiar o utilizador no MyOffice Folhas. Analisa a tabela fornecida, identifica tendências e anomalias e sugere perguntas úteis. Não calcules valores que não estejam nos dados.';
   try {
     const result = await ask(
       context + ' Responde em português de Portugal, de forma concisa. Não inventes dados. Distingue observações de hipóteses. Responde apenas com JSON.',
-      (task === 'review' ? 'Revê este documento e apresenta um resumo, pontos fortes e melhorias prioritárias.\n\n' : 'Analisa esta tabela. Resume os indicadores, tendências observáveis e limitações dos dados.\n\n') + content,
+      (task === 'chat' ? 'Responde à seguinte pergunta ou pedido do utilizador. Se for necessário, explica os passos e apresenta um exemplo simples.\n\n' : task === 'review' ? 'Revê este documento e apresenta um resumo, pontos fortes e melhorias prioritárias.\n\n' : 'Analisa esta tabela. Resume os indicadores, tendências observáveis e limitações dos dados.\n\n') + content,
       { type: 'object', properties: { answer: { type: 'string' } } },
       700
     );
