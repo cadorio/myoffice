@@ -175,4 +175,15 @@ test('procura e funções condicionais', () => {
   assert.equal(v('E8'), '#REF!');
 });
 
+test('MIN e MAX em intervalos grandes', () => {
+  const cells = {};
+  const total = 110000;
+  for (let row = 1; row <= total; row++) cells[`A${row}`] = { v: String(row) };
+  cells.B1 = { v: `=MIN(A1:A${total})` };
+  cells.B2 = { v: `=MAX(A1:A${total})` };
+  const values = F.compute(cells, total, 2);
+  assert.equal(values.get('B1'), 1);
+  assert.equal(values.get('B2'), total);
+});
+
 console.log(`${count} grupos de testes passaram.`);
