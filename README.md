@@ -6,8 +6,8 @@ O MyOffice reúne três ferramentas numa única aplicação: **Texto**, **Folhas
 
 [Consultar compilações e instaladores](https://github.com/cadorio/myoffice/actions) · [Ver código-fonte](https://github.com/cadorio/myoffice) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
-> **Nova versão em preparação: 1.3.0**  
-> A versão 1.3.0 introduz o MyOffice Workspace redesenhado, com foco numa experiência simples e leve em Windows 10 22H2 e Windows 11. O instalador será disponibilizado após a validação da compilação.
+> **Versão em desenvolvimento: MyOffice Horizon**  
+> Esta branch prepara uma atualização da experiência de trabalho e acrescenta modelos editáveis, gráficos de análise em Folhas e assistência por IA local. Ainda não é uma versão estável publicada; consulta a PR e as compilações para acompanhar a validação.
 
 ## Capturas de ecrã
 
@@ -50,8 +50,8 @@ A captura mostra o painel Assistente aberto no editor de Diapositivos, com as su
 
 - **Espaço de trabalho MyOffice Horizon** — página inicial renovada com acesso direto às ferramentas, modelos editáveis e pesquisa de ficheiros recentes.
 - **Seis modelos prontos a usar** — relatório, ata de reunião, orçamento mensal com fórmulas, gestor de tarefas, apresentação de projeto e apresentação de aula.
-- **Análise visual em Folhas** — gráficos de colunas e linhas a partir de uma seleção de dados, com exportação SVG.
-- **Assistente IA transversal** — revisão e resumo de documentos em Texto e análise de tabelas em Folhas, com modelos executados localmente no computador.
+- **Gráficos em Folhas** — pré-visualização de gráficos de colunas e linhas a partir de dados selecionados, com exportação SVG.
+- **Assistente IA transversal** — revisão e resumo de documentos em Texto, análise de tabelas em Folhas e assistência à criação de apresentações. Utiliza modelos de linguagem executados localmente no computador.
 - **Filtros rápidos em Folhas** — mostrar apenas as linhas que correspondem a um texto na coluna ativa; a ordenação ascendente e descendente também está disponível.
 - **Três módulos integrados** — alternar entre documentos, folhas de cálculo e apresentações.
 - **Abertura de ficheiros Office** — importar DOCX, XLSX e PPTX e exportar para esses formatos.
@@ -63,9 +63,11 @@ A captura mostra o painel Assistente aberto no editor de Diapositivos, com as su
 
 ### Análise de dados em Folhas
 
-Para criar um gráfico, selecione uma tabela com os nomes das categorias na primeira coluna e valores numéricos na segunda. No separador **Dados**, escolha **Gráfico** e alterne entre colunas e linhas. O gráfico pode ser exportado em SVG para utilização noutros documentos.
+Para criar um gráfico, selecione uma tabela com as categorias na primeira coluna e os valores numéricos na segunda. No separador **Dados**, escolha **Gráfico** e alterne entre colunas e linhas. O gráfico pode ser exportado em SVG para ser utilizado noutros documentos.
 
-Os filtros rápidos aplicam-se às linhas da seleção e podem ser removidos com **Limpar filtro**. Nesta versão, os gráficos são pré-visualizações exportáveis e os filtros são temporários: ainda não ficam guardados no ficheiro nem são objetos incorporados na folha. A análise por IA é opcional, requer descarregar um dos modelos disponíveis e é executada localmente; sem um modelo instalado, os restantes módulos continuam a funcionar normalmente.
+Os filtros rápidos permitem mostrar as linhas da seleção que correspondem a um texto na coluna ativa e podem ser removidos com **Limpar filtro**. **Limitações atuais:** os gráficos são pré-visualizações exportáveis, não objetos incorporados na folha; os filtros são temporários e não ficam guardados no ficheiro.
+
+A análise por IA é opcional, requer descarregar um dos modelos disponíveis e é executada localmente. Sem um modelo instalado, os módulos de escritório continuam a funcionar normalmente.
 
 ## Instalação
 
@@ -105,13 +107,14 @@ O MyOffice importa e exporta `.docx`, `.xlsx` e `.pptx`. A conversão procura pr
 
 Os ficheiros originais não são alterados durante a importação: o documento convertido é guardado no formato próprio do MyOffice. Os ficheiros exportados foram verificados com LibreOffice e com as bibliotecas python-docx, openpyxl e python-pptx; não foram validados no Microsoft Office.
 
-## Assistente de apresentações e IA local
+## Assistente IA local
 
-O módulo Diapositivos inclui um assistente para estruturar apresentações e sugerir melhorias.
+O MyOffice inclui assistência por IA em três áreas: revisão e resumo de documentos em **Texto**, análise de dados selecionados em **Folhas** e apoio à estruturação e melhoria de apresentações em **Diapositivos**. As funcionalidades de IA são opcionais e utilizam os modelos locais disponíveis na aplicação.
 
-- **Criar apresentação** — gera títulos, tópicos e notas a partir de um tema.
-- **Sugestões** — apresenta recomendações de escrita e versões alternativas de um diapositivo.
-- **Modelos locais** — é possível descarregar um modelo de linguagem aberto uma vez e executá-lo no próprio computador, sem enviar o texto dos documentos para um serviço externo.
+- **Texto** — produz um resumo, identifica pontos pouco claros e sugere melhorias para o documento.
+- **Folhas** — resume os dados selecionados, aponta tendências observáveis e identifica limitações da tabela.
+- **Diapositivos** — gera estruturas de apresentação, títulos, tópicos, notas e sugestões de melhoria.
+- **Modelos locais** — descarrega-se um modelo de linguagem aberto uma vez e executa-se no próprio computador, sem enviar o conteúdo dos documentos para um serviço externo.
 
 Modelos disponíveis:
 - **Phi-3.5 mini** (cerca de 2,4 GB, licença MIT) — opção de maior qualidade; recomendado para computadores com pelo menos 8 GB de memória.
@@ -166,13 +169,17 @@ O MyOffice foi concebido para manter o processamento dos documentos no computado
 
 O MyOffice ainda não oferece todas as funcionalidades das suites comerciais. Entre as funcionalidades que não estão implementadas encontram-se:
 
-- Gráficos e tabelas dinâmicas nas folhas de cálculo.
+- Gráficos incorporados e guardados nas folhas de cálculo, tabelas dinâmicas e filtros persistentes.
 - Várias folhas por livro.
 - Cabeçalhos, rodapés e numeração de páginas.
 - Revisão de alterações e comentários.
 - Animações e vista do apresentador avançada.
 - Coautoria em tempo real e armazenamento na nuvem.
 - Correio eletrónico e calendário.
+
+## Estado da versão Horizon
+
+A interface Horizon, os seis modelos editáveis, os gráficos de pré-visualização/exportação e a assistência IA em Texto e Folhas estão em desenvolvimento na [pull request #11](https://github.com/cadorio/myoffice/pull/11). A validação automática é acompanhada no [GitHub Actions](https://github.com/cadorio/myoffice/actions). Até a pull request ser integrada e uma versão estável ser publicada, estas funcionalidades devem ser consideradas em validação e não uma versão final para distribuição.
 
 ## Desenvolvimento
 
