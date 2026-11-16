@@ -6,8 +6,8 @@ O MyOffice reúne quatro áreas numa única aplicação: **Texto**, **Folhas**, 
 
 [Consultar compilações e instaladores](https://github.com/cadorio/myoffice/actions) · [Ver código-fonte](https://github.com/cadorio/myoffice) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
-> **Versão 1.4.0 — MyOffice Horizon (em desenvolvimento)**  
-> Esta versão introduz um espaço de trabalho renovado, modelos editáveis, gráficos em Folhas e uma aplicação independente de Assistente IA. A versão 1.4.0 está em validação na PR #11; ainda não foi publicada como versão estável nem existe instalador final desta versão.
+> **Versão 1.4.0 — MyOffice Horizon**  
+> Integrada na branch `main`. A compilação Windows está a ser validada pelo GitHub Actions; a publicação oficial depende da criação da tag `v1.4.0`.
 
 ## Capturas de ecrã
 
@@ -181,7 +181,7 @@ O MyOffice ainda não oferece todas as funcionalidades das suites comerciais. En
 
 ## Estado da versão Horizon
 
-A versão **1.4.0 — MyOffice Horizon** está em desenvolvimento na [pull request #11](https://github.com/cadorio/myoffice/pull/11). Inclui o novo espaço de trabalho, seis modelos editáveis, gráficos de pré-visualização/exportação em Folhas e a aplicação independente Assistente IA. A validação automática e as capturas são acompanhadas no [GitHub Actions](https://github.com/cadorio/myoffice/actions). Esta versão ainda não foi integrada em `main`, etiquetada ou publicada como versão estável.
+A versão **1.4.0 — MyOffice Horizon** foi integrada na branch `main` através da PR [#11](https://github.com/cadorio/myoffice/pull/11). Inclui o novo espaço de trabalho, seis modelos editáveis, gráficos de pré-visualização/exportação em Folhas e a aplicação independente Assistente IA. A compilação Windows e os testes são acompanhados no [GitHub Actions](https://github.com/cadorio/myoffice/actions). A Release oficial será publicada após a validação final da compilação e a criação da tag `v1.4.0`.
 
 ## Desenvolvimento
 
