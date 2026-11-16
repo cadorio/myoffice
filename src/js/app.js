@@ -436,6 +436,9 @@
       // Os atalhos de teclado vêm do menu da aplicação.
       api.onMenu(run);
       api.onOpenFile(loadFile);
+      api.onOpenView((view) => {
+        if (view === 'writer' || view === 'sheets' || view === 'slides') show(view);
+      });
       api.ready();
       initLicense();
       initRecovery();
