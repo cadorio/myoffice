@@ -1,164 +1,88 @@
 # MyOffice
 
-Suite de escritório para desktop, instalável em Windows, macOS e Linux. Funciona sem ligação à Internet e os documentos ficam apenas no seu computador.
+**Uma suite de escritório para desktop, simples, privada e multiplataforma.**
 
-A interface segue o modelo habitual das suites de escritório: barra de título na cor de cada aplicação, friso com separadores (Base, Inserir, Fórmulas…) e vista **Ficheiro** para abrir, guardar e exportar.
+O MyOffice reúne três ferramentas numa única aplicação: **Texto**, **Folhas** e **Diapositivos**. Foi desenvolvido com Electron e funciona em Windows, macOS e Linux. Os documentos são processados localmente e a aplicação foi concebida para funcionar sem ligação à Internet.
 
-## Capturas de ecrã
+[Descarregar versões](https://github.com/cadorio/myoffice/actions) · [Ver código-fonte](https://github.com/cadorio/myoffice) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
-| Início | Texto |
-| --- | --- |
-| ![Página inicial](docs/screenshots/inicio.png) | ![Editor de texto](docs/screenshots/texto.png) |
+> **Versão atual do código: 1.2.0**  
+> Os três instaladores desta versão foram compilados com sucesso e os testes automatizados passaram. Ainda falta validação manual em computadores reais com Windows, macOS e Linux. Os instaladores desta execução estão disponíveis em [GitHub Actions — Instaladores](https://github.com/cadorio/myoffice/actions/runs/43866280716).
 
-| Folhas | Diapositivos |
-| --- | --- |
-| ![Folha de cálculo](docs/screenshots/folhas.png) | ![Apresentações com temas](docs/screenshots/diapositivos.png) |
+## O que inclui
 
-| Assistente de sugestões | Modo escuro |
-| --- | --- |
-| ![Assistente dos Diapositivos](docs/screenshots/assistente.png) | ![Modo escuro](docs/screenshots/modo-escuro.png) |
-
-## Módulos
-
-| Módulo | O que faz | Formato próprio | Abre também | Exporta |
-| --- | --- | --- | --- | --- |
-| **Texto** | Documentos com estilos, tipos e tamanhos de letra, cores, listas, ligações, imagens, tabelas, quebras de página e localizar/substituir | `.modoc` | `.docx`, `.html`, `.txt` | DOCX, PDF, HTML, TXT |
-| **Folhas** | Folha de cálculo (100 linhas × 26 colunas) com fórmulas, formatos de número, ordenação, copiar/colar e anular | `.mosheet` | `.xlsx`, `.csv` | XLSX, PDF, CSV |
-| **Diapositivos** | Apresentações com esquemas, temas, caixas de texto, imagens, formas e notas do orador; modo de apresentação em ecrã inteiro; assistente de sugestões | `.moslides` | `.pptx` | PPTX, PDF |
-
-## Ficheiros do Word, Excel e PowerPoint
-
-O MyOffice abre e exporta `.docx`, `.xlsx` e `.pptx`. A conversão cobre o conteúdo e a formatação mais comuns; um ficheiro aberto é guardado depois no formato próprio, e o original nunca é alterado.
-
-| Formato | O que é convertido | O que se perde |
+| **MyOffice Texto** | **MyOffice Folhas** | **MyOffice Diapositivos** |
 | --- | --- | --- |
-| `.docx` | Títulos, parágrafos e alinhamento, negrito/itálico/sublinhado/rasurado, cor, tamanho e realce, listas, tabelas, ligações, imagens, quebras de página | Cabeçalhos e rodapés, notas, comentários e revisões, colunas, caixas de texto, células de tabela unidas |
-| `.xlsx` | Primeira folha: valores, fórmulas, negrito/itálico, cores, alinhamento e formatos de número e moeda | Outras folhas, gráficos, tabelas dinâmicas, datas (ficam como número), dados para lá de 100 × 26; fórmulas com funções que o MyOffice não tem mostram `#NOME?` |
-| `.pptx` | Texto e posição das caixas, listas, imagens, retângulos e elipses, cor de fundo, notas do orador (só ao abrir) | Animações e transições, gráficos, tabelas, SmartArt, fundos com imagem, cores do tema do PowerPoint; ao exportar, o elemento gráfico do tema e as notas |
+| Criar e editar documentos, formatar texto, listas, tabelas, ligações e imagens. | Trabalhar com células, fórmulas, formatos numéricos, ordenação e copiar/colar. | Criar apresentações com temas, esquemas, texto, imagens, formas e notas do orador. |
+| `.modoc` · DOCX · HTML · TXT | `.mosheet` · XLSX · CSV | `.moslides` · PPTX |
 
-Os ficheiros exportados foram validados com o LibreOffice e com as bibliotecas python-docx, openpyxl e python-pptx. Não foram testados no Microsoft Office.
+### Funcionalidades principais
 
-## Assistente e IA local (Diapositivos)
+- **Três módulos integrados** — alternar entre documentos, folhas de cálculo e apresentações.
+- **Abertura de ficheiros Office** — importar DOCX, XLSX e PPTX e exportar para esses formatos.
+- **Abertura direta** — abrir ficheiros DOCX e PPTX com o MyOffice através do sistema operativo; no Windows, existem também atalhos para iniciar diretamente Texto, Folhas ou Diapositivos.
+- **Temas e personalização** — 13 temas partilhados, variantes de cor para apresentações e modo claro/escuro.
+- **Recuperação automática** — rascunhos de documentos alterados são guardados periodicamente para permitir recuperação após uma falha.
+- **Privacidade local** — os documentos permanecem no computador; a aplicação não depende de uma conta nem de armazenamento na nuvem.
 
-No separador **Assistente** dos Diapositivos:
+## Instalação
 
-- **Modelo de IA** — descarrega (uma única vez, com Internet) um modelo de linguagem aberto que passa a correr neste computador, sem Internet e sem custos. Nenhum texto dos documentos sai do computador. O ficheiro é verificado (SHA-256) antes de ser usado.
-  - *Phi-3.5 mini* (2,4 GB, licença MIT) — melhor qualidade, recomendado para 8 GB de memória ou mais.
-  - *Qwen2.5 1.5B* (1,1 GB, Apache 2.0) — mais rápido e leve, mas repete-se e erra mais.
-- **Criar apresentação** — com modelo instalado, a IA escreve os diapositivos (títulos, tópicos e notas) a partir do tema; demora cerca de meio minuto a três minutos, conforme o computador. Sem modelo, o assistente cria a estrutura adequada com os tópicos a preencher.
-- **Sugestões** — dicas e versões alternativas do diapositivo por regras de escrita; com modelo instalado, «Pedir versões à IA» acrescenta duas versões reescritas pela IA.
+O MyOffice gera pacotes para os três principais sistemas operativos:
 
-Limites a conhecer:
-- A IA pode inventar factos ou escrever com grafia do Brasil (as palavras mais comuns são convertidas automaticamente). O conteúdo deve ser revisto.
-- O modelo corre num processo separado: se falhar (por exemplo por falta de memória), aparece um aviso e a aplicação continua a funcionar.
-- Testado em Linux. Num dos processadores de teste o Phi-3.5 não arrancou e a aplicação mostrou o aviso; nesse caso deve usar-se o Qwen2.5. Falta testar em Windows e macOS.
+| Sistema | Ficheiro | Observações |
+| --- | --- | --- |
+| Windows | `.exe` | Instalador NSIS de 64 bits, com atalhos no Ambiente de Trabalho e Menu Iniciar. |
+| macOS | `.dmg` | Imagem de disco para instalação. |
+| Linux | `.AppImage` e `.deb` | AppImage portátil ou pacote Debian/Ubuntu. |
 
-## Aparência
+**[Abrir a execução de compilação 1.2.0 e descarregar os três artefactos](https://github.com/cadorio/myoffice/actions/runs/43866280716)**
 
-- **Modo claro e escuro** — a aplicação acompanha o sistema operativo; o botão no canto superior direito muda de modo e a escolha fica guardada. O modo escuro muda a moldura da aplicação; as páginas, a grelha e os diapositivos mantêm as cores do documento.
-- **Friso** — os botões mostram o estado do que está selecionado (negrito, itálico, listas, alinhamento).
-- **Zoom** — na barra de estado do Texto e das Folhas, de 50% a 200% (duplo clique na percentagem repõe 100%).
+Na secção **Artifacts**, descarrega o pacote correspondente ao teu sistema: `MyOffice-Windows`, `MyOffice-macOS` ou `MyOffice-Linux`. Cada artefacto é um ZIP que contém o instalador.
 
-## Fiabilidade
+As próximas versões publicadas estarão disponíveis em [Releases](https://github.com/cadorio/myoffice/releases). O workflow cria uma Release automaticamente quando é publicada uma tag `vX.Y.Z) correspondente à versão indicada no `package.json`.
 
-- **Recuperação automática** — de 30 em 30 segundos a aplicação guarda um rascunho dos documentos com alterações por guardar. Se fechar de forma inesperada, ao reabrir pergunta se quer recuperá-los. Os rascunhos são apagados ao guardar ou ao sair sem guardar.
-- **Se a aplicação deixar de responder** — aparece um aviso com as opções de esperar ou recarregar; se a página falhar, a janela recarrega sozinha.
-- **Documentos grandes** — as apresentações com muitas fotografias e as folhas cheias de fórmulas foram otimizadas: o histórico de anulação não duplica as imagens, as miniaturas e as células só são redesenhadas quando mudam.
+> **Aviso de assinatura:** os instaladores atuais não estão assinados digitalmente. O Windows SmartScreen e o macOS Gatekeeper podem apresentar avisos na primeira execução. A assinatura requer certificados próprios, configurados como segredos no GitHub Actions.
 
-## Temas predefinidos
+Depois da instalação, os formatos nativos `.modoc`, `.mosheet` e `.moslides` podem ser associados ao MyOffice. A configuração do instalador também regista DOCX e PPTX como formatos que podem ser abertos com a aplicação.
 
-Os três módulos partilham o mesmo conjunto de 13 temas: Escritório, Executivo, Oceano, Floresta, Pôr do sol, Coral, Menta, Lavanda, Areia, Grafite, Noite, Técnico e Contraste. Cada tema define:
+## Compatibilidade com Microsoft Office
 
-- uma **paleta**: cor escura, cor clara e seis cores de destaque, que aparecem como amostras nos seletores de cor;
-- um **par de tipos de letra**, um para os títulos e outro para o texto;
-- um **elemento gráfico** para os diapositivos (linha, barra, faixa, lateral, arco, canto ou moldura), com uma versão própria para o diapositivo de título.
+O MyOffice importa e exporta `.docx`, `.xlsx` e `.pptx`. A conversão procura preservar o conteúdo e a formatação mais comuns, mas **não é uma substituição integral do Microsoft Office**. Alguns elementos avançados podem não ser importados ou exportados.
 
-Onde se aplicam:
+| Formato | Importação suportada | Limitações conhecidas |
+| --- | --- | --- |
+| DOCX | Títulos, parágrafos, alinhamento, formatação de caracteres, listas, tabelas, ligações, imagens e quebras de página. | Não preserva cabeçalhos/rodapés, notas, comentários e revisões, colunas, caixas de texto e células unidas. |
+| XLSX | Primeira folha: valores, fórmulas, estilos básicos, alinhamento e formatos numéricos/moeda. | Uma folha por livro; limite de 100 linhas × 26 colunas; sem gráficos ou tabelas dinâmicas. Funções não suportadas podem apresentar `#NOME?`. |
+| PPTX | Texto e posição das caixas, listas, imagens, retângulos, elipses, fundo e notas do orador na importação. | Não preserva animações, transições, gráficos, tabelas, SmartArt ou fundos com imagem; algumas informações de tema e notas não são exportadas. |
 
-- **Diapositivos** — Estrutura › Temas, mais quatro **variantes** de cor de cada tema (Claro, Suave, Vivo e Escuro). Aplicam-se a toda a apresentação. As cores de texto de todas as combinações cumprem o contraste mínimo de 4,5:1.
-- **Texto** — Estrutura › Temas do documento: tipos de letra do texto e dos títulos e cor dos títulos, também no PDF e no HTML exportados.
-- **Folhas** — Esquema de página › Temas: tipo de letra da grelha e estilos de «Formatar como tabela» (um por cor de destaque).
+Os ficheiros originais não são alterados durante a importação: o documento convertido é guardado no formato próprio do MyOffice. Os ficheiros exportados foram verificados com LibreOffice e com as bibliotecas python-docx, openpyxl e python-pptx; não foram validados no Microsoft Office.
 
-Os temas, nomes e desenhos são próprios do MyOffice; os tipos de letra são os que já existem em cada sistema operativo. O código está em `src/js/themes.js`.
+## Assistente de apresentações e IA local
 
-## Segurança
+O módulo Diapositivos inclui um assistente para estruturar apresentações e sugerir melhorias.
 
-- **Sem rede** — a aplicação bloqueia todos os pedidos de rede e a leitura de ficheiros fora da sua própria pasta; não abre janelas nem navega para outras páginas.
-- **Interface isolada** — a página corre em sandbox, sem acesso ao Node.js, com uma política de conteúdo (CSP) que impede a execução de scripts que não sejam os da aplicação. Só a página principal pode falar com o processo que acede ao disco.
-- **Ficheiros** — só são lidos e escritos ficheiros escolhidos pelo utilizador nos diálogos do sistema, e só nos formatos suportados. A gravação é atómica: uma falha a meio não corrompe o documento.
-- **Documentos abertos** — o conteúdo é limpo antes de ser mostrado: scripts, objetos incorporados, ligações `javascript:`, imagens remotas e estilos capazes de se sobrepor à interface são removidos; os campos dos ficheiros são validados um a um.
-- **CSV** — ao exportar, o texto começado por `=`, `+`, `-` ou `@` é neutralizado, para não ser executado como fórmula noutras folhas de cálculo.
-- **Aplicação instalada** — não inclui ferramentas de programador; `NODE_OPTIONS` e `--inspect` estão desativados. `ELECTRON_RUN_AS_NODE` está ativo porque a biblioteca de IA precisa dele para verificar o seu módulo nativo; isto permite usar o executável como Node.js, o que só é relevante para quem já tem acesso ao computador.
-- **Compilação** — as ações do GitHub Actions estão fixadas por hash de commit.
+- **Criar apresentação** — gera títulos, tópicos e notas a partir de um tema.
+- **Sugestões** — apresenta recomendações de escrita e versões alternativas de um diapositivo.
+- **Modelos locais** — é possível descarregar um modelo de linguagem aberto uma vez e executá-lo no próprio computador, sem enviar o texto dos documentos para um serviço externo.
 
-Por fazer: a assinatura digital depende de configurar os certificados (ver Comercialização) e a verificação de integridade do pacote da aplicação não está ativa.
+Modelos disponíveis:
+- **Phi-3.5 mini** (cerca de 2,4 GB, licença MIT) — opção de maior qualidade; recomendado para computadores com pelo menos 8 GB de memória.
+- **Qwen2.5 1.5B** (cerca de 1,1 GB, Apache 2.0) — mais leve e rápido, com respostas geralmente menos consistentes.
 
-## Comercialização
+A transferência do modelo requer Internet; depois de instalado, o processamento é local. O conteúdo gerado pode conter erros ou utilizar português do Brasil, pelo que deve ser revisto. O desempenho depende do hardware e da memória disponíveis.
 
-### Licenças
-O licenciamento é offline: cada chave é um pequeno documento (nome do cliente e validade opcional) assinado com Ed25519. A aplicação traz só a chave pública, por isso verifica chaves mas não as consegue criar.
+## Aparência e produtividade
 
-```bash
-npm run license init                              # uma vez: cria license-public.pem e license-private.pem
-npm run license issue "Nome do cliente"           # emite uma chave sem validade
-npm run license issue "Nome do cliente" 2027-12-31
-npm run license check <chave>
-```
+- **Identidade visual Aurora** — interface renovada com tons índigo, verde-turquesa e neutros quentes.
+- **Modo claro e escuro** — acompanha a preferência do sistema, com possibilidade de alteração na aplicação.
+- **13 temas de documento** — Escritório, Executivo, Oceano, Floresta, Pôr do sol, Coral, Menta, Lavanda, Areia, Grafite, Noite, Técnico e Contraste.
+- **Temas de apresentação** — cada tema inclui variantes Claro, Suave, Vivo e Escuro.
+- **Zoom** — Texto e Folhas permitem ajustar a visualização entre 50% e 200%.
+- **Fórmulas** — funções em português e inglês, com operadores matemáticos, comparação e concatenação.
 
-- `license-public.pem` vai para o repositório e é incluída no instalador. `license-private.pem` fica só consigo (está no `.gitignore`); quem a tiver pode emitir licenças, e perdê-la obriga a reemitir todas.
-- Enquanto `license-public.pem` não existir, o licenciamento está desligado e a aplicação funciona sem limites.
-- Com licenciamento ligado há um período experimental de 30 dias. Depois disso a aplicação continua a abrir documentos, mas guardar e exportar exigem uma chave (Ficheiro › Licença).
-- Limite a conhecer: uma chave não fica presa a um computador, por isso pode ser partilhada. Impedi-lo exigiria um servidor de ativação.
+## Fórmulas disponíveis
 
-### Assinatura dos instaladores
-O workflow assina os instaladores se encontrar estes segredos no repositório (Settings › Secrets and variables › Actions); sem eles, saem por assinar:
-
-- Windows: `WIN_CSC_LINK` (certificado `.pfx` em base64) e `WIN_CSC_KEY_PASSWORD`
-- macOS: `MAC_CSC_LINK` (certificado `.p12` em base64), `MAC_CSC_KEY_PASSWORD`, e para a notarização `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` e `APPLE_TEAM_ID`
-
-### Nome do produto
-O nome está em dois sítios: `src/js/brand.js` (interface) e `productName` no `package.json` (instalador). Os identificadores `appId`, `name` e as extensões dos ficheiros devem ser revistos na mesma altura.
-
-### Licenças de terceiros
-`THIRD-PARTY-NOTICES.md` lista os componentes incluídos e as respetivas licenças; o mesmo texto aparece em Ficheiro › Acerca. Depois de atualizar dependências: `npm run notices`.
-
-### Por fazer antes de vender
-Escolher o nome e verificar a marca; contrato de licença de utilizador e política de privacidade; atualizações automáticas (precisam de um servidor onde publicar as versões e de uma exceção ao bloqueio de rede); pagamento e entrega das chaves; testar os instaladores em Windows e macOS.
-
-## O que ainda não existe
-
-O MyOffice cobre o trabalho do dia a dia, mas não tem todas as funções do Microsoft 365. Em particular, ainda não tem: gráficos e tabelas dinâmicas; várias folhas por livro; cabeçalhos, rodapés e numeração de páginas; revisão de alterações e comentários; animações e vista do apresentador; coautoria em tempo real e armazenamento na nuvem; correio e calendário.
-
-## Instalar
-
-Os instaladores são gerados pelo GitHub Actions (workflow **Instaladores**):
-
-- **Windows** — `MyOffice-Setup-<versão>.exe` (assistente de instalação, com atalhos no ambiente de trabalho e no menu Iniciar)
-- **macOS** — `MyOffice-<versão>-mac-<arquitetura>.dmg`
-- **Linux** — `.AppImage` (portátil) e `.deb` (Debian/Ubuntu)
-
-Para publicar uma versão, crie uma tag `vX.Y.Z` (igual à `version` do `package.json`): o workflow cria uma Release com os instaladores anexados. Em cada push para `main`, os instaladores ficam disponíveis como artefactos da execução.
-
-> Os instaladores não são assinados digitalmente. O Windows (SmartScreen) e o macOS (Gatekeeper) mostram um aviso na primeira execução; para o evitar é preciso um certificado de assinatura de código.
-
-Depois de instalado, os ficheiros `.modoc`, `.mosheet` e `.moslides` abrem no MyOffice com duplo clique.
-
-## Desenvolvimento
-
-Requer Node.js 22 ou superior.
-
-```bash
-npm install
-npm start          # abre a aplicação
-npm test           # testes do motor de fórmulas, do assistente e do licenciamento
-npm run dist       # cria o instalador para o sistema atual (pasta dist/)
-```
-
-`npm run dist:win`, `dist:mac` e `dist:linux` criam o instalador de um sistema específico; cada um deve ser executado no respetivo sistema operativo.
-
-## Fórmulas
-
-As fórmulas começam por `=` e aceitam nomes em português ou inglês. Os argumentos separam-se com `;` ou `,` e, dentro das fórmulas, o separador decimal é o ponto (`=A1*1.5`). Nas células pode escrever números com vírgula (`1,5`).
+As fórmulas começam por `=`. Os argumentos podem ser separados por ponto e vírgula ou vírgula; dentro das fórmulas, o separador decimal é o ponto.
 
 | Função | Equivalente | Exemplo |
 | --- | --- | --- |
@@ -174,26 +98,89 @@ As fórmulas começam por `=` e aceitam nomes em português ou inglês. Os argum
 | `PROCV` | `VLOOKUP` | `=PROCV("pera";A1:C9;3;FALSO)` |
 | `HOJE` | `TODAY` | `=HOJE()` |
 
-Operadores: `+ - * / ^ %`, `&` (juntar texto) e comparações `= <> < > <= >=`. Use `$` para fixar referências ao copiar (`$A$1`). Copiar uma célula e colar numa seleção maior preenche toda a seleção, ajustando as referências.
+Operadores suportados: `+ - * / ^ %`, `&` e comparações `= <> < > <= >=`. Use `$` para fixar referências, por exemplo `$A$1`.
 
-## Estrutura
+## Privacidade e segurança
 
+O MyOffice foi concebido para manter o processamento dos documentos no computador:
+
+- A aplicação bloqueia pedidos de rede durante a utilização normal e não navega para páginas externas.
+- A interface corre em sandbox, sem acesso direto ao Node.js; a comunicação com o processo principal passa por uma ponte controlada.
+- Os ficheiros são lidos e escritos através de diálogos do sistema e nos formatos suportados.
+- A gravação é atómica para reduzir o risco de corrupção em caso de falha.
+- O conteúdo importado é validado e limpo antes de ser apresentado.
+- A exportação CSV neutraliza conteúdos que poderiam ser interpretados como fórmulas por outras folhas de cálculo.
+
+**Limitações de segurança a considerar:** os instaladores ainda não têm assinatura digital e a verificação de integridade do pacote não está ativa. A funcionalidade de IA requer descarregar os modelos, pelo que essa operação inicial necessita de Internet.
+
+## Limitações atuais
+
+O MyOffice ainda não oferece todas as funcionalidades das suites comerciais. Entre as funcionalidades que não estão implementadas encontram-se:
+
+- Gráficos e tabelas dinâmicas nas folhas de cálculo.
+- Várias folhas por livro.
+- Cabeçalhos, rodapés e numeração de páginas.
+- Revisão de alterações e comentários.
+- Animações e vista do apresentador avançada.
+- Coautoria em tempo real e armazenamento na nuvem.
+- Correio eletrónico e calendário.
+
+## Desenvolvimento
+
+### Requisitos
+
+- Node.js 22 ou superior.
+- npm.
+- Para compilar instaladores, recomenda-se executar o processo no sistema operativo de destino.
+
+### Executar localmente
+
+```bash
+git clone https://github.com/cadorio/myoffice.git
+cd myoffice
+npm install
+npm start
 ```
-main.js        processo principal do Electron: janela, menus, leitura e escrita de ficheiros
-license.js     verificação de chaves de licença e período experimental
-tools/         ferramentas do vendedor (emitir licenças, gerar avisos de terceiros)
-preload.js     ponte segura entre a interface e o processo principal
-src/           interface (HTML, CSS e JavaScript sem dependências)
-  js/themes.js   temas partilhados (paletas, tipos de letra, variantes)
-  js/formula.js  motor de fórmulas
-  js/ooxml.js    leitura e escrita de .docx, .xlsx e .pptx
-  vendor/        biblioteca de compressão ZIP (fflate)
-  js/writer.js   Texto
-  js/sheets.js   Folhas
-  js/slides.js   Diapositivos
-  js/assistant.js  assistente dos Diapositivos (motor de sugestões)
-  js/app.js      navegação e gestão de ficheiros
-build/         ícone da aplicação
-test/          testes
+
+### Testes e compilação
+
+```bash
+npm test           # executa os testes automatizados
+npm run dist       # cria o instalador para o sistema atual
+npm run dist:win   # instalador Windows
+npm run dist:mac   # instalador macOS
+npm run dist:linux # pacotes Linux
 ```
 
+Os artefactos locais são colocados na pasta `dist/`. O workflow **Instaladores** do GitHub Actions executa `npm ci` e `npm test` antes de compilar os pacotes para Windows, macOS e Linux. Cada push para `main` gera artefactos; uma tag `vX.Y.Z` publica também uma GitHub Release.
+
+## Estrutura do projeto
+
+```text
+main.js          Processo principal Electron: janela, menus e ficheiros
+preload.js       Ponte controlada entre interface e processo principal
+ai.js            Integração do assistente com IA local
+ai-worker.mjs    Processo de execução do modelo local
+license.js       Verificação de licenças e período experimental
+src/             Interface HTML, CSS e JavaScript
+  js/writer.js   Módulo Texto
+  js/sheets.js   Módulo Folhas
+  js/slides.js   Módulo Diapositivos
+  js/formula.js  Motor de fórmulas
+  js/ooxml.js    Importação e exportação DOCX, XLSX e PPTX
+  js/themes.js   Temas partilhados
+  js/assistant.js Assistente de apresentações
+build/           Recursos e configuração do instalador
+test/            Testes automatizados
+tools/           Ferramentas de licenciamento e avisos de terceiros
+```
+
+## Licenciamento
+
+O repositório está marcado como `UNLICENSED` no `package.json`. Isto significa que **não deve ser assumido que o código está disponível sob uma licença open source**. Antes de reutilizar, redistribuir ou integrar o projeto noutro produto, consulta o proprietário do repositório.
+
+O projeto inclui também componentes de terceiros. As respetivas licenças estão documentadas em [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+---
+
+**MyOffice** — um projeto independente. Não é afiliado, patrocinado ou aprovado pela Microsoft. Microsoft Word, Excel e PowerPoint são marcas dos respetivos proprietários.
