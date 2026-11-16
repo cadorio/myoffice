@@ -87,13 +87,6 @@ const { pathToFileURL } = require('node:url');
   }
   if (pageErrors.length) throw new Error('Erros na interface: ' + pageErrors.join(' | '));
 
-  // Captura o painel Assistente aberto a partir do separador da faixa de ferramentas.
-  console.log('A abrir o painel Assistente...');
-  await page.locator('.ribbon-tabs .ribbon-tab').filter({ hasText: 'Assistente' }).click();
-  await page.locator('button.tool').filter({ hasText: 'Sugestões' }).click();
-  await page.locator('.ai-panel:not([hidden])').waitFor({ state: 'visible' });
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: path.join(out, 'assistente.png'), fullPage: false });
   await capture('home', 'modo-escuro.png');
   await page.evaluate(() => {
     const button = document.querySelector('#mode-toggle');
