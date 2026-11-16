@@ -11,13 +11,11 @@ O MyOffice reúne três ferramentas numa única aplicação: **Texto**, **Folhas
 
 ## Capturas de ecrã
 
-As imagens abaixo mostram os módulos e funcionalidades do MyOffice. Clica numa imagem para a abrir em tamanho completo.
+As imagens abaixo são capturas da interface real do MyOffice. O ecrã inicial, Texto, Folhas, Diapositivos e modo escuro foram novamente capturados a partir da interface da versão 1.3.0. Clica numa imagem para a abrir em tamanho completo.
 
 ### Ecrã inicial
 
 ![Ecrã inicial do MyOffice](docs/screenshots/inicio.png)
-
-> Nota: esta captura corresponde ao ecrã inicial da versão 1.2.0. A captura do novo Workspace da versão 1.3.0 será adicionada após a validação visual da nova interface.
 
 ### MyOffice Texto
 
