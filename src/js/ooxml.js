@@ -475,10 +475,8 @@
     const workbook = parseXML(files, 'xl/workbook.xml');
     if (!workbook) throw new Error('Livro inválido');
     const wbRels = relsOf(files, 'xl/workbook.xml');
-    const sheetEl = first(workbook, 'sheet');
-    const sheetRel = sheetEl && wbRels[relAttr(sheetEl)];
-    const sheet = parseXML(files, sheetRel ? sheetRel.path : 'xl/worksheets/sheet1.xml');
-    if (!sheet) throw new Error('Folha inválida');
+    const sheetElements = all(workbook, 'sheet');
+    if (!sheetElements.length) throw new Error('O livro não contém folhas');
 
     const strings = all(parseXML(files, 'xl/sharedStrings.xml'), 'si').map((si) =>
       all(si, 't')
@@ -511,106 +509,116 @@
       return s;
     });
 
-    const cells = {};
-    let clipped = false;
-    for (const c of all(sheet, 'c')) {
-      const pos = F.parseAddr(attr(c, 'r') || '');
-      if (!pos) continue;
-      if (pos.r >= rows || pos.c >= cols) {
-        clipped = clipped || Boolean(kid(c, 'v') || kid(c, 'f') || kid(c, 'is'));
-        continue;
+    function readSheet(sheet) {
+      if (!sheet) throw new Error('Folha inválida');
+      const cells = {};
+      let clipped = false;
+      for (const c of all(sheet, 'c')) {
+        const pos = F.parseAddr(attr(c, 'r') || '');
+        if (!pos) continue;
+        if (pos.r >= rows || pos.c >= cols) {
+          clipped = clipped || Boolean(kid(c, 'v') || kid(c, 'f') || kid(c, 'is'));
+          continue;
+        }
+        const type = attr(c, 't');
+        const formula = kid(c, 'f');
+        const v = kid(c, 'v');
+        let raw = '';
+        if (formula && formula.textContent) raw = '=' + formula.textContent;
+        else if (type === 's') raw = strings[Number(v && v.textContent)] || '';
+        else if (type === 'inlineStr') raw = all(kid(c, 'is'), 't').map((t) => t.textContent).join('');
+        else if (type === 'b') raw = v && v.textContent === '1' ? 'VERDADEIRO' : 'FALSO';
+        else if (v) raw = v.textContent;
+        const isText = !formula && (type === 's' || type === 'inlineStr' || type === 'str');
+        if (isText && raw && (raw[0] === '=' || raw[0] === "'" || F.parseNumber(raw) !== null)) raw = "'" + raw;
+        const style = xfs[Number(attr(c, 's'))];
+        const cell = { v: raw };
+        if (style && Object.keys(style).length) cell.s = { ...style };
+        if (cell.v !== '' || cell.s) cells[F.addr(pos.r, pos.c)] = cell;
       }
-      const type = attr(c, 't');
-      const formula = kid(c, 'f');
-      const v = kid(c, 'v');
-      let raw = '';
-      if (formula && formula.textContent) raw = '=' + formula.textContent;
-      else if (type === 's') raw = strings[Number(v && v.textContent)] || '';
-      else if (type === 'inlineStr') raw = all(kid(c, 'is'), 't').map((t) => t.textContent).join('');
-      else if (type === 'b') raw = v && v.textContent === '1' ? 'VERDADEIRO' : 'FALSO';
-      else if (v) raw = v.textContent;
-      // Texto que a grelha interpretaria como número ou fórmula fica marcado como texto.
-      const isText = !formula && (type === 's' || type === 'inlineStr' || type === 'str');
-      if (isText && raw && (raw[0] === '=' || raw[0] === "'" || F.parseNumber(raw) !== null)) raw = "'" + raw;
-      const style = xfs[Number(attr(c, 's'))];
-      const cell = { v: raw };
-      if (style && Object.keys(style).length) cell.s = { ...style };
-      if (cell.v !== '' || cell.s) cells[F.addr(pos.r, pos.c)] = cell;
+      return { cells, clipped };
     }
-    return { cells, clipped };
+
+    let clipped = false;
+    const sheets = sheetElements.map((sheetEl, index) => {
+      const rel = wbRels[relAttr(sheetEl)];
+      const path = rel ? rel.path : `xl/worksheets/sheet${index + 1}.xml`;
+      const result = readSheet(parseXML(files, path));
+      clipped = clipped || result.clipped;
+      return { name: attr(sheetEl, 'name') || `Folha${index + 1}`, cells: result.cells };
+    });
+    return { cells: sheets[0].cells, sheets, clipped };
   }
 
   // cells: modelo da folha; values: Map endereço -> valor calculado.
-  function exportXlsx(cells, values) {
+  // Exporta um livro inteiro. Mantém compatibilidade com a assinatura antiga (cells, values).
+  function exportXlsx(input, values) {
+    const sheets = Array.isArray(input) && input.length
+      ? input.slice(0, 100).map((sheet, i) => ({ name: String(sheet.name || `Folha${i + 1}`).slice(0, 31), cells: sheet.cells || {}, values: sheet.values || (i === 0 ? values : new Map()) }))
+      : [{ name: 'Folha1', cells: input || {}, values: values || new Map() }];
     const fonts = ['<font><sz val="11"/><name val="Calibri"/></font>'];
     const fills = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>'];
     const xfs = ['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'];
     const index = (list, item) => (list.includes(item) ? list.indexOf(item) : list.push(item) - 1);
     const NUM_FMT = { num2: 2, pct: 10, eur: 164 };
+    const NS = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
 
     function styleIndex(s) {
       if (!s) return 0;
       const font = index(fonts, `<font>${s.b ? '<b/>' : ''}${s.i ? '<i/>' : ''}<sz val="11"/>${s.c ? `<color rgb="FF${s.c.slice(1).toUpperCase()}"/>` : ''}<name val="Calibri"/></font>`);
       const fill = s.bg ? index(fills, `<fill><patternFill patternType="solid"><fgColor rgb="FF${s.bg.slice(1).toUpperCase()}"/><bgColor indexed="64"/></patternFill></fill>`) : 0;
       const fmt = NUM_FMT[s.f] || 0;
-      return index(
-        xfs,
-        `<xf numFmtId="${fmt}" fontId="${font}" fillId="${fill}" borderId="0" xfId="0"${fmt ? ' applyNumberFormat="1"' : ''}${font ? ' applyFont="1"' : ''}${fill ? ' applyFill="1"' : ''}` +
-          (s.a ? ` applyAlignment="1"><alignment horizontal="${s.a}"/></xf>` : '/>')
-      );
+      return index(xfs, `<xf numFmtId="${fmt}" fontId="${font}" fillId="${fill}" borderId="0" xfId="0"${fmt ? ' applyNumberFormat="1"' : ''}${font ? ' applyFont="1"' : ''}${fill ? ' applyFill="1"' : ''}` + (s.a ? ` applyAlignment="1"><alignment horizontal="${s.a}"/></xf>` : '/>'));
     }
 
-    const byRow = new Map();
-    for (const [a, cell] of Object.entries(cells)) {
-      const pos = F.parseAddr(a);
-      if (!byRow.has(pos.r)) byRow.set(pos.r, []);
-      byRow.get(pos.r).push({ a, c: pos.c, cell });
-    }
-    let rowsXML = '';
-    for (const r of [...byRow.keys()].sort((x, y) => x - y)) {
-      let row = '';
-      for (const { a, cell } of byRow.get(r).sort((x, y) => x.c - y.c)) {
-        const s = styleIndex(cell.s);
-        const sAttr = s ? ` s="${s}"` : '';
-        const raw = cell.v || '';
-        const value = values.get(a);
-        const isFormula = raw.length > 1 && raw[0] === '=';
-        const f = isFormula ? `<f>${esc(F.toExcel(raw))}</f>` : '';
-        if (raw === '') row += `<c r="${a}"${sAttr}/>`;
-        else if (typeof value === 'number') row += `<c r="${a}"${sAttr}>${f}<v>${value}</v></c>`;
-        else if (typeof value === 'boolean') row += `<c r="${a}"${sAttr} t="b">${f}<v>${value ? 1 : 0}</v></c>`;
-        else if (isFormula) row += typeof value === 'string' ? `<c r="${a}"${sAttr} t="str">${f}<v>${esc(value)}</v></c>` : `<c r="${a}"${sAttr}>${f}</c>`;
-        else row += `<c r="${a}"${sAttr} t="inlineStr"><is><t xml:space="preserve">${esc(String(value == null ? '' : value))}</t></is></c>`;
+    const parts = {};
+    const contentOverrides = sheets.map((_sheet, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('');
+    const sheetEntries = sheets.map((sheet, i) => `<sheet name="${esc(sheet.name.replace(/[\\\\/?*:[\\]]/g, '').slice(0, 31) || `Folha${i + 1}`)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('');
+    const relEntries = sheets.map((_sheet, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('');
+
+    sheets.forEach((sheet, indexSheet) => {
+      const byRow = new Map();
+      for (const [a, cell] of Object.entries(sheet.cells)) {
+        const pos = F.parseAddr(a);
+        if (!pos) continue;
+        if (!byRow.has(pos.r)) byRow.set(pos.r, []);
+        byRow.get(pos.r).push({ a, c: pos.c, cell });
       }
-      rowsXML += `<row r="${r + 1}">${row}</row>`;
-    }
+      let rowsXML = '';
+      for (const r of [...byRow.keys()].sort((x, y) => x - y)) {
+        let row = '';
+        for (const { a, cell } of byRow.get(r).sort((x, y) => x.c - y.c)) {
+          const style = styleIndex(cell.s);
+          const sAttr = style ? ` s="${style}"` : '';
+          const raw = cell.v || '';
+          const value = sheet.values && sheet.values.get(a);
+          const isFormula = raw.length > 1 && raw[0] === '=';
+          const formula = isFormula ? `<f>${esc(F.toExcel(raw))}</f>` : '';
+          if (raw === '') row += `<c r="${a}"${sAttr}/>`;
+          else if (typeof value === 'number') row += `<c r="${a}"${sAttr}>${formula}<v>${value}</v></c>`;
+          else if (typeof value === 'boolean') row += `<c r="${a}"${sAttr} t="b">${formula}<v>${value ? 1 : 0}</v></c>`;
+          else if (isFormula) row += typeof value === 'string' ? `<c r="${a}"${sAttr} t="str">${formula}<v>${esc(value)}</v></c>` : `<c r="${a}"${sAttr}>${formula}</c>`;
+          else row += `<c r="${a}"${sAttr} t="inlineStr"><is><t xml:space="preserve">${esc(String(value == null ? raw : value))}</t></is></c>`;
+        }
+        rowsXML += `<row r="${r + 1}">${row}</row>`;
+      }
+      parts[`xl/worksheets/sheet${indexSheet + 1}.xml`] = XML_HEAD + `<worksheet ${NS}><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="26" width="14" customWidth="1"/></cols><sheetData>${rowsXML}</sheetData></worksheet>`;
+    });
 
-    const NS = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
     return zip({
-      '[Content_Types].xml':
-        XML_HEAD +
-        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>' +
-        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
-        '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+      '[Content_Types].xml': XML_HEAD + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>' +
+        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' + contentOverrides +
         '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>',
-      '_rels/.rels':
-        XML_HEAD +
-        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
-      'xl/workbook.xml':
-        XML_HEAD +
-        `<workbook ${NS} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Folha1" sheetId="1" r:id="rId1"/></sheets><calcPr fullCalcOnLoad="1"/></workbook>`,
-      'xl/_rels/workbook.xml.rels':
-        XML_HEAD +
-        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
-        '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>',
-      'xl/worksheets/sheet1.xml': XML_HEAD + `<worksheet ${NS}><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="26" width="14" customWidth="1"/></cols><sheetData>${rowsXML}</sheetData></worksheet>`,
-      'xl/styles.xml':
-        XML_HEAD +
-        `<styleSheet ${NS}><numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.00\\ &quot;€&quot;"/></numFmts>` +
+      '_rels/.rels': XML_HEAD + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+      'xl/workbook.xml': XML_HEAD + `<workbook ${NS} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheetEntries}</sheets><calcPr fullCalcOnLoad="1"/></workbook>`,
+      'xl/_rels/workbook.xml.rels': XML_HEAD + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + relEntries +
+        `<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
+      'xl/styles.xml': XML_HEAD + `<styleSheet ${NS}><numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.00\\ &quot;€&quot;"/></numFmts>` +
         `<fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills>` +
         '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
         '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-        `<cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`
+        `<cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`,
+      ...parts
     });
   }
 
