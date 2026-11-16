@@ -438,11 +438,14 @@
   // Ordena as linhas da seleção pela coluna da célula ativa.
   function sortRange(descending) {
     const { r0, r1, c0, c1 } = range();
-    if (r0 === r1) return MO.toast('Selecione as linhas a ordenar (sem a linha de títulos).');
+    if (r0 === r1) return MO.toast('Selecione pelo menos duas linhas para ordenar.');
+    const hasHeader = window.confirm('A primeira linha da seleção contém títulos?\n\nOK: manter títulos no topo.\nCancelar: ordenar todas as linhas.');
+    const firstDataRow = r0 + (hasHeader ? 1 : 0);
+    if (r1 - firstDataRow < 1) return MO.toast('Não existem linhas de dados suficientes para ordenar.');
     const key = cur.c;
     const rank = (v) => (v == null ? 3 : typeof v === 'number' ? 0 : typeof v === 'string' ? 1 : 2);
     const rows = [];
-    for (let r = r0; r <= r1; r++) {
+    for (let r = firstDataRow; r <= r1; r++) {
       const a = F.addr(r, key);
       const row = [];
       for (let c = c0; c <= c1; c++) row.push(cells[F.addr(r, c)] || null);
@@ -458,7 +461,7 @@
     mutate(() =>
       rows.forEach(({ row }, i) =>
         row.forEach((cell, j) => {
-          const a = F.addr(r0 + i, c0 + j);
+          const a = F.addr(firstDataRow + i, c0 + j);
           if (cell) cells[a] = cell;
           else delete cells[a];
         })
@@ -1127,7 +1130,7 @@
           if (/[\\\\/?*:[\\]]/.test(name)) name = `Folha${i + 1}`;
           if (used.has(name.toLocaleLowerCase('pt-PT'))) name = `Folha${i + 1}`;
           used.add(name.toLocaleLowerCase('pt-PT'));
-          return { id: `sheet-${i + 1}`, name, cells: cleanCells(sheet.cells), filter: null, validations: [] };
+          return { id: `sheet-${i + 1}`, name, cells: cleanCells(sheet.cells), filter: null, validations: Array.isArray(sheet.validations) ? sheet.validations : [] };
         });
         loadedActiveSheetId = loadedSheets[0].id;
         next = loadedSheets[0].cells;
@@ -1185,7 +1188,8 @@
           return MO.OOXML.exportXlsx(workbookSheets.map((sheet) => ({
             name: sheet.name,
             cells: sheet.cells,
-            values: sheet.id === activeSheetId ? values : new Map()
+            values: sheet.id === activeSheetId ? values : new Map(),
+            validations: sheet.validations || []
           })));
         }
       },
