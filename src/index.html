@@ -43,34 +43,53 @@
       <div id="main">
         <section id="view-home" class="view">
           <div class="home">
-            <div class="hero">
-              <h1 id="greeting">Bem-vindo ao MyOffice</h1>
-              <p>Documentos, folhas de cálculo e apresentações, sempre no seu computador.</p>
-            </div>
-            <h2>Criar novo</h2>
-            <div class="cards">
-              <button type="button" class="card writer" data-view="writer">
-                <span class="card-preview"><span class="mini mini-doc"><i></i><i></i><i></i><i></i><i></i></span><span class="app-tile writer">T</span></span>
-                <strong>Documento</strong>
-                <span>Texto</span>
-              </button>
-              <button type="button" class="card sheets" data-view="sheets">
-                <span class="card-preview"><span class="mini mini-sheet"></span><span class="app-tile sheets">F</span></span>
-                <strong>Folha de cálculo</strong>
-                <span>Folhas</span>
-              </button>
-              <button type="button" class="card slides" data-view="slides">
-                <span class="card-preview"><span class="mini mini-slide"><i></i><i></i><i></i></span><span class="app-tile slides">D</span></span>
-                <strong>Apresentação</strong>
-                <span>Diapositivos</span>
-              </button>
-            </div>
-            <div class="home-row">
-              <h2>Recentes</h2>
-              <button type="button" class="btn" data-action="open">Abrir ficheiro…</button>
-            </div>
-            <ul class="recent-list"></ul>
-            <p class="recent-empty">Os documentos que guardar aparecem aqui.</p>
+            <header class="workspace-heading">
+              <div>
+                <span class="workspace-kicker">O SEU ESPAÇO DE TRABALHO</span>
+                <h1 id="greeting">Bem-vindo ao MyOffice</h1>
+                <p>Crie, organize e trabalhe. Os seus ficheiros ficam no seu computador.</p>
+              </div>
+              <button type="button" class="btn open-file-btn" data-action="open"><span aria-hidden="true">＋</span> Abrir ficheiro</button>
+            </header>
+
+            <section class="create-section" aria-labelledby="create-title">
+              <div class="section-heading">
+                <span class="section-index">01</span>
+                <div><h2 id="create-title">Começar um trabalho</h2><p>Escolha uma ferramenta para começar do zero.</p></div>
+              </div>
+              <div class="workspace-tools">
+                <button type="button" class="workspace-tool writer" data-view="writer">
+                  <span class="tool-symbol" aria-hidden="true">T</span>
+                  <span class="tool-copy"><strong>Texto</strong><small>Documentos e escrita</small></span>
+                  <span class="tool-arrow" aria-hidden="true">↗</span>
+                </button>
+                <button type="button" class="workspace-tool sheets" data-view="sheets">
+                  <span class="tool-symbol" aria-hidden="true">F</span>
+                  <span class="tool-copy"><strong>Folhas</strong><small>Cálculos e organização</small></span>
+                  <span class="tool-arrow" aria-hidden="true">↗</span>
+                </button>
+                <button type="button" class="workspace-tool slides" data-view="slides">
+                  <span class="tool-symbol" aria-hidden="true">D</span>
+                  <span class="tool-copy"><strong>Diapositivos</strong><small>Ideias e apresentações</small></span>
+                  <span class="tool-arrow" aria-hidden="true">↗</span>
+                </button>
+              </div>
+            </section>
+
+            <section class="recent-section" aria-labelledby="recent-title">
+              <div class="section-heading recent-heading">
+                <span class="section-index">02</span>
+                <div><h2 id="recent-title">Continuar de onde ficou</h2><p>Os ficheiros abertos recentemente aparecem aqui.</p></div>
+              </div>
+              <ul class="recent-list"></ul>
+              <p class="recent-empty">Ainda não existem ficheiros recentes. Abra um ficheiro para começar.</p>
+            </section>
+
+            <footer class="workspace-footer">
+              <span class="footer-mark" aria-hidden="true">M</span>
+              <span><strong>MyOffice</strong><small>Simples. Local. Seu.</small></span>
+              <span class="local-note"><span aria-hidden="true">●</span> Os seus documentos permanecem no computador</span>
+            </footer>
           </div>
         </section>
         <section id="view-writer" class="view module" hidden></section>

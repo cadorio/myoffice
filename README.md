@@ -1,29 +1,43 @@
 # MyOffice
 
-**Uma suite de escritório para desktop, simples, privada e multiplataforma.**
+**Uma suite de escritório para Windows, simples, privada e leve.**
 
-O MyOffice reúne três ferramentas numa única aplicação: **Texto**, **Folhas** e **Diapositivos**. Foi desenvolvido com Electron e funciona em Windows, macOS e Linux. Os documentos são processados localmente e a aplicação foi concebida para funcionar sem ligação à Internet.
+O MyOffice reúne três ferramentas numa única aplicação: **Texto**, **Folhas** e **Diapositivos**. Foi desenvolvido com Electron e é distribuído para computadores Windows de 64 bits, com Windows 10 versão 22H2 ou Windows 11. Os documentos são processados localmente e a aplicação foi concebida para funcionar sem ligação à Internet.
 
-[Descarregar versões](https://github.com/cadorio/myoffice/actions) · [Ver código-fonte](https://github.com/cadorio/myoffice) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
+[Consultar compilações e instaladores](https://github.com/cadorio/myoffice/actions) · [Ver código-fonte](https://github.com/cadorio/myoffice) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
-> **Versão atual do código: 1.2.0**  
-> Os três instaladores desta versão foram compilados com sucesso e os testes automatizados passaram. Ainda falta validação manual em computadores reais com Windows, macOS e Linux. Os instaladores desta execução estão disponíveis em [GitHub Actions — Instaladores](https://github.com/cadorio/myoffice/actions/runs/43866280716).
+> **Nova versão em preparação: 1.3.0**  
+> A versão 1.3.0 introduz o MyOffice Workspace redesenhado, com foco numa experiência simples e leve em Windows 10 22H2 e Windows 11. O instalador será disponibilizado após a validação da compilação.
 
 ## Capturas de ecrã
 
-As imagens seguintes são capturas reais da aplicação MyOffice.
+As imagens abaixo são capturas da interface real do MyOffice. O ecrã inicial, Texto, Folhas, Diapositivos e modo escuro foram novamente capturados a partir da interface da versão 1.3.0. Clica numa imagem para a abrir em tamanho completo.
 
-| Ecrã inicial | MyOffice Texto |
-| --- | --- |
-| ![Ecrã inicial do MyOffice](docs/screenshots/inicio.png) | ![Editor MyOffice Texto](docs/screenshots/texto.png) |
+### Ecrã inicial
 
-| MyOffice Folhas | MyOffice Diapositivos |
-| --- | --- |
-| ![Folha de cálculo MyOffice](docs/screenshots/folhas.png) | ![Editor de apresentações MyOffice](docs/screenshots/diapositivos.png) |
+![Ecrã inicial do MyOffice](docs/screenshots/inicio.png)
 
-| Assistente de apresentações | Modo escuro |
-| --- | --- |
-| ![Assistente dos Diapositivos](docs/screenshots/assistente.png) | ![MyOffice em modo escuro](docs/screenshots/modo-escuro.png) |
+### MyOffice Texto
+
+![Editor de texto MyOffice](docs/screenshots/texto.png)
+
+### MyOffice Folhas
+
+![Folha de cálculo MyOffice](docs/screenshots/folhas.png)
+
+### MyOffice Diapositivos
+
+![Editor de apresentações MyOffice](docs/screenshots/diapositivos.png)
+
+### Assistente de apresentações
+
+![Assistente de apresentações do MyOffice](docs/screenshots/assistente.png)
+
+A captura mostra o painel Assistente aberto no editor de Diapositivos, com as sugestões geradas pelo motor integrado do MyOffice.
+
+### Modo escuro
+
+![MyOffice em modo escuro](docs/screenshots/modo-escuro.png)
 
 ## O que inclui
 
@@ -43,23 +57,29 @@ As imagens seguintes são capturas reais da aplicação MyOffice.
 
 ## Instalação
 
-O MyOffice gera pacotes para os três principais sistemas operativos:
+O MyOffice é distribuído oficialmente para computadores Windows de 64 bits. O requisito mínimo definido para a distribuição é o Windows 10 versão 22H2; o Windows 11 também é suportado.
 
-| Sistema | Ficheiro | Observações |
+| Sistema | Ficheiro | Requisito |
 | --- | --- | --- |
-| Windows | `.exe` | Instalador NSIS de 64 bits, com atalhos no Ambiente de Trabalho e Menu Iniciar. |
-| macOS | `.dmg` | Imagem de disco para instalação. |
-| Linux | `.AppImage` e `.deb` | AppImage portátil ou pacote Debian/Ubuntu. |
+| Windows 10 | `.exe` | Versão 22H2, 64 bits |
+| Windows 11 | `.exe` | 64 bits |
 
-**[Abrir a execução de compilação 1.2.0 e descarregar os três artefactos](https://github.com/cadorio/myoffice/actions/runs/43866280716)**
+**[Consultar compilações e descarregar o instalador Windows](https://github.com/cadorio/myoffice/actions)**
 
-Na secção **Artifacts**, descarrega o pacote correspondente ao teu sistema: `MyOffice-Windows`, `MyOffice-macOS` ou `MyOffice-Linux`. Cada artefacto é um ZIP que contém o instalador.
+Abre a compilação mais recente concluída com sucesso e descarrega o artefacto `MyOffice-Windows`. O ZIP contém o instalador Windows x64 `MyOffice-Setup-1.3.0.exe`. As versões estáveis serão também disponibilizadas em [Releases](https://github.com/cadorio/myoffice/releases) quando forem publicadas.
 
-As próximas versões publicadas estarão disponíveis em [Releases](https://github.com/cadorio/myoffice/releases). O workflow cria uma Release automaticamente quando é publicada uma tag `vX.Y.Z` correspondente à versão indicada no `package.json`.
-
-> **Aviso de assinatura:** os instaladores atuais não estão assinados digitalmente. O Windows SmartScreen e o macOS Gatekeeper podem apresentar avisos na primeira execução. A assinatura requer certificados próprios, configurados como segredos no GitHub Actions.
+> **Aviso de assinatura:** os instaladores atuais não estão assinados digitalmente. O Windows SmartScreen pode apresentar avisos na primeira execução. A assinatura requer certificados próprios, configurados como segredos no GitHub Actions.
 
 Depois da instalação, os formatos nativos `.modoc`, `.mosheet` e `.moslides` podem ser associados ao MyOffice. A configuração do instalador também regista DOCX e PPTX como formatos que podem ser abertos com a aplicação.
+
+### Requisitos mínimos e desempenho
+
+- **Sistema operativo:** Windows 10 versão 22H2 (64 bits) ou Windows 11.
+- **Memória:** 4 GB de RAM como objetivo mínimo; 8 GB recomendados.
+- **Processador:** dual-core como referência mínima.
+- **Ligação à Internet:** não é necessária para criar e editar documentos; é necessária para descarregar modelos opcionais de IA.
+
+Os requisitos de hardware são objetivos de compatibilidade e ainda precisam de ser confirmados através de testes em computadores físicos de diferentes idades. O desempenho da IA local depende de requisitos superiores e não faz parte dos requisitos para utilizar os módulos de escritório.
 
 ## Compatibilidade com Microsoft Office
 
@@ -89,7 +109,8 @@ A transferência do modelo requer Internet; depois de instalado, o processamento
 
 ## Aparência e produtividade
 
-- **Identidade visual Aurora** — interface renovada com tons índigo, verde-turquesa e neutros quentes.
+- **Identidade visual MyOffice Workspace** — ecrã inicial redesenhado, navegação simples e foco no trabalho, sem reproduzir a disposição do Office Online.
+- **Desempenho** — interface sem animações decorativas obrigatórias e com efeitos visuais reduzidos para favorecer computadores modestos.
 - **Modo claro e escuro** — acompanha a preferência do sistema, com possibilidade de alteração na aplicação.
 - **13 temas de documento** — Escritório, Executivo, Oceano, Floresta, Pôr do sol, Coral, Menta, Lavanda, Areia, Grafite, Noite, Técnico e Contraste.
 - **Temas de apresentação** — cada tema inclui variantes Claro, Suave, Vivo e Escuro.
@@ -164,11 +185,9 @@ npm start
 npm test           # executa os testes automatizados
 npm run dist       # cria o instalador para o sistema atual
 npm run dist:win   # instalador Windows
-npm run dist:mac   # instalador macOS
-npm run dist:linux # pacotes Linux
 ```
 
-Os artefactos locais são colocados na pasta `dist/`. O workflow **Instaladores** do GitHub Actions executa `npm ci` e `npm test` antes de compilar os pacotes para Windows, macOS e Linux. Cada push para `main` gera artefactos; uma tag `vX.Y.Z` publica também uma GitHub Release.
+Os artefactos locais são colocados na pasta `dist/`. O workflow **Instalador Windows** do GitHub Actions executa `npm ci` e `npm test` antes de compilar o instalador Windows de 64 bits. Cada push para `main` gera artefactos; uma tag `vX.Y.Z` publica também uma GitHub Release.
 
 ## Estrutura do projeto
 
