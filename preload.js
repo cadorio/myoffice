@@ -30,5 +30,6 @@ contextBridge.exposeInMainWorld('api', {
     activate: (key) => ipcRenderer.invoke('license:activate', key)
   },
   onMenu: (callback) => ipcRenderer.on('menu', (_event, action) => callback(action)),
-  onOpenFile: (callback) => ipcRenderer.on('open-file', (_event, file) => callback(file))
+  onOpenFile: (callback) => ipcRenderer.on('open-file', (_event, file) => callback(file)),
+  onOpenView: (callback) => ipcRenderer.on('open-view', (_event, view) => callback(view))
 });
