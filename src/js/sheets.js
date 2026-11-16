@@ -780,7 +780,7 @@
       });
     },
 
-    newDoc() {
+    newDoc(template) {
       for (const a of drawn.keys()) drawn.set(a, null); // força o redesenho completo
       editing = null;
       editorEl.style.display = 'none';
@@ -791,6 +791,36 @@
       cur = { r: 0, c: 0 };
       end = { r: 0, c: 0 };
       setTheme(T.LIST[0]);
+      if (template === 'budget') {
+        const headers = ['Categoria', 'Orçamento (€)', 'Real (€)', 'Saldo (€)'];
+        headers.forEach((v, c) => (cells[F.addr(0, c)] = { v, s: { b: 1, bg: '#e8e5ff' } }));
+        const rows = [
+          ['Habitação', '850', '820'],
+          ['Alimentação', '250', '278'],
+          ['Transportes', '100', '84'],
+          ['Lazer', '120', '96'],
+          ['Saúde', '60', '35'],
+          ['Outros', '80', '60']
+        ];
+        rows.forEach((row, r) => {
+          row.forEach((v, col) => (cells[F.addr(r + 1, col)] = { v }));
+          cells[F.addr(r + 1, 3)] = { v: `=B${r + 2}-C${r + 2}` };
+        });
+        cells.A8 = { v: 'TOTAL', s: { b: 1, bg: '#e8e5ff' } };
+        cells.B8 = { v: '=SOMA(B2:B7)', s: { b: 1 } };
+        cells.C8 = { v: '=SOMA(C2:C7)', s: { b: 1 } };
+        cells.D8 = { v: '=B8-C8', s: { b: 1 } };
+      } else if (template === 'tasks') {
+        const rows = [
+          ['Tarefa', 'Responsável', 'Prioridade', 'Estado'],
+          ['Definir objetivos', '[Nome]', 'Alta', 'Por iniciar'],
+          ['Preparar recursos', '[Nome]', 'Média', 'Em curso'],
+          ['Rever resultados', '[Nome]', 'Baixa', 'Por iniciar']
+        ];
+        rows.forEach((row, r) => row.forEach((v, col) => {
+          cells[F.addr(r, col)] = { v, ...(r === 0 ? { s: { b: 1, bg: '#dff3eb' } } : {}) };
+        }));
+      }
       refresh();
     },
 
