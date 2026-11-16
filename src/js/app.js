@@ -364,8 +364,7 @@
   }
 
   function greet() {
-    const hour = new Date().getHours();
-    $('#greeting').textContent = hour < 6 ? 'Boa noite' : hour < 13 ? 'Bom dia' : hour < 20 ? 'Boa tarde' : 'Boa noite';
+    $('#greeting').textContent = 'Bom trabalho começa aqui.';
   }
 
   // ---------- Ações globais ----------
