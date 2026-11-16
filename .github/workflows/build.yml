@@ -50,7 +50,7 @@ jobs:
           branch="${{ github.event.pull_request.head.ref }}"
           for attempt in 1 2 3 4 5; do
             git fetch origin "$branch"
-            git checkout -B screenshot-update "origin/$branch"
+            git checkout -f -B screenshot-update "origin/$branch"
             cp "$RUNNER_TEMP"/myoffice-captures/*.png docs/screenshots/
             git add docs/screenshots/inicio.png docs/screenshots/texto.png docs/screenshots/folhas.png docs/screenshots/diapositivos.png docs/screenshots/modo-escuro.png
             if git diff --cached --quiet; then
