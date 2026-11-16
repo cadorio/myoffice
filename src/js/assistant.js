@@ -318,7 +318,46 @@
     return [...new Set(tips)];
   }
 
-  const api = { generateDeck, suggest, suggestComposition, classify };
+  // MyOffice Intelligence: núcleo independente, local e validado. Nesta fase usa análise
+  // determinística; o motor generativo próprio será acrescentado sem alterar este contrato.
+  const TASKS = new Set(['review', 'analyse', 'slide-review', 'deck-outline']);
+  function request(input) {
+    const task = input && input.task;
+    if (!TASKS.has(task)) return { error: 'Tarefa de inteligência não suportada.' };
+    const context = input && input.context;
+    if (typeof context !== 'string' || !context.trim()) return { error: 'Não existe conteúdo suficiente para analisar.' };
+    if (context.length > 50000) return { error: 'O conteúdo selecionado excede o limite de análise (50 000 caracteres).' };
+    if (task === 'review') {
+      const text = context.trim();
+      const sentences = text.split(/(?<=[.!?])\\s+/).filter(Boolean);
+      const long = sentences.filter((s) => words(s).length > 30);
+      const repeated = [];
+      const seen = new Set();
+      for (const sentence of sentences) {
+        const key = plain(sentence).replace(/[^\\p{L}\\p{N}]+/gu, ' ').trim();
+        if (key.length > 24 && seen.has(key) && !repeated.includes(sentence)) repeated.push(sentence);
+        seen.add(key);
+      }
+      const findings = [];
+      if (long.length) findings.push(long.length + ' frase(s) com mais de 30 palavras; considere dividi-las.');
+      if (repeated.length) findings.push('Foram detetadas frases repetidas: ' + repeated.slice(0, 3).join(' / '));
+      if (!findings.length) findings.push('Não foram detetadas frases excessivamente longas nem repetições exatas.');
+      return { task, engine: 'myoffice-rules-v1', findings, summary: sentences.length + ' frases analisadas; ' + words(text).length + ' palavras.' };
+    }
+    if (task === 'analyse') {
+      const rows = context.split(/\\r?\\n/).filter(Boolean).map((line) => line.split(/\\s*\\|\\s*/));
+      const nums = rows.flat().map((v) => Number(String(v).replace(',', '.'))).filter((v) => Number.isFinite(v) && String(v).trim() !== '');
+      const findings = ['Tabela com ' + rows.length + ' linha(s) e ' + Math.max(0, ...rows.map((r) => r.length)) + ' coluna(s).'];
+      if (nums.length) {
+        const total = nums.reduce((sum, n) => sum + n, 0);
+        findings.push(nums.length + ' valor(es) numérico(s); soma ' + Number(total.toFixed(6)) + ', média ' + Number((total / nums.length).toFixed(6)) + ', mínimo ' + Math.min(...nums) + ', máximo ' + Math.max(...nums) + '.');
+      } else findings.push('Não foram identificados valores numéricos nesta seleção.');
+      return { task, engine: 'myoffice-rules-v1', findings };
+    }
+    return { error: 'Esta tarefa ainda não está disponível no núcleo independente.' };
+  }
+
+  const api = { generateDeck, suggest, suggestComposition, classify, request };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else (root.MO = root.MO || {}).Assistant = api;
 })(typeof window !== 'undefined' ? window : globalThis);
