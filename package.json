@@ -33,11 +33,7 @@
       "src/**/*",
       "build/icon.png",
       "THIRD-PARTY-NOTICES.md",
-      "package.json",
-      "!node_modules/@node-llama-cpp/*-cuda*/**",
-      "!node_modules/@node-llama-cpp/*-vulkan*/**",
-      "!node_modules/node-llama-cpp/llama/llama.cpp/**",
-      "!node_modules/node-llama-cpp/docs/**"
+      "package.json"
     ],
     "fileAssociations": [
       {
@@ -110,7 +106,5 @@
     "fflate": "^0.8.3"
   },
   "desktopName": "myoffice.desktop",
-  "dependencies": {
-    "node-llama-cpp": "^3.22.3"
-  }
+  "dependencies": {}
 }
