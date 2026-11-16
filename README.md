@@ -148,7 +148,11 @@ O MyOffice foi concebido para manter o processamento dos documentos no computado
 - O conteúdo importado é validado e limpo antes de ser apresentado.
 - A exportação CSV neutraliza conteúdos que poderiam ser interpretados como fórmulas por outras folhas de cálculo.
 
-**Limitações de segurança a considerar:** os instaladores ainda não têm assinatura digital e a verificação de integridade do pacote não está ativa. A funcionalidade de IA requer descarregar os modelos, pelo que essa operação inicial necessita de Internet.
+**Distribuição Windows e antivírus:** o processo de compilação verifica o instalador com o Microsoft Defender quando a ferramenta está disponível no runner, gera um resumo SHA-256 e publica um inventário SBOM das dependências. Estas verificações melhoram a transparência e permitem confirmar a integridade do download, mas não garantem deteção por todos os antivírus nem ausência absoluta de falsos positivos.
+
+A assinatura Authenticode é suportada, mas depende da configuração de um certificado de assinatura de código nos segredos do GitHub Actions. Sem certificado, o instalador permanece sem assinatura e o Windows SmartScreen pode apresentar um aviso, sobretudo numa aplicação nova. Não recomendamos desativar o antivírus nem ignorar alertas. Consulta [SECURITY.md](SECURITY.md) para verificar downloads, compreender os relatórios e comunicar vulnerabilidades.
+
+A funcionalidade de IA requer descarregar os modelos, pelo que essa operação inicial necessita de Internet.
 
 ## Limitações atuais
 
