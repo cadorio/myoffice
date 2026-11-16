@@ -1,6 +1,6 @@
 {
   "name": "myoffice",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Suite de escritório para desktop: editor de texto, folha de cálculo e apresentações.",
   "main": "main.js",
@@ -62,6 +62,18 @@
         "name": "Apresentação MyOffice",
         "description": "Apresentação MyOffice",
         "role": "Editor"
+      },
+      {
+        "ext": "docx",
+        "name": "Documento Word (MyOffice)",
+        "description": "Abrir documentos Word com MyOffice Texto",
+        "role": "Editor"
+      },
+      {
+        "ext": "pptx",
+        "name": "Apresentação PowerPoint (MyOffice)",
+        "description": "Abrir apresentações PowerPoint com MyOffice Diapositivos",
+        "role": "Editor"
       }
     ],
     "win": {
@@ -81,7 +93,8 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "MyOffice",
-      "artifactName": "MyOffice-Setup-${version}.${ext}"
+      "artifactName": "MyOffice-Setup-${version}.${ext}",
+      "include": "build/installer.nsh"
     },
     "mac": {
       "target": [
