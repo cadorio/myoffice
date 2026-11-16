@@ -263,7 +263,7 @@
   }
 
   // root: elemento com o conteúdo do documento (o editor); look: tipos de letra e cores do tema.
-  function exportDocx(root, look) {
+  function exportDocx(root, look, options = {}) {
     const media = {};
     const rels = [];
     let imageCount = 0;
@@ -402,6 +402,18 @@
 
     const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
     const body = blocks(root, {}) || '<w:p/>';
+    const headerText = String(options.headerText || '').slice(0, 250);
+    const footerText = String(options.footerText || '').slice(0, 250);
+    const pageNumbers = Boolean(options.pageNumbers);
+    const headerXml = XML_HEAD + `<w:hdr ${W}><w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="4" w:space="4" w:color="D1D5DB"/></w:pBdr></w:pPr><w:r><w:t xml:space="preserve">${esc(headerText)}</w:t></w:r></w:p></w:hdr>`;
+    const pageField = '<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>1</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>';
+    const footerContent = (footerText ? `<w:r><w:t xml:space="preserve">${esc(footerText)}</w:t></w:r>` : '') + (pageNumbers ? `<w:r><w:t xml:space="preserve">${footerText ? ' · Página ' : 'Página '}</w:t></w:r>${pageField}` : '');
+    const footerXml = XML_HEAD + `<w:ftr ${W}><w:p><w:pPr><w:jc w:val="center"/><w:pBdr><w:top w:val="single" w:sz="4" w:space="4" w:color="D1D5DB"/></w:pBdr></w:pPr>${footerContent}</w:p></w:ftr>`;
+    const hasHeader = Boolean(headerText);
+    const hasFooter = Boolean(footerText || pageNumbers);
+    const pageRefs = (hasHeader ? '<w:headerReference w:type="default" r:id="rIdHeader"/>' : '') + (hasFooter ? '<w:footerReference w:type="default" r:id="rIdFooter"/>' : '');
+    const pageRelEntries = (hasHeader ? '<Relationship Id="rIdHeader" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>' : '') + (hasFooter ? '<Relationship Id="rIdFooter" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>' : '');
+    const pageContentTypes = (hasHeader ? '<Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>' : '') + (hasFooter ? '<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>' : '');
     const headFont = esc(fontName(look.head));
     const bodyFont = esc(fontName(look.body));
     const headColor = hexColor(look.color) || '1C2130';
@@ -421,14 +433,14 @@
         '<Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="jpg" ContentType="image/jpeg"/><Default Extension="gif" ContentType="image/gif"/>' +
         '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
         '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
-        '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/></Types>',
+        '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>' + pageContentTypes + '</Types>',
       '_rels/.rels':
         XML_HEAD +
         '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
       'word/document.xml':
         XML_HEAD +
         `<w:document ${W} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">` +
-        `<w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>`,
+        `<w:body>${body}<w:sectPr>${pageRefs}<w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>`,
       'word/styles.xml':
         XML_HEAD +
         `<w:styles ${W}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="${bodyFont}" w:hAnsi="${bodyFont}" w:cs="${bodyFont}"/><w:sz w:val="24"/><w:szCs w:val="24"/><w:lang w:val="pt-PT"/></w:rPr></w:rPrDefault>` +
@@ -443,11 +455,13 @@
         `<w:numbering ${W}><w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="hybridMultilevel"/>${levels(false)}</w:abstractNum>` +
         `<w:abstractNum w:abstractNumId="1"><w:multiLevelType w:val="hybridMultilevel"/>${levels(true)}</w:abstractNum>` +
         '<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num><w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num></w:numbering>',
+      ...(hasHeader ? { 'word/header1.xml': headerXml } : {}),
+      ...(hasFooter ? { 'word/footer1.xml': footerXml } : {}),
       'word/_rels/document.xml.rels':
         XML_HEAD +
         '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
         `<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
-        `<Relationship Id="rIdNumbering" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>${rels.join('')}</Relationships>`,
+        `<Relationship Id="rIdNumbering" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>${pageRelEntries}${rels.join('')}</Relationships>`,
       ...media
     });
   }
