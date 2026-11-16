@@ -20,12 +20,21 @@ let win = null;
 let dirty = false;
 let rendererReady = false;
 let pendingFile = null;
+let pendingView = null;
 let recent = [];
 // Caminhos escolhidos pelo utilizador num diálogo; só estes podem ser reescritos sem perguntar.
 const approvedPaths = new Set();
 
 const extOf = (p) => path.extname(p).slice(1).toLowerCase();
 const recentFile = () => path.join(app.getPath('userData'), 'recent.json');
+
+function viewFromArgv(argv) {
+  const args = new Set(argv);
+  for (const id of ['writer', 'sheets', 'slides']) {
+    if (args.has('--' + id)) return id;
+  }
+  return null;
+}
 
 function fileFromArgv(argv) {
   for (const arg of argv.slice(1).reverse()) {
@@ -316,6 +325,10 @@ function registerIpc() {
       const p = pendingFile;
       pendingFile = null;
       openInRenderer(p);
+    } else if (pendingView) {
+      const view = pendingView;
+      pendingView = null;
+      win.webContents.send('open-view', view);
     }
   });
 
@@ -436,6 +449,7 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   pendingFile = fileFromArgv(process.argv);
+  pendingView = pendingFile ? null : viewFromArgv(process.argv);
 
   app.on('second-instance', (_event, argv) => {
     if (!win) return;
@@ -443,6 +457,10 @@ if (!app.requestSingleInstanceLock()) {
     win.focus();
     const p = fileFromArgv(argv);
     if (p) openInRenderer(p);
+    else {
+      const view = viewFromArgv(argv);
+      if (view) win.webContents.send('open-view', view);
+    }
   });
 
   // macOS: ficheiro aberto a partir do Finder.
