@@ -2,6 +2,8 @@ name: Instalador Windows
 
 # Compila, verifica e prepara o instalador Windows x64.
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main, design/lightweight-windows-workspace, security/windows-antivirus-trust, release/1.5.0-professional]
     tags: ['v*']
