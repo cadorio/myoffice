@@ -1,9 +1,11 @@
 name: Instalador Windows
 
-# Compila o instalador Windows x64 em PRs, pushes para main e tags de versão.
+# Compila, verifica e prepara o instalador Windows x64.
 on:
+  pull_request:
+    branches: [main]
   push:
-    branches: [main, design/lightweight-windows-workspace]
+    branches: [main, design/lightweight-windows-workspace, security/windows-antivirus-trust, release/1.5.0-professional]
     tags: ['v*']
   workflow_dispatch:
 
@@ -16,7 +18,7 @@ permissions:
 
 jobs:
   build:
-    if: github.event_name != 'push' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/design/lightweight-windows-workspace' || startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/design/lightweight-windows-workspace' || github.ref == 'refs/heads/security/windows-antivirus-trust' || github.ref == 'refs/heads/release/1.5.0-professional' || startsWith(github.ref, 'refs/tags/v')
     name: Windows x64
     runs-on: windows-2022
     permissions:
@@ -55,7 +57,7 @@ jobs:
               echo "As capturas já estão atualizadas."
               exit 0
             fi
-            git commit -m "docs: refresh MyOffice 1.3.0 screenshots"
+            git commit -m "docs: refresh MyOffice screenshots"
             if git push origin "HEAD:$branch"; then
               exit 0
             fi
@@ -63,7 +65,7 @@ jobs:
           done
           echo "Não foi possível atualizar as capturas após 5 tentativas."
           exit 1
-      # A assinatura Windows é opcional e requer WIN_CSC_LINK e WIN_CSC_KEY_PASSWORD.
+      # A assinatura Windows requer um certificado Authenticode em WIN_CSC_LINK e a respetiva password.
       - name: Preparar assinatura
         shell: bash
         env:
@@ -75,15 +77,62 @@ jobs:
             echo "CSC_KEY_PASSWORD=$WIN_CSC_KEY_PASSWORD" >> "$GITHUB_ENV"
           else
             echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "$GITHUB_ENV"
-            echo "Sem certificado: o instalador não será assinado."
+            echo "Sem certificado Authenticode: o instalador ficará sem assinatura."
           fi
       - name: Criar instalador Windows x64
         run: npx electron-builder --win --x64 --publish never
+      - name: Verificar instalador, analisar com Microsoft Defender e gerar provas de integridade
+        shell: pwsh
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Get-ChildItem 'dist' -Filter '*.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'O instalador EXE não foi encontrado.' }
+
+          $signature = Get-AuthenticodeSignature -FilePath $installer.FullName
+          if ($env:WIN_CSC_LINK) {
+            if ($signature.Status -ne 'Valid') {
+              throw "A assinatura Authenticode devia ser válida, mas o estado é: $($signature.Status)"
+            }
+          }
+
+          $hash = Get-FileHash -Algorithm SHA256 -Path $installer.FullName
+          "$($hash.Hash)  $($installer.Name)" | Set-Content -Encoding ascii "$($installer.FullName).sha256"
+          @(
+            "Ficheiro: $($installer.Name)"
+            "SHA-256: $($hash.Hash)"
+            "Assinatura Authenticode: $($signature.Status)"
+            "Signatário: $(if ($signature.SignerCertificate) { $signature.SignerCertificate.Subject } else { 'Nenhum' })"
+            "Data UTC: $([DateTime]::UtcNow.ToString('o'))"
+          ) | Set-Content -Encoding utf8 'dist/SECURITY-REPORT.txt'
+
+          $defender = Join-Path $env:ProgramFiles 'Windows Defender/MpCmdRun.exe'
+          if (Test-Path $defender) {
+            $scanOutput = (& $defender -Scan -ScanType 3 -File $installer.FullName 2>&1 | Out-String)
+            $scanExitCode = $LASTEXITCODE
+            $scanOutput | Set-Content -Encoding utf8 'dist/DEFENDER-SCAN.txt'
+            if ($scanExitCode -ne 0) { throw "O Microsoft Defender reportou um problema (código $scanExitCode)." }
+            if ($scanOutput -match '(?i)was skipped|scan.*skipped|ignorado|ignorada') {
+              Add-Content 'dist/SECURITY-REPORT.txt' 'Microsoft Defender: o pedido de análise foi aceite, mas o motor ignorou este ficheiro; não existe resultado de deteção para o instalador.'
+            } else {
+              Add-Content 'dist/SECURITY-REPORT.txt' 'Microsoft Defender: comando de análise concluído sem mensagens de ficheiro ignorado. Isto não é uma certificação de ausência de malware.'
+            }
+          } else {
+            Add-Content 'dist/SECURITY-REPORT.txt' 'Microsoft Defender: ferramenta não disponível neste runner; análise não executada.'
+          }
+
+          npm sbom --omit=dev --sbom-format cyclonedx | Out-File -Encoding utf8 'dist/MyOffice-sbom.cdx.json'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: MyOffice-Windows
           if-no-files-found: error
-          path: dist/*.exe
+          path: |
+            dist/*.exe
+            dist/*.sha256
+            dist/SECURITY-REPORT.txt
+            dist/DEFENDER-SCAN.txt
+            dist/MyOffice-sbom.cdx.json
 
   release:
     name: Publicar Release Windows

@@ -7,7 +7,7 @@ O MyOffice reúne quatro áreas numa única aplicação: **Texto**, **Folhas**, 
 [Consultar compilações e instaladores](https://github.com/cadorio/myoffice/actions) · [Ver código-fonte](https://github.com/cadorio/myoffice) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
 > **Versão 1.4.0 — MyOffice Horizon**  
-> Integrada na branch `main`. A compilação Windows está a ser validada pelo GitHub Actions; a publicação oficial depende da criação da tag `v1.4.0`.
+> Integrada na branch `main`. A compilação Windows é produzida pelo GitHub Actions. A publicação oficial depende da criação da tag `v1.4.0`.
 
 ## Capturas de ecrã
 
@@ -82,7 +82,7 @@ O MyOffice é distribuído oficialmente para computadores Windows de 64 bits. O 
 
 Abre a compilação mais recente concluída com sucesso e descarrega o artefacto `MyOffice-Windows`. O nome do instalador da versão 1.4.0 será `MyOffice-Setup-1.4.0.exe`, quando a versão for compilada e publicada. As versões estáveis serão também disponibilizadas em [Releases](https://github.com/cadorio/myoffice/releases) quando forem publicadas.
 
-> **Aviso de assinatura:** os instaladores atuais não estão assinados digitalmente. O Windows SmartScreen pode apresentar avisos na primeira execução. A assinatura requer certificados próprios, configurados como segredos no GitHub Actions.
+**Verificação do instalador:** as compilações incluem hash SHA-256, relatório de segurança e inventário SBOM. A assinatura Authenticode só fica ativa quando é configurado um certificado válido nos segredos `WIN_CSC_LINK` e `WIN_CSC_KEY_PASSWORD`. Sem certificado, o SmartScreen pode continuar a apresentar avisos. Consulta [SECURITY.md](SECURITY.md).
 
 Depois da instalação, os formatos nativos `.modoc`, `.mosheet` e `.moslides` podem ser associados ao MyOffice. A configuração do instalador também regista DOCX e PPTX como formatos que podem ser abertos com a aplicação.
 

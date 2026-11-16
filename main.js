@@ -3,7 +3,6 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, session } = require('electron');
 const { fileURLToPath } = require('url');
 const license = require('./license').createManager(app);
-const ai = require('./ai');
 const path = require('path');
 const fs = require('fs/promises');
 const fsSync = require('fs');
@@ -321,9 +320,6 @@ function lockDownSession() {
 const LICENSE_BLOCK = 'O período experimental terminou. Ative uma licença em Ficheiro › Licença para guardar e exportar.';
 
 function registerIpc() {
-  ai.register(ipcMain, fromOurWindow, (message) => {
-    if (win && rendererReady) win.webContents.send('ai:event', message);
-  });
   ipcMain.handle('license:status', (event) => (fromOurWindow(event) ? license.status() : null));
   ipcMain.handle('license:activate', (event, key) => (fromOurWindow(event) ? license.activate(key) : null));
 

@@ -40,7 +40,16 @@
     HOJE: 'TODAY',
     'SOMA.SE': 'SUMIF',
     'CONTAR.SE': 'COUNTIF',
-    PROCV: 'VLOOKUP'
+    PROCV: 'VLOOKUP',
+    MEDIANA: 'MEDIAN',
+    DESVPAD: 'STDEV',
+    'DESVPAD.P': 'STDEVP',
+    VAR: 'VAR',
+    'VAR.P': 'VARP',
+    'CONTAR.VAZIO': 'COUNTBLANK',
+    SOMARPRODUTO: 'SUMPRODUCT',
+    'ARREDONDAR.PARA.CIMA': 'ROUNDUP',
+    'ARREDONDAR.PARA.BAIXO': 'ROUNDDOWN'
   };
 
   function colName(c) {
@@ -361,6 +370,52 @@
       return out === null ? 0 : out;
     },
     SUM: (a) => nums(a).reduce((s, v) => s + v, 0),
+    MEDIAN: (a) => {
+      const n = nums(a).sort((x, y) => x - y);
+      if (!n.length) throw new FError('#NUM!');
+      const mid = Math.floor(n.length / 2);
+      return n.length % 2 ? n[mid] : (n[mid - 1] + n[mid]) / 2;
+    },
+    STDEV: (a) => {
+      const n = nums(a);
+      if (n.length < 2) throw new FError('#DIV/0!');
+      const mean = n.reduce((s, v) => s + v, 0) / n.length;
+      return Math.sqrt(n.reduce((s, v) => s + (v - mean) ** 2, 0) / (n.length - 1));
+    },
+    STDEVP: (a) => {
+      const n = nums(a);
+      if (!n.length) throw new FError('#DIV/0!');
+      const mean = n.reduce((s, v) => s + v, 0) / n.length;
+      return Math.sqrt(n.reduce((s, v) => s + (v - mean) ** 2, 0) / n.length);
+    },
+    VAR: (a) => {
+      const n = nums(a);
+      if (n.length < 2) throw new FError('#DIV/0!');
+      const mean = n.reduce((s, v) => s + v, 0) / n.length;
+      return n.reduce((s, v) => s + (v - mean) ** 2, 0) / (n.length - 1);
+    },
+    VARP: (a) => {
+      const n = nums(a);
+      if (!n.length) throw new FError('#DIV/0!');
+      const mean = n.reduce((s, v) => s + v, 0) / n.length;
+      return n.reduce((s, v) => s + (v - mean) ** 2, 0) / n.length;
+    },
+    COUNTBLANK: (a) => flat(a).filter((v) => v === null || v === '').length,
+    SUMPRODUCT: (a) => {
+      if (!a.length) return 0;
+      const arrays = a.map((v) => Array.isArray(v) ? v : [v]);
+      const size = arrays[0].length;
+      if (arrays.some((v) => v.length !== size)) throw new FError('#VALOR!');
+      return Array.from({ length: size }, (_, i) => arrays.reduce((p, arr) => p * (arr[i] == null ? 0 : num(arr[i])), 1)).reduce((s, v) => s + v, 0);
+    },
+    ROUNDUP: (a) => {
+      const x = num(a[0]), d = a.length > 1 ? Math.trunc(num(a[1])) : 0, p = 10 ** d;
+      return Math.sign(x) * Math.ceil(Math.abs(x) * p) / p;
+    },
+    ROUNDDOWN: (a) => {
+      const x = num(a[0]), d = a.length > 1 ? Math.trunc(num(a[1])) : 0, p = 10 ** d;
+      return Math.sign(x) * Math.floor(Math.abs(x) * p) / p;
+    },
     PRODUCT: (a) => nums(a).reduce((s, v) => s * v, 1),
     AVERAGE: (a) => {
       const n = nums(a);
@@ -404,7 +459,7 @@
     TODAY: () => new Date().toLocaleDateString('pt-PT')
   };
 
-  const MIN_ARGS = { SUMIF: 2, COUNTIF: 2, VLOOKUP: 3, ROUND: 1, INT: 1, ABS: 1, SQRT: 1, POWER: 2, MOD: 2, NOT: 1, LEN: 1, UPPER: 1, LOWER: 1, TRIM: 1 };
+  const MIN_ARGS = { SUMIF: 2, COUNTIF: 2, VLOOKUP: 3, ROUND: 1, ROUNDUP: 1, ROUNDDOWN: 1, INT: 1, ABS: 1, SQRT: 1, POWER: 2, MOD: 2, NOT: 1, LEN: 1, UPPER: 1, LOWER: 1, TRIM: 1, MEDIAN: 1, STDEV: 1, STDEVP: 1, VAR: 1, VARP: 1, COUNTBLANK: 1, SUMPRODUCT: 1 };
 
   function evaluate(n, ctx) {
     switch (n.k) {

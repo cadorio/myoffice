@@ -154,7 +154,7 @@
 
   // Expressões longas e a forma curta equivalente. Os limites de palavra usam \p{L} porque \b não
   // reconhece letras acentuadas.
-  const phrase = (source) => new RegExp('(?<!\\p{L})(?:' + source + ')(?!\\p{L})', 'giu');
+  const phrase = (source) => new RegExp('(?<!\p{L})(?:' + source + ')(?!\p{L})', 'giu');
   const SHORTER = [
     [phrase('é importante (?:referir|salientar|notar|destacar|sublinhar) que'), ''],
     [phrase('(?:importa|convém|vale a pena|gostaria de) (?:referir|salientar|notar|destacar|sublinhar) que'), ''],
@@ -166,7 +166,7 @@
     [phrase('a nível de|ao nível de|em termos de|no que diz respeito a|no que toca a|relativamente a'), 'em'],
     [phrase('neste momento|atualmente|nos dias de hoje|hoje em dia'), 'hoje'],
     [phrase('a grande maioria de'), 'a maioria de'],
-    [phrase('(?:bastante|muito|extremamente|realmente|verdadeiramente|claramente|totalmente)(?= \\p{L})'), '']
+    [phrase('(?:bastante|muito|extremamente|realmente|verdadeiramente|claramente|totalmente)(?= \p{L})'), '']
   ];
 
   function shorten(text) {
@@ -281,7 +281,83 @@
     return { tips: tipsFor(title, bullets, notes), suggestions };
   }
 
-  const api = { generateDeck, suggest, classify };
+  // Analisa a composição de fotografias e texto sem modificar qualquer elemento.
+  function suggestComposition(elements, width = 960, height = 540) {
+    const list = Array.isArray(elements) ? elements : [];
+    const images = list.filter((el) => el && el.type === 'image');
+    const texts = list.filter((el) => el && el.type === 'text');
+    const tips = [];
+    for (let i = 0; i < images.length; i++) {
+      const image = images[i];
+      const x = Number(image.x) || 0, y = Number(image.y) || 0;
+      const w = Math.max(0, Number(image.w) || 0), h = Math.max(0, Number(image.h) || 0);
+      if (x < 0 || y < 0 || x + w > width || y + h > height) {
+        tips.push('Uma fotografia ultrapassa os limites do diapositivo. Ajuste a posição ou o tamanho para evitar cortes.');
+      }
+      if (w < 120 || h < 90) tips.push('Há uma fotografia com dimensões reduzidas. Aumente-a se os detalhes forem importantes.');
+      if (texts.some((text) => {
+        const tx = Number(text.x) || 0, ty = Number(text.y) || 0;
+        const tw = Math.max(0, Number(text.w) || 0), th = Math.max(0, Number(text.h) || 0);
+        const overlapW = Math.max(0, Math.min(x + w, tx + tw) - Math.max(x, tx));
+        const overlapH = Math.max(0, Math.min(y + h, ty + th) - Math.max(y, ty));
+        return overlapW * overlapH > Math.min(w * h, tw * th) * 0.08;
+      })) tips.push('Uma fotografia sobrepõe-se a uma caixa de texto. Verifique se não tapa palavras e se existe contraste suficiente.');
+      for (let j = i + 1; j < images.length; j++) {
+        const other = images[j];
+        const ox = Number(other.x) || 0, oy = Number(other.y) || 0;
+        const ow = Math.max(0, Number(other.w) || 0), oh = Math.max(0, Number(other.h) || 0);
+        const overlapW = Math.max(0, Math.min(x + w, ox + ow) - Math.max(x, ox));
+        const overlapH = Math.max(0, Math.min(y + h, oy + oh) - Math.max(y, oy));
+        if (overlapW * overlapH > Math.min(w * h, ow * oh) * 0.12) {
+          tips.push('Duas fotografias sobrepõem-se bastante. Considere alinhá-las lado a lado ou criar uma composição em grelha.');
+        }
+      }
+    }
+    if (images.length === 1 && texts.length === 0) tips.push('O diapositivo contém apenas uma fotografia. Pode acrescentar um título ou uma legenda curta para dar contexto.');
+    if (images.length >= 2 && !tips.length) tips.push('Mantenha margens e espaçamento consistentes entre as fotografias.');
+    return [...new Set(tips)];
+  }
+
+  // MyOffice Intelligence: núcleo independente, local e validado. Nesta fase usa análise
+  // determinística; o motor generativo próprio será acrescentado sem alterar este contrato.
+  const TASKS = new Set(['review', 'analyse']);
+  function request(input) {
+    const task = input && input.task;
+    if (!TASKS.has(task)) return { error: 'Tarefa de inteligência não suportada.' };
+    const context = input && input.context;
+    if (typeof context !== 'string' || !context.trim()) return { error: 'Não existe conteúdo suficiente para analisar.' };
+    if (context.length > 50000) return { error: 'O conteúdo selecionado excede o limite de análise (50 000 caracteres).' };
+    if (task === 'review') {
+      const text = context.trim();
+      const sentences = text.split(/(?<=[.!?])\s+/).filter(Boolean);
+      const long = sentences.filter((s) => words(s).length > 30);
+      const repeated = [];
+      const seen = new Set();
+      for (const sentence of sentences) {
+        const key = plain(sentence).replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+        if (key.length > 24 && seen.has(key) && !repeated.includes(sentence)) repeated.push(sentence);
+        seen.add(key);
+      }
+      const findings = [];
+      if (long.length) findings.push(long.length + ' frase(s) com mais de 30 palavras; considere dividi-las.');
+      if (repeated.length) findings.push('Foram detetadas frases repetidas: ' + repeated.slice(0, 3).join(' / '));
+      if (!findings.length) findings.push('Não foram detetadas frases excessivamente longas nem repetições exatas.');
+      return { task, engine: 'myoffice-rules-v1', findings, summary: sentences.length + ' frases analisadas; ' + words(text).length + ' palavras.' };
+    }
+    if (task === 'analyse') {
+      const rows = context.split(/\r?\\n/).filter(Boolean).map((line) => line.split(/\s*\\|\s*/));
+      const nums = rows.flat().map((v) => Number(String(v).replace(',', '.'))).filter((v) => Number.isFinite(v) && String(v).trim() !== '');
+      const findings = ['Tabela com ' + rows.length + ' linha(s) e ' + Math.max(0, ...rows.map((r) => r.length)) + ' coluna(s).'];
+      if (nums.length) {
+        const total = nums.reduce((sum, n) => sum + n, 0);
+        findings.push(nums.length + ' valor(es) numérico(s); soma ' + Number(total.toFixed(6)) + ', média ' + Number((total / nums.length).toFixed(6)) + ', mínimo ' + Math.min(...nums) + ', máximo ' + Math.max(...nums) + '.');
+      } else findings.push('Não foram identificados valores numéricos nesta seleção.');
+      return { task, engine: 'myoffice-rules-v1', findings };
+    }
+    return { error: 'Esta tarefa ainda não está disponível no núcleo independente.' };
+  }
+
+  const api = { generateDeck, suggest, suggestComposition, classify, request };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else (root.MO = root.MO || {}).Assistant = api;
 })(typeof window !== 'undefined' ? window : globalThis);

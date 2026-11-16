@@ -519,6 +519,22 @@ body[data-current="home"] #rail { display: flex; }
 .page hr, .print-doc hr { border: 0; border-top: 1px solid #9aa1b1; margin: 12pt 0; }
 .page a { color: #2f48c9; }
 
+.print-page-header, .print-page-footer {
+  color: #555;
+  font-size: 9pt;
+  padding: 0 0 6pt;
+  margin: 0 0 12pt;
+  border-bottom: 1px solid #d1d5db;
+}
+.print-page-footer {
+  padding: 6pt 0 0;
+  margin: 16pt 0 0;
+  border-bottom: 0;
+  border-top: 1px solid #d1d5db;
+  text-align: center;
+}
+
+
 /* ---------- Folhas ---------- */
 
 .fx-bar {
@@ -542,6 +558,43 @@ body[data-current="home"] #rail { display: flex; }
 .fx-label { font-style: italic; font-family: Georgia, serif; color: var(--muted); }
 .fx-input { flex: 1; min-width: 0; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--field); }
 
+.sheet-tabs {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 34px;
+  padding: 3px 10px;
+  overflow-x: auto;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.sheet-tab, .sheet-tab-add {
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: 6px 6px 0 0;
+  padding: 5px 13px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.sheet-tab:hover, .sheet-tab-add:hover { background: var(--bg); color: var(--ink); }
+.sheet-tab.active {
+  border-color: var(--line);
+  border-bottom-color: var(--panel);
+  background: var(--field);
+  color: var(--ink);
+  font-weight: 650;
+}
+.sheet-tab-add {
+  width: 28px;
+  padding: 4px;
+  border: 1px dashed var(--line);
+  font-size: 16px;
+  line-height: 1;
+}
 .sheet-wrap {
   flex: 1;
   min-height: 0;

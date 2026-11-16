@@ -259,11 +259,22 @@
     }
 
     const body = first(doc, 'body');
-    return body ? blocksOf(body).join('') : '';
+    const readSectionText = (kind) => {
+      const rel = Object.values(rels).find((item) => item.type === kind && !item.external);
+      const part = rel && parseXML(files, rel.path);
+      if (!part) return '';
+      return all(part, 't').map((node) => node.textContent).join('').slice(0, 250);
+    };
+    const headerText = readSectionText('header');
+    const footerText = readSectionText('footer');
+    const footerRel = Object.values(rels).find((item) => item.type === 'footer' && !item.external);
+    const footerPart = footerRel && parseXML(files, footerRel.path);
+    const pageNumbers = Boolean(footerPart && all(footerPart, 'instrText').some((node) => /\\bPAGE\\b/i.test(node.textContent)));
+    return { html: body ? blocksOf(body).join('') : '', headerText, footerText: pageNumbers ? footerText.replace(/Página\\s*1?$/i, '').replace(/\\s*·\\s*$/, '').trim() : footerText, pageNumbers };
   }
 
   // root: elemento com o conteúdo do documento (o editor); look: tipos de letra e cores do tema.
-  function exportDocx(root, look) {
+  function exportDocx(root, look, options = {}) {
     const media = {};
     const rels = [];
     let imageCount = 0;
@@ -402,6 +413,18 @@
 
     const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
     const body = blocks(root, {}) || '<w:p/>';
+    const headerText = String(options.headerText || '').slice(0, 250);
+    const footerText = String(options.footerText || '').slice(0, 250);
+    const pageNumbers = Boolean(options.pageNumbers);
+    const headerXml = XML_HEAD + `<w:hdr ${W}><w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="4" w:space="4" w:color="D1D5DB"/></w:pBdr></w:pPr><w:r><w:t xml:space="preserve">${esc(headerText)}</w:t></w:r></w:p></w:hdr>`;
+    const pageField = '<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>1</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>';
+    const footerContent = (footerText ? `<w:r><w:t xml:space="preserve">${esc(footerText)}</w:t></w:r>` : '') + (pageNumbers ? `<w:r><w:t xml:space="preserve">${footerText ? ' · Página ' : 'Página '}</w:t></w:r>${pageField}` : '');
+    const footerXml = XML_HEAD + `<w:ftr ${W}><w:p><w:pPr><w:jc w:val="center"/><w:pBdr><w:top w:val="single" w:sz="4" w:space="4" w:color="D1D5DB"/></w:pBdr></w:pPr>${footerContent}</w:p></w:ftr>`;
+    const hasHeader = Boolean(headerText);
+    const hasFooter = Boolean(footerText || pageNumbers);
+    const pageRefs = (hasHeader ? '<w:headerReference w:type="default" r:id="rIdHeader"/>' : '') + (hasFooter ? '<w:footerReference w:type="default" r:id="rIdFooter"/>' : '');
+    const pageRelEntries = (hasHeader ? '<Relationship Id="rIdHeader" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>' : '') + (hasFooter ? '<Relationship Id="rIdFooter" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>' : '');
+    const pageContentTypes = (hasHeader ? '<Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>' : '') + (hasFooter ? '<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>' : '');
     const headFont = esc(fontName(look.head));
     const bodyFont = esc(fontName(look.body));
     const headColor = hexColor(look.color) || '1C2130';
@@ -421,14 +444,14 @@
         '<Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="jpg" ContentType="image/jpeg"/><Default Extension="gif" ContentType="image/gif"/>' +
         '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
         '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
-        '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/></Types>',
+        '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>' + pageContentTypes + '</Types>',
       '_rels/.rels':
         XML_HEAD +
         '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
       'word/document.xml':
         XML_HEAD +
         `<w:document ${W} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">` +
-        `<w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>`,
+        `<w:body>${body}<w:sectPr>${pageRefs}<w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>`,
       'word/styles.xml':
         XML_HEAD +
         `<w:styles ${W}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="${bodyFont}" w:hAnsi="${bodyFont}" w:cs="${bodyFont}"/><w:sz w:val="24"/><w:szCs w:val="24"/><w:lang w:val="pt-PT"/></w:rPr></w:rPrDefault>` +
@@ -443,11 +466,13 @@
         `<w:numbering ${W}><w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="hybridMultilevel"/>${levels(false)}</w:abstractNum>` +
         `<w:abstractNum w:abstractNumId="1"><w:multiLevelType w:val="hybridMultilevel"/>${levels(true)}</w:abstractNum>` +
         '<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num><w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num></w:numbering>',
+      ...(hasHeader ? { 'word/header1.xml': headerXml } : {}),
+      ...(hasFooter ? { 'word/footer1.xml': footerXml } : {}),
       'word/_rels/document.xml.rels':
         XML_HEAD +
         '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
         `<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
-        `<Relationship Id="rIdNumbering" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>${rels.join('')}</Relationships>`,
+        `<Relationship Id="rIdNumbering" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>${pageRelEntries}${rels.join('')}</Relationships>`,
       ...media
     });
   }
@@ -475,10 +500,8 @@
     const workbook = parseXML(files, 'xl/workbook.xml');
     if (!workbook) throw new Error('Livro inválido');
     const wbRels = relsOf(files, 'xl/workbook.xml');
-    const sheetEl = first(workbook, 'sheet');
-    const sheetRel = sheetEl && wbRels[relAttr(sheetEl)];
-    const sheet = parseXML(files, sheetRel ? sheetRel.path : 'xl/worksheets/sheet1.xml');
-    if (!sheet) throw new Error('Folha inválida');
+    const sheetElements = all(workbook, 'sheet');
+    if (!sheetElements.length) throw new Error('O livro não contém folhas');
 
     const strings = all(parseXML(files, 'xl/sharedStrings.xml'), 'si').map((si) =>
       all(si, 't')
@@ -511,106 +534,139 @@
       return s;
     });
 
-    const cells = {};
-    let clipped = false;
-    for (const c of all(sheet, 'c')) {
-      const pos = F.parseAddr(attr(c, 'r') || '');
-      if (!pos) continue;
-      if (pos.r >= rows || pos.c >= cols) {
-        clipped = clipped || Boolean(kid(c, 'v') || kid(c, 'f') || kid(c, 'is'));
-        continue;
+    function readSheet(sheet) {
+      if (!sheet) throw new Error('Folha inválida');
+      const cells = {};
+      let clipped = false;
+      for (const c of all(sheet, 'c')) {
+        const pos = F.parseAddr(attr(c, 'r') || '');
+        if (!pos) continue;
+        if (pos.r >= rows || pos.c >= cols) {
+          clipped = clipped || Boolean(kid(c, 'v') || kid(c, 'f') || kid(c, 'is'));
+          continue;
+        }
+        const type = attr(c, 't');
+        const formula = kid(c, 'f');
+        const v = kid(c, 'v');
+        let raw = '';
+        if (formula && formula.textContent) raw = '=' + formula.textContent;
+        else if (type === 's') raw = strings[Number(v && v.textContent)] || '';
+        else if (type === 'inlineStr') raw = all(kid(c, 'is'), 't').map((t) => t.textContent).join('');
+        else if (type === 'b') raw = v && v.textContent === '1' ? 'VERDADEIRO' : 'FALSO';
+        else if (v) raw = v.textContent;
+        const isText = !formula && (type === 's' || type === 'inlineStr' || type === 'str');
+        if (isText && raw && (raw[0] === '=' || raw[0] === "'" || F.parseNumber(raw) !== null)) raw = "'" + raw;
+        const style = xfs[Number(attr(c, 's'))];
+        const cell = { v: raw };
+        if (style && Object.keys(style).length) cell.s = { ...style };
+        if (cell.v !== '' || cell.s) cells[F.addr(pos.r, pos.c)] = cell;
       }
-      const type = attr(c, 't');
-      const formula = kid(c, 'f');
-      const v = kid(c, 'v');
-      let raw = '';
-      if (formula && formula.textContent) raw = '=' + formula.textContent;
-      else if (type === 's') raw = strings[Number(v && v.textContent)] || '';
-      else if (type === 'inlineStr') raw = all(kid(c, 'is'), 't').map((t) => t.textContent).join('');
-      else if (type === 'b') raw = v && v.textContent === '1' ? 'VERDADEIRO' : 'FALSO';
-      else if (v) raw = v.textContent;
-      // Texto que a grelha interpretaria como número ou fórmula fica marcado como texto.
-      const isText = !formula && (type === 's' || type === 'inlineStr' || type === 'str');
-      if (isText && raw && (raw[0] === '=' || raw[0] === "'" || F.parseNumber(raw) !== null)) raw = "'" + raw;
-      const style = xfs[Number(attr(c, 's'))];
-      const cell = { v: raw };
-      if (style && Object.keys(style).length) cell.s = { ...style };
-      if (cell.v !== '' || cell.s) cells[F.addr(pos.r, pos.c)] = cell;
+      const validations = [];
+      for (const node of all(sheet, 'dataValidation')) {
+        if (attr(node, 'type') !== 'list') continue;
+        const formula = (kid(node, 'formula1')?.textContent || '').trim();
+        if (formula.length < 2 || formula[0] !== '"' || formula[formula.length - 1] !== '"') continue;
+        const options = formula.slice(1, -1).split(',').map((v) => v.replace(/""/g, '"')).filter(Boolean).slice(0, 100);
+        const sqref = (attr(node, 'sqref') || '').split(/\\s+/);
+        for (const ref of sqref) {
+          const parts = ref.split(':');
+          const start = F.parseAddr(parts[0]);
+          const end = F.parseAddr(parts[1] || parts[0]);
+          if (start && end && options.length && end.r >= start.r && end.c >= start.c && end.r - start.r < rows && end.c - start.c < cols) {
+            validations.push({ r0: start.r, r1: end.r, c0: start.c, c1: end.c, options });
+          }
+        }
+      }
+      return { cells, clipped, validations };
     }
-    return { cells, clipped };
+
+    let clipped = false;
+    const sheets = sheetElements.map((sheetEl, index) => {
+      const rel = wbRels[relAttr(sheetEl)];
+      const path = rel ? rel.path : `xl/worksheets/sheet${index + 1}.xml`;
+      const result = readSheet(parseXML(files, path));
+      clipped = clipped || result.clipped;
+      return { name: attr(sheetEl, 'name') || `Folha${index + 1}`, cells: result.cells, validations: result.validations };
+    });
+    return { cells: sheets[0].cells, sheets, clipped };
   }
 
   // cells: modelo da folha; values: Map endereço -> valor calculado.
-  function exportXlsx(cells, values) {
+  // Exporta um livro inteiro. Mantém compatibilidade com a assinatura antiga (cells, values).
+  function exportXlsx(input, values) {
+    const sheets = Array.isArray(input) && input.length
+      ? input.slice(0, 100).map((sheet, i) => ({ name: String(sheet.name || `Folha${i + 1}`).slice(0, 31), cells: sheet.cells || {}, values: sheet.values || (i === 0 ? values : new Map()) }))
+      : [{ name: 'Folha1', cells: input || {}, values: values || new Map() }];
     const fonts = ['<font><sz val="11"/><name val="Calibri"/></font>'];
     const fills = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>'];
     const xfs = ['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'];
     const index = (list, item) => (list.includes(item) ? list.indexOf(item) : list.push(item) - 1);
     const NUM_FMT = { num2: 2, pct: 10, eur: 164 };
+    const NS = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
 
     function styleIndex(s) {
       if (!s) return 0;
       const font = index(fonts, `<font>${s.b ? '<b/>' : ''}${s.i ? '<i/>' : ''}<sz val="11"/>${s.c ? `<color rgb="FF${s.c.slice(1).toUpperCase()}"/>` : ''}<name val="Calibri"/></font>`);
       const fill = s.bg ? index(fills, `<fill><patternFill patternType="solid"><fgColor rgb="FF${s.bg.slice(1).toUpperCase()}"/><bgColor indexed="64"/></patternFill></fill>`) : 0;
       const fmt = NUM_FMT[s.f] || 0;
-      return index(
-        xfs,
-        `<xf numFmtId="${fmt}" fontId="${font}" fillId="${fill}" borderId="0" xfId="0"${fmt ? ' applyNumberFormat="1"' : ''}${font ? ' applyFont="1"' : ''}${fill ? ' applyFill="1"' : ''}` +
-          (s.a ? ` applyAlignment="1"><alignment horizontal="${s.a}"/></xf>` : '/>')
-      );
+      return index(xfs, `<xf numFmtId="${fmt}" fontId="${font}" fillId="${fill}" borderId="0" xfId="0"${fmt ? ' applyNumberFormat="1"' : ''}${font ? ' applyFont="1"' : ''}${fill ? ' applyFill="1"' : ''}` + (s.a ? ` applyAlignment="1"><alignment horizontal="${s.a}"/></xf>` : '/>'));
     }
 
-    const byRow = new Map();
-    for (const [a, cell] of Object.entries(cells)) {
-      const pos = F.parseAddr(a);
-      if (!byRow.has(pos.r)) byRow.set(pos.r, []);
-      byRow.get(pos.r).push({ a, c: pos.c, cell });
-    }
-    let rowsXML = '';
-    for (const r of [...byRow.keys()].sort((x, y) => x - y)) {
-      let row = '';
-      for (const { a, cell } of byRow.get(r).sort((x, y) => x.c - y.c)) {
-        const s = styleIndex(cell.s);
-        const sAttr = s ? ` s="${s}"` : '';
-        const raw = cell.v || '';
-        const value = values.get(a);
-        const isFormula = raw.length > 1 && raw[0] === '=';
-        const f = isFormula ? `<f>${esc(F.toExcel(raw))}</f>` : '';
-        if (raw === '') row += `<c r="${a}"${sAttr}/>`;
-        else if (typeof value === 'number') row += `<c r="${a}"${sAttr}>${f}<v>${value}</v></c>`;
-        else if (typeof value === 'boolean') row += `<c r="${a}"${sAttr} t="b">${f}<v>${value ? 1 : 0}</v></c>`;
-        else if (isFormula) row += typeof value === 'string' ? `<c r="${a}"${sAttr} t="str">${f}<v>${esc(value)}</v></c>` : `<c r="${a}"${sAttr}>${f}</c>`;
-        else row += `<c r="${a}"${sAttr} t="inlineStr"><is><t xml:space="preserve">${esc(String(value == null ? '' : value))}</t></is></c>`;
+    const parts = {};
+    const contentOverrides = sheets.map((_sheet, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('');
+    const sheetEntries = sheets.map((sheet, i) => `<sheet name="${esc(sheet.name.replace(/[\\\\/?*:[\\]]/g, '').slice(0, 31) || `Folha${i + 1}`)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('');
+    const relEntries = sheets.map((_sheet, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('');
+
+    sheets.forEach((sheet, indexSheet) => {
+      const byRow = new Map();
+      for (const [a, cell] of Object.entries(sheet.cells)) {
+        const pos = F.parseAddr(a);
+        if (!pos) continue;
+        if (!byRow.has(pos.r)) byRow.set(pos.r, []);
+        byRow.get(pos.r).push({ a, c: pos.c, cell });
       }
-      rowsXML += `<row r="${r + 1}">${row}</row>`;
-    }
+      let rowsXML = '';
+      for (const r of [...byRow.keys()].sort((x, y) => x - y)) {
+        let row = '';
+        for (const { a, cell } of byRow.get(r).sort((x, y) => x.c - y.c)) {
+          const style = styleIndex(cell.s);
+          const sAttr = style ? ` s="${style}"` : '';
+          const raw = cell.v || '';
+          const value = sheet.values && sheet.values.get(a);
+          const isFormula = raw.length > 1 && raw[0] === '=';
+          const formula = isFormula ? `<f>${esc(F.toExcel(raw))}</f>` : '';
+          if (raw === '') row += `<c r="${a}"${sAttr}/>`;
+          else if (typeof value === 'number') row += `<c r="${a}"${sAttr}>${formula}<v>${value}</v></c>`;
+          else if (typeof value === 'boolean') row += `<c r="${a}"${sAttr} t="b">${formula}<v>${value ? 1 : 0}</v></c>`;
+          else if (isFormula) row += typeof value === 'string' ? `<c r="${a}"${sAttr} t="str">${formula}<v>${esc(value)}</v></c>` : `<c r="${a}"${sAttr}>${formula}</c>`;
+          else row += `<c r="${a}"${sAttr} t="inlineStr"><is><t xml:space="preserve">${esc(String(value == null ? raw : value))}</t></is></c>`;
+        }
+        rowsXML += `<row r="${r + 1}">${row}</row>`;
+      }
+      const validationEntries = (sheet.validations || []).filter((v) => Array.isArray(v.options) && v.options.length && Number.isInteger(v.r0) && Number.isInteger(v.r1) && Number.isInteger(v.c0) && Number.isInteger(v.c1) && v.r0 >= 0 && v.r1 >= v.r0 && v.c0 >= 0 && v.c1 >= v.c0 && v.r1 < 10000 && v.c1 < 16384).slice(0, 500).map((v) => {
+        const start = F.addr(v.r0, v.c0), end = F.addr(v.r1, v.c1);
+        const options = v.options.slice(0, 100).map((x) => String(x).slice(0, 200).replace(/"/g, '""'));
+        if (options.some((x) => /[,\\r\\n]/.test(x))) return '';
+        return `<dataValidation type="list" allowBlank="1" showErrorMessage="1" sqref="${start}:${end}"><formula1>"${options.map(esc).join(',')}"</formula1></dataValidation>`;
+      }).filter(Boolean).join('');
+      const validationsXML = validationEntries ? `<dataValidations count="${(validationEntries.match(/<dataValidation /g) || []).length}">${validationEntries}</dataValidations>` : '';
+      parts[`xl/worksheets/sheet${indexSheet + 1}.xml`] = XML_HEAD + `<worksheet ${NS}><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="26" width="14" customWidth="1"/></cols><sheetData>${rowsXML}</sheetData>${validationsXML}</worksheet>`;
+    });
 
-    const NS = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
     return zip({
-      '[Content_Types].xml':
-        XML_HEAD +
-        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>' +
-        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
-        '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+      '[Content_Types].xml': XML_HEAD + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>' +
+        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' + contentOverrides +
         '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>',
-      '_rels/.rels':
-        XML_HEAD +
-        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
-      'xl/workbook.xml':
-        XML_HEAD +
-        `<workbook ${NS} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Folha1" sheetId="1" r:id="rId1"/></sheets><calcPr fullCalcOnLoad="1"/></workbook>`,
-      'xl/_rels/workbook.xml.rels':
-        XML_HEAD +
-        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
-        '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>',
-      'xl/worksheets/sheet1.xml': XML_HEAD + `<worksheet ${NS}><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="26" width="14" customWidth="1"/></cols><sheetData>${rowsXML}</sheetData></worksheet>`,
-      'xl/styles.xml':
-        XML_HEAD +
-        `<styleSheet ${NS}><numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.00\\ &quot;€&quot;"/></numFmts>` +
+      '_rels/.rels': XML_HEAD + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+      'xl/workbook.xml': XML_HEAD + `<workbook ${NS} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheetEntries}</sheets><calcPr fullCalcOnLoad="1"/></workbook>`,
+      'xl/_rels/workbook.xml.rels': XML_HEAD + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + relEntries +
+        `<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
+      'xl/styles.xml': XML_HEAD + `<styleSheet ${NS}><numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.00\\ &quot;€&quot;"/></numFmts>` +
         `<fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills>` +
         '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
         '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-        `<cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`
+        `<cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`,
+      ...parts
     });
   }
 
@@ -754,7 +810,9 @@
       };
       visit(first(doc, 'spTree'));
 
-      const slide = { bg: solid(first(kid(first(doc, 'cSld'), 'bg'), 'bgPr')) || '#ffffff', els, notes: '' };
+      const transitionNode = first(doc, 'transition');
+      const transitionType = transitionNode ? kids(transitionNode).find((node) => ['fade', 'wipe', 'zoom', 'push'].includes(node.localName))?.localName : null;
+      const slide = { bg: solid(first(kid(first(doc, 'cSld'), 'bg'), 'bgPr')) || '#ffffff', els, notes: '', transition: ({ fade: 'fade', wipe: 'wipe', zoom: 'zoom', push: 'wipe' })[transitionType] || 'fade' };
       const notesRel = Object.values(rels).find((r) => r.type === 'notesSlide');
       const notes = notesRel && parseXML(files, notesRel.path);
       for (const sp of all(notes, 'sp')) {
@@ -865,10 +923,11 @@
           shapes += `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Forma ${id}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr>${xfrm(el)}<a:prstGeom prst="${el.type === 'ellipse' ? 'ellipse' : 'rect'}"><a:avLst/></a:prstGeom>${fill(el.fill)}<a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang="pt-PT"/></a:p></p:txBody></p:sp>`;
         }
       }
+      const transition = ({ fade: '<p:fade/>', wipe: '<p:wipe dir="l"/>', zoom: '<p:zoom/>', none: '' })[slide.transition || 'fade'] || '<p:fade/>';
       parts[`ppt/slides/slide${n}.xml`] =
         XML_HEAD +
         `<p:sld ${A} ${R} ${P}><p:cSld><p:bg><p:bgPr>${fill(slide.bg)}<a:effectLst/></p:bgPr></p:bg><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>` +
-        `<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>${shapes}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
+        `<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>${shapes}</p:spTree></p:cSld>${transition ? `<p:transition spd="med" advClick="1">${transition}</p:transition>` : ''}<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
       parts[`ppt/slides/_rels/slide${n}.xml.rels`] = XML_HEAD + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels.join('')}</Relationships>`;
     });
 

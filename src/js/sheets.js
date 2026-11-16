@@ -21,6 +21,86 @@
   let ctx, wrap, editorEl, nameBox, fxInput, statusEl;
   let showStates = () => {};
   let cells = {}; // endereço -> { v: texto introduzido, s: { b, i, a, bg, c } }
+  let workbookSheets = [];
+  let activeSheetId = 'sheet-1';
+  let sheetBar;
+  let validationList;
+  let nextSheetNumber = 2;
+
+  function snapshotSheet() {
+    const current = workbookSheets.find((s) => s.id === activeSheetId);
+    if (current) current.cells = JSON.parse(JSON.stringify(cells));
+  }
+
+  function renderSheetTabs() {
+    if (!sheetBar) return;
+    sheetBar.replaceChildren();
+    for (const sheet of workbookSheets) {
+      const tab = h('button', {
+        type: 'button',
+        class: 'sheet-tab' + (sheet.id === activeSheetId ? ' active' : ''),
+        'aria-pressed': sheet.id === activeSheetId ? 'true' : 'false',
+        title: 'Abrir ' + sheet.name
+      }, sheet.name);
+      tab.addEventListener('click', () => activateSheet(sheet.id));
+      tab.addEventListener('dblclick', () => renameSheet(sheet.id));
+      sheetBar.append(tab);
+    }
+    const add = h('button', { type: 'button', class: 'sheet-tab-add', title: 'Adicionar folha', 'aria-label': 'Adicionar folha' }, '+');
+    add.addEventListener('click', addSheet);
+    sheetBar.append(add);
+  }
+
+  function activateSheet(id) {
+    if (editing) stopEdit(true);
+    snapshotSheet();
+    const target = workbookSheets.find((s) => s.id === id);
+    if (!target || target.id === activeSheetId) return;
+    activeSheetId = id;
+    cells = JSON.parse(JSON.stringify(target.cells || {}));
+    undoStack = [];
+    redoStack = [];
+    cur = { r: 0, c: 0 };
+    end = { r: 0, c: 0 };
+    drawn.clear();
+    painted.clear();
+    refresh();
+    renderSheetTabs();
+    ctx.dirty();
+  }
+
+  function addSheet() {
+    if (editing) stopEdit(true);
+    snapshotSheet();
+    if (workbookSheets.length >= 100) return MO.toast('O livro já atingiu o limite de 100 folhas.');
+    const number = nextSheetNumber++;
+    const id = 'sheet-' + number;
+    const name = 'Folha' + number;
+    workbookSheets.push({ id, name, cells: {} });
+    activateSheet(id);
+    renderSheetTabs();
+  }
+
+  function renameSheet(id) {
+    const sheet = workbookSheets.find((s) => s.id === id);
+    if (!sheet) return;
+    const name = window.prompt('Nome da folha (máximo 31 caracteres):', sheet.name);
+    if (name == null) return;
+    const clean = name.trim().slice(0, 31);
+    if (!clean || /[\\/?*:[\\]]/.test(clean)) return MO.toast('Nome inválido. Evite \\ / ? * : [ ].');
+    if (workbookSheets.some((s) => s.id !== id && s.name.toLocaleLowerCase('pt-PT') === clean.toLocaleLowerCase('pt-PT'))) return MO.toast('Já existe uma folha com esse nome.');
+    sheet.name = clean;
+    renderSheetTabs();
+    ctx.dirty();
+  }
+
+  function resetWorkbook(initialCells = {}) {
+    workbookSheets = [{ id: 'sheet-1', name: 'Folha1', cells: initialCells, filter: null }];
+    activeSheetId = 'sheet-1';
+    nextSheetNumber = 2;
+    cells = JSON.parse(JSON.stringify(initialCells));
+    renderSheetTabs();
+  }
   let values = new Map();
   let tds = [];
   let colHeads = [];
@@ -142,6 +222,7 @@
     for (const a of painted) if (!next.has(a)) paintCell(a);
     for (const a of next) paintCell(a);
     painted = next;
+    applySheetFilter();
     paintSelection(false);
   }
 
@@ -220,6 +301,17 @@
     paintSelection(true);
     editing = { a, viaBar: Boolean(viaBar) };
     const text = initial != null ? initial : rawOf(a);
+    const sheet = workbookSheets.find((s) => s.id === activeSheetId);
+    const rule = sheet && (sheet.validations || []).find((v) => cur.r >= v.r0 && cur.r <= v.r1 && cur.c >= v.c0 && cur.c <= v.c1);
+    editorEl.removeAttribute('list');
+    fxInput.removeAttribute('list');
+    if (validationList) validationList.remove();
+    if (rule) {
+      validationList = h('datalist', { id: 'myoffice-validation-list' }, ...rule.options.map((option) => h('option', { value: option })));
+      wrap.append(validationList);
+      editorEl.setAttribute('list', 'myoffice-validation-list');
+      fxInput.setAttribute('list', 'myoffice-validation-list');
+    }
     fxInput.value = text;
     if (viaBar) return;
     const td = tds[cur.r][cur.c];
@@ -239,7 +331,20 @@
     if (!editing) return;
     const { a, viaBar } = editing;
     const value = viaBar ? fxInput.value : editorEl.value;
+    const sheet = workbookSheets.find((s) => s.id === activeSheetId);
+    const rule = sheet && (sheet.validations || []).find((v) => {
+      const pos = F.parseAddr(a);
+      return pos.r >= v.r0 && pos.r <= v.r1 && pos.c >= v.c0 && pos.c <= v.c1;
+    });
+    if (commit && rule && value !== '' && !rule.options.includes(value)) {
+      MO.toast('Valor inválido. Escolha uma das opções permitidas.');
+      if (viaBar) fxInput.focus(); else { editorEl.focus(); editorEl.setSelectionRange(0, editorEl.value.length); }
+      return;
+    }
     editing = null;
+    if (validationList) { validationList.remove(); validationList = null; }
+    editorEl.removeAttribute('list');
+    fxInput.removeAttribute('list');
     editorEl.style.display = 'none';
     if (commit && value !== rawOf(a)) mutate(() => setRaw(a, value));
     else paintSelection(false);
@@ -333,11 +438,14 @@
   // Ordena as linhas da seleção pela coluna da célula ativa.
   function sortRange(descending) {
     const { r0, r1, c0, c1 } = range();
-    if (r0 === r1) return MO.toast('Selecione as linhas a ordenar (sem a linha de títulos).');
+    if (r0 === r1) return MO.toast('Selecione pelo menos duas linhas para ordenar.');
+    const hasHeader = window.confirm('A primeira linha da seleção contém títulos?\n\nOK: manter títulos no topo.\nCancelar: ordenar todas as linhas.');
+    const firstDataRow = r0 + (hasHeader ? 1 : 0);
+    if (r1 - firstDataRow < 1) return MO.toast('Não existem linhas de dados suficientes para ordenar.');
     const key = cur.c;
     const rank = (v) => (v == null ? 3 : typeof v === 'number' ? 0 : typeof v === 'string' ? 1 : 2);
     const rows = [];
-    for (let r = r0; r <= r1; r++) {
+    for (let r = firstDataRow; r <= r1; r++) {
       const a = F.addr(r, key);
       const row = [];
       for (let c = c0; c <= c1; c++) row.push(cells[F.addr(r, c)] || null);
@@ -353,7 +461,7 @@
     mutate(() =>
       rows.forEach(({ row }, i) =>
         row.forEach((cell, j) => {
-          const a = F.addr(r0 + i, c0 + j);
+          const a = F.addr(firstDataRow + i, c0 + j);
           if (cell) cells[a] = cell;
           else delete cells[a];
         })
@@ -542,11 +650,9 @@
     }
     const content = rows.join('\n').slice(0, 6000);
     if (!content.trim()) return MO.toast('Selecione dados antes de pedir uma análise.');
-    if (!window.api?.ai?.assist) return MO.toast('O assistente de IA está disponível na aplicação instalada.');
-    MO.toast('A analisar os dados localmente…');
-    const result = await window.api.ai.assist({ module: 'sheets', task: 'analyse', content });
+    const result = MO.Assistant.request({ task: 'analyse', context: content });
     if (result.error) return MO.toast(result.error);
-    await MO.dialog({ title: 'Assistente MyOffice · Análise de dados', message: result.answer, okLabel: 'Fechar' });
+    await MO.dialog({ title: 'MyOffice Intelligence · Análise experimental', message: result.findings.map((item) => '• ' + item).join('\n') + '\n\nAnálise local baseada em regras; não é ainda um modelo generativo.', okLabel: 'Fechar' });
   }
 
   // ---------- Gráficos e filtros ----------
@@ -650,22 +756,50 @@
     renderChart(type.value);
   }
 
+  function applySheetFilter() {
+    const filter = workbookSheets.find((s) => s.id === activeSheetId)?.filter;
+    for (let r = 0; r < ROWS; r++) {
+      const row = tds[r]?.[0]?.parentElement;
+      if (!row) continue;
+      const inRange = filter && r > filter.r0 && r <= filter.r1;
+      const value = inRange ? F.format(values.get(F.addr(r, filter.col)) ?? '') : '';
+      row.hidden = Boolean(inRange && filter.term && !value.toLocaleLowerCase('pt-PT').includes(filter.term));
+    }
+  }
+
   function filterSelection() {
     if (editing) stopEdit(true);
     const { r0, r1 } = range();
-    const col = cur.c;
-    const term = window.prompt('Mostrar apenas as linhas em que esta coluna contém:');
+    if (r0 === r1) return MO.toast('Selecione também as linhas que pretende filtrar.');
+    const term = window.prompt('Mostrar apenas as linhas em que a coluna ativa contém:');
     if (term == null) return;
-    const needle = term.trim().toLocaleLowerCase('pt-PT');
-    for (let r = 0; r < ROWS; r++) {
-      const row = tds[r][0].parentElement;
-      row.hidden = Boolean(needle) && r > r0 && r <= r1 && !F.format(values.get(F.addr(r, col))).toLocaleLowerCase('pt-PT').includes(needle);
-    }
-    MO.toast(needle ? 'Filtro aplicado à seleção.' : 'Filtro removido.');
+    const sheet = workbookSheets.find((s) => s.id === activeSheetId);
+    if (!sheet) return;
+    sheet.filter = { r0, r1, col: cur.c, term: term.trim().toLocaleLowerCase('pt-PT') };
+    applySheetFilter();
+    ctx.dirty();
+    MO.toast(sheet.filter.term ? 'Filtro guardado neste livro.' : 'Filtro removido.');
+  }
+
+  function setDataValidation() {
+    if (editing) stopEdit(true);
+    const { r0, r1, c0, c1 } = range();
+    const raw = window.prompt('Opções permitidas, separadas por ponto e vírgula (ex.: Pendente;Em curso;Concluído):');
+    if (raw == null) return;
+    const options = [...new Set(raw.split(';').map((v) => v.trim()).filter(Boolean))].slice(0, 100);
+    const sheet = workbookSheets.find((s) => s.id === activeSheetId);
+    if (!sheet) return;
+    sheet.validations = (sheet.validations || []).filter((v) => v.r1 < r0 || v.r0 > r1 || v.c1 < c0 || v.c0 > c1);
+    if (options.length) sheet.validations.push({ r0, r1, c0, c1, options });
+    ctx.dirty();
+    MO.toast(options.length ? 'Lista de validação aplicada à seleção.' : 'Validação removida da seleção.');
   }
 
   function clearFilter() {
-    for (let r = 0; r < ROWS; r++) tds[r][0].parentElement.hidden = false;
+    const sheet = workbookSheets.find((s) => s.id === activeSheetId);
+    if (sheet) delete sheet.filter;
+    applySheetFilter();
+    ctx.dirty();
   }
 
   // ---------- Construção da interface ----------
@@ -861,6 +995,7 @@
                   bigButton('sortDesc', 'Descendente', 'Ordenar a seleção por ordem descendente', () => sortRange(true)),
                   bigButton('filter', 'Filtrar', 'Filtrar as linhas da seleção pela coluna ativa', filterSelection),
                   bigButton('filter', 'Limpar filtro', 'Mostrar novamente todas as linhas', clearFilter),
+                  bigButton('list', 'Validação', 'Criar lista de opções permitidas para as células selecionadas', setDataValidation),
                   bigButton('chart', 'Gráfico', 'Criar gráfico a partir da seleção', openChart),
                   bigButton('sparkle', 'Analisar com IA', 'Analisar os dados selecionados com IA local', aiAnalyseSelection)
                 ]
@@ -890,10 +1025,12 @@
       wrap = h('div', { class: 'sheet-wrap', tabindex: '0', 'aria-label': 'Folha de cálculo' }, h('div', { class: 'sheet-inner' }, table, editorEl));
       statusEl = h('span', { class: 'status-text' });
       const ribbon = buildRibbon();
+      sheetBar = h('div', { class: 'sheet-tabs', role: 'tablist', 'aria-label': 'Folhas do livro' });
       const inner = wrap.firstChild;
       const bar = h('div', { class: 'statusbar' }, statusEl, MO.zoomControl((k) => (inner.style.zoom = k)));
       showStates = MO.toolStates(ribbon, { Negrito: 'b', 'Itálico': 'i', 'Alinhar à esquerda': 'left', Centrar: 'center', 'Alinhar à direita': 'right' });
-      container.append(ribbon, h('div', { class: 'fx-bar' }, nameBox, h('span', { class: 'fx-label' }, 'fx'), fxInput), wrap, bar);
+      container.append(ribbon, h('div', { class: 'fx-bar' }, nameBox, h('span', { class: 'fx-label' }, 'fx'), fxInput), sheetBar, wrap, bar);
+      resetWorkbook();
 
       table.addEventListener('mousedown', onMouseDown);
       table.addEventListener('mouseover', (e) => {
@@ -929,6 +1066,7 @@
       editing = null;
       editorEl.style.display = 'none';
       cells = {};
+      resetWorkbook();
       undoStack = [];
       redoStack = [];
       clip = null;
@@ -970,17 +1108,30 @@
 
     serialize() {
       if (editing) stopEdit(true);
-      return JSON.stringify({ format: 'myoffice-sheet', version: 1, theme: theme.id, cells });
+      snapshotSheet();
+      return JSON.stringify({ format: 'myoffice-sheet', version: 2, theme: theme.id, activeSheetId, sheets: workbookSheets });
     },
 
     load(text, ext) {
       let next = {};
       let nextTheme = T.LIST[0];
       let clipped = false;
+      let loadedSheets = null;
+      let loadedActiveSheetId = null;
       if (ext === 'xlsx') {
         const book = MO.OOXML.importXlsx(text, ROWS, COLS);
         next = cleanCells(book.cells);
         clipped = book.clipped;
+        const used = new Set();
+        loadedSheets = (book.sheets || [{ name: 'Folha1', cells: book.cells }]).slice(0, 100).map((sheet, i) => {
+          let name = String(sheet.name || `Folha${i + 1}`).trim().slice(0, 31) || `Folha${i + 1}`;
+          if (/[\\\\/?*:[\\]]/.test(name)) name = `Folha${i + 1}`;
+          if (used.has(name.toLocaleLowerCase('pt-PT'))) name = `Folha${i + 1}`;
+          used.add(name.toLocaleLowerCase('pt-PT'));
+          return { id: `sheet-${i + 1}`, name, cells: cleanCells(sheet.cells), filter: null, validations: Array.isArray(sheet.validations) ? sheet.validations : [] };
+        });
+        loadedActiveSheetId = loadedSheets[0].id;
+        next = loadedSheets[0].cells;
       } else if (ext === 'csv') {
         parseCSV(text).forEach((row, r) =>
           row.forEach((value, c) => {
@@ -990,13 +1141,36 @@
       } else {
         const data = JSON.parse(text);
         if (!data || data.format !== 'myoffice-sheet') throw new Error('Formato inválido');
-        next = cleanCells(data.cells);
         nextTheme = T.byId(data.theme);
+        if (data.version >= 2 && Array.isArray(data.sheets) && data.sheets.length) {
+          const used = new Set();
+          loadedSheets = data.sheets.slice(0, 100).map((s, i) => {
+            let name = String(s.name || `Folha${i + 1}`).trim().slice(0, 31) || `Folha${i + 1}`;
+            if (used.has(name.toLocaleLowerCase('pt-PT'))) name = `Folha${i + 1}`;
+            used.add(name.toLocaleLowerCase('pt-PT'));
+            const filter = s.filter && Number.isInteger(s.filter.r0) && Number.isInteger(s.filter.r1) && Number.isInteger(s.filter.col) && s.filter.r0 >= 0 && s.filter.r1 < ROWS && s.filter.r1 > s.filter.r0 && s.filter.col >= 0 && s.filter.col < COLS ? { r0: s.filter.r0, r1: s.filter.r1, col: s.filter.col, term: String(s.filter.term || '').slice(0, 200).toLocaleLowerCase('pt-PT') } : null;
+            const validations = Array.isArray(s.validations) ? s.validations.slice(0, 500).map((v) => ({ r0: v.r0, r1: v.r1, c0: v.c0, c1: v.c1, options: Array.isArray(v.options) ? v.options.slice(0, 100).map((x) => String(x).slice(0, 200)) : [] })).filter((v) => Number.isInteger(v.r0) && Number.isInteger(v.r1) && Number.isInteger(v.c0) && Number.isInteger(v.c1) && v.r0 >= 0 && v.r1 < ROWS && v.r1 >= v.r0 && v.c0 >= 0 && v.c1 < COLS && v.c1 >= v.c0 && v.options.length) : [];
+            return { id: String(s.id || `sheet-${i + 1}`), name, cells: cleanCells(s.cells), filter, validations };
+          });
+          loadedActiveSheetId = loadedSheets.some((s) => s.id === data.activeSheetId) ? data.activeSheetId : loadedSheets[0].id;
+          next = loadedSheets.find((s) => s.id === loadedActiveSheetId).cells;
+        } else {
+          next = cleanCells(data.cells);
+          loadedSheets = [{ id: 'sheet-1', name: 'Folha1', cells: next }];
+          loadedActiveSheetId = 'sheet-1';
+        }
       }
       this.newDoc();
       setTheme(nextTheme);
       if (clipped) MO.toast(`O livro tem dados fora de ${ROWS} linhas × ${COLS} colunas; essa parte não foi importada.`);
-      cells = next;
+      if (ext === 'csv') resetWorkbook(next);
+      else {
+        workbookSheets = loadedSheets || [{ id: 'sheet-1', name: 'Folha1', cells: next }];
+        activeSheetId = loadedActiveSheetId || workbookSheets[0].id;
+        cells = JSON.parse(JSON.stringify(workbookSheets.find((s) => s.id === activeSheetId).cells));
+        nextSheetNumber = workbookSheets.length + 1;
+        renderSheetTabs();
+      }
       refresh();
     },
 
@@ -1008,7 +1182,13 @@
         mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         get: () => {
           if (editing) stopEdit(true);
-          return MO.OOXML.exportXlsx(cells, values);
+          snapshotSheet();
+          return MO.OOXML.exportXlsx(workbookSheets.map((sheet) => ({
+            name: sheet.name,
+            cells: sheet.cells,
+            values: sheet.id === activeSheetId ? values : new Map(),
+            validations: sheet.validations || []
+          })));
         }
       },
       { label: 'Valores separados por ; (.csv)', ext: 'csv', filterName: 'CSV', mime: 'text/csv', get: toCSV }

@@ -11,7 +11,7 @@
   const MAX_UNDO = 60;
   const SIZES = [14, 18, 24, 28, 32, 40, 54, 72, 96];
 
-  let ctx, root, stageBox, stage, thumbs, sizeSelect, counterEl, notesEl, aiPanel, aiBody;
+  let ctx, root, stageBox, stage, thumbs, sizeSelect, transitionSelect, counterEl, notesEl, aiPanel, aiBody;
   let slides = [];
   let idx = 0;
   let selId = null;
@@ -63,7 +63,7 @@
       if (layout === 'content') els.push(body(60, 840, c.bullets && c.bullets.length ? c.bullets : ['Primeiro ponto', 'Segundo ponto']));
       if (layout === 'two') els.push(body(60, 405, ['Coluna da esquerda']), body(495, 405, ['Coluna da direita']));
     }
-    const s = { bg: theme.bg, accent: theme.accent, font: theme.font, headFont: theme.headFont, deco: theme.deco, notes: c.notes || '', els };
+    const s = { bg: theme.bg, accent: theme.accent, font: theme.font, headFont: theme.headFont, deco: theme.deco, notes: c.notes || '', transition: 'fade', els };
     if (layout === 'title') s.lead = true;
     return s;
   }
@@ -142,7 +142,8 @@
       // Ficheiros de versões anteriores.
       if (s && s.deco === 'bar') look.deco = 'barra';
       if (s && s.deco === 'title') Object.assign(look, { deco: 'barra', lead: true });
-      return { bg: MO.HEX.test(s && s.bg) ? s.bg : '#ffffff', ...look, notes: typeof (s && s.notes) === 'string' ? s.notes.slice(0, 5000) : '', els };
+      const transition = ['fade', 'wipe', 'zoom', 'none'].includes(s && s.transition) ? s.transition : 'fade';
+      return { bg: MO.HEX.test(s && s.bg) ? s.bg : '#ffffff', ...look, notes: typeof (s && s.notes) === 'string' ? s.notes.slice(0, 5000) : '', transition, els };
     });
   }
 
@@ -283,6 +284,7 @@
     sizeSelect.value = el && el.type === 'text' && SIZES.includes(el.fs) ? String(el.fs) : '';
     const text = el && el.type === 'text' ? el : null;
     showStates((key) => text && (key === 'bold' || key === 'italic' ? text[key] : text.align === key));
+    if (transitionSelect) transitionSelect.value = ['fade', 'wipe', 'zoom', 'none'].includes(slide().transition) ? slide().transition : 'fade';
   }
 
   // ---------- Edição de texto ----------
@@ -534,134 +536,28 @@
     fitStage();
   }
 
-  // ---------- IA local (modelo de linguagem a correr neste computador, ver ai.js) ----------
-
-  const localAI = () => (window.api && window.api.ai) || null;
-  let aiStage = null; // elementos do painel "a trabalhar"
-
-  async function aiActive() {
-    return localAI() ? (await localAI().status()).active : null;
-  }
-
-  function aiBusy(text) {
-    const stage = h('span', null, text);
-    const detail = h('span', { class: 'ai-detail' });
-    aiStage = { stage, detail };
-    showAI(
-      h('p', { class: 'ai-status', role: 'status' }, h('span', { class: 'ai-spinner' }), stage),
-      h('p', { class: 'ai-hint' }, detail),
-      h('p', { class: 'ai-hint' }, 'O modelo corre no seu computador; pode demorar um a três minutos, conforme a máquina.'),
-      h('button', { type: 'button', class: 'btn', onclick: () => localAI().cancel() }, 'Cancelar')
-    );
-  }
-
-  function onAIEvent(message) {
-    if (message.type === 'download') {
-      const bar = document.querySelector('.model-progress');
-      if (bar) {
-        bar.value = message.received / message.total;
-        bar.nextSibling.textContent = `${(message.received / 1e9).toFixed(2)} de ${(message.total / 1e9).toFixed(2)} GB`;
-      }
-    } else if (aiStage && message.type === 'stage') {
-      aiStage.stage.textContent = message.text;
-    } else if (aiStage && message.type === 'progress') {
-      aiStage.detail.textContent = `${message.chars} caracteres escritos`;
-    }
-  }
-
-  const sizeText = (bytes) => (bytes / 1e9).toFixed(1).replace('.', ',') + ' GB';
-
-  // Gestão dos modelos: descarregar (uma vez, com Internet) ou remover.
-  async function modelDialog() {
-    if (!localAI()) return MO.toast('A IA local só está disponível na aplicação instalada.');
-    const body = h('div');
-    const dlg = h(
-      'dialog',
-      { class: 'mo-dialog wide' },
-      h('h2', null, 'Modelo de IA'),
-      h('p', null, 'A IA escreve o conteúdo dos diapositivos a partir de um tema. Corre neste computador: o descarregamento do modelo é a única vez em que é precisa a Internet, e os seus documentos nunca saem daqui.'),
-      body,
-      h('div', { class: 'dialog-actions' }, h('button', { type: 'button', class: 'btn primary', onclick: () => dlg.close() }, 'Fechar'))
-    );
-    async function draw() {
-      const st = await localAI().status();
-      body.replaceChildren(
-        ...st.models.map((m) => {
-          const actions = h('div', { class: 'model-actions' });
-          if (m.downloading) {
-            actions.append(h('progress', { class: 'model-progress', max: '1', value: '0' }), h('span', { class: 'ai-detail' }, 'A descarregar…'), h('button', { type: 'button', class: 'btn', onclick: () => localAI().cancel() }, 'Cancelar'));
-          } else if (m.installed) {
-            actions.append(
-              h('span', { class: 'model-ok' }, m.id === st.active ? 'Instalado e em uso' : 'Instalado'),
-              h('button', {
-                type: 'button',
-                class: 'btn',
-                onclick: async () => {
-                  await localAI().remove(m.id);
-                  draw();
-                }
-              }, 'Remover')
-            );
-          } else {
-            actions.append(
-              h('button', {
-                type: 'button',
-                class: 'btn primary',
-                onclick: async () => {
-                  const pending = localAI().download(m.id);
-                  await draw();
-                  const res = await pending;
-                  MO.toast(res.error ? res.error : `Modelo ${m.name} instalado.`);
-                  if (dlg.isConnected) draw();
-                }
-              }, `Descarregar (${sizeText(m.bytes)})`)
-            );
-          }
-          return h('article', { class: 'ai-card' }, h('div', { class: 'ai-label' }, m.label), h('h3', null, m.name), h('p', { class: 'ai-reason' }, `${m.note} Licença: ${m.license}.`), actions);
-        })
-      );
-    }
-    dlg.addEventListener('close', () => dlg.remove());
-    document.body.append(dlg);
-    await draw();
-    dlg.showModal();
-  }
-
   async function aiGenerate() {
     commitTextEdit();
-    const active = await aiActive();
     const res = await MO.dialog({
       title: 'Criar apresentação',
-      message: active
-        ? 'Indique o tema. A IA local escreve os diapositivos, com tópicos e notas do orador. Substitui a apresentação atual; pode anular com Ctrl+Z.'
-        : 'Indique o tema. Sem modelo de IA instalado, o assistente cria só a estrutura adequada (plano, relatório, formação…), com os tópicos a preencher. ' +
-          'Para a IA escrever o conteúdo, instale um modelo em Assistente › Modelo de IA.',
+      message: 'Indique o tema. O assistente cria uma estrutura inicial com tópicos e notas para completar. Substitui a apresentação atual; pode anular com Ctrl+Z.',
       fields: [
         { name: 'topic', label: 'Tema', placeholder: 'Ex.: Plano de marketing para 2027' },
         { name: 'audience', label: 'Público (opcional)', placeholder: 'Ex.: direção da empresa' },
-        { name: 'count', label: 'Número de diapositivos', type: 'number', value: active ? 5 : 6, min: 3, max: active ? 6 : 10 }
+        { name: 'count', label: 'Número de diapositivos', type: 'number', value: 6, min: 3, max: 10 }
       ],
       okLabel: 'Criar'
     });
     if (!res) return;
-    let out;
-    if (active) {
-      aiBusy('A preparar…');
-      out = await localAI().generate(res);
-      aiStage = null;
-      if (out.error) return showAI(h('p', { class: 'ai-error', role: 'alert' }, out.error));
-      hideAI();
-    } else {
-      out = MO.Assistant.generateDeck(res);
-      if (out.error) return MO.toast(out.error);
-    }
+    const out = MO.Assistant.generateDeck(res);
+    if (out.error) return MO.toast(out.error);
     change(() => {
       slides = [makeSlide('title', out), ...out.slides.map((s) => makeSlide('content', s))];
       idx = 0;
       selId = null;
     });
     root.focus({ preventScroll: true });
-    MO.toast(active ? `Apresentação escrita pela IA: ${slides.length} diapositivos. Reveja o conteúdo.` : `Apresentação criada com a estrutura «${out.type}»: ${slides.length} diapositivos.`);
+    MO.toast(`Estrutura de apresentação criada: ${slides.length} diapositivos. Complete e reveja o conteúdo.`);
   }
 
   // Texto de um elemento, uma linha por parágrafo ou item de lista.
@@ -725,29 +621,21 @@
       bullets: parts.bodies.flatMap((el) => linesOf(el.html)),
       notes: target.notes || ''
     };
+    const images = target.els.filter((el) => el.type === 'image');
     const out = MO.Assistant.suggest(input);
-    if (out.error) return MO.toast(out.error);
+    if (out.error && !images.length) return MO.toast(out.error);
+    const visualTips = MO.Assistant.suggestComposition(target.els);
+    const writingTips = out.error ? [] : out.tips;
+    const suggestions = out.error ? [] : out.suggestions;
     const n = slides.indexOf(target) + 1;
-    const active = await aiActive();
     const cards = [
-      h('p', { class: 'ai-hint' }, `Diapositivo ${n}. Reveja as sugestões antes de aplicar.`),
-      out.tips.length ? h('article', { class: 'ai-card ai-tips' }, h('div', { class: 'ai-label' }, 'Dicas'), h('ul', null, out.tips.map((t) => h('li', null, t)))) : null,
-      out.suggestions.length ? out.suggestions.map((sug) => suggestionCard(target, sug)) : h('p', { class: 'ai-ok' }, 'As regras de escrita não têm alterações a propor para este diapositivo.')
+      h('p', { class: 'ai-hint' }, `Diapositivo ${n}. Reveja as sugestões antes de aplicar. As fotografias originais serão preservadas.`),
+      visualTips.length ? h('article', { class: 'ai-card ai-tips' }, h('div', { class: 'ai-label' }, 'Fotografias e composição'), h('ul', null, visualTips.map((t) => h('li', null, t)))) : null,
+      writingTips.length ? h('article', { class: 'ai-card ai-tips' }, h('div', { class: 'ai-label' }, 'Texto'), h('ul', null, writingTips.map((t) => h('li', null, t)))) : null,
+      suggestions.length ? suggestions.map((sug) => suggestionCard(target, sug)) : null,
+      !visualTips.length && !writingTips.length && !suggestions.length ? h('p', { class: 'ai-ok' }, 'Não foram encontradas alterações a sugerir. As fotografias e os restantes elementos não foram modificados.') : null
     ];
-    // As versões da IA demoram, por isso só são pedidas a pedido.
-    const askAI = active
-      ? h('button', {
-          type: 'button',
-          class: 'btn',
-          onclick: async () => {
-            aiBusy('A preparar…');
-            const res = await localAI().suggest(input);
-            aiStage = null;
-            showAI(cards, res.error ? h('p', { class: 'ai-error', role: 'alert' }, res.error) : res.suggestions.map((sug) => suggestionCard(target, sug)));
-          }
-        }, 'Pedir versões à IA')
-      : null;
-    showAI(cards, askAI);
+    showAI(cards);
   }
 
   function onKeyDown(e) {
@@ -792,6 +680,8 @@
       const k = Math.min(window.innerWidth / W, window.innerHeight / H);
       node.style.transform = `translate(-50%, -50%) scale(${k})`;
       overlay.replaceChildren(node, h('div', { class: 'present-count' }, `${i + 1} / ${slides.length}`));
+      const transition = slides[i].transition || 'fade';
+      if (transition !== 'none' && node.animate) node.animate(transition === 'zoom' ? [{ opacity: 0, transform: 'translate(-50%, -50%) scale(.88)' }, { opacity: 1, transform: `translate(-50%, -50%) scale(${k})` }] : transition === 'wipe' ? [{ opacity: 0, clipPath: 'inset(0 100% 0 0)' }, { opacity: 1, clipPath: 'inset(0)' }] : [{ opacity: 0 }, { opacity: 1 }], { duration: 420, easing: 'ease-out' });
     }
 
     function close() {
@@ -842,6 +732,8 @@
       h('option', { value: '' }, 'Tamanho'),
       SIZES.map((s) => h('option', { value: s }, s))
     );
+    transitionSelect = h('select', { class: 'tool-select', title: 'Transição do diapositivo', 'aria-label': 'Transição do diapositivo' }, h('option', { value: 'fade' }, 'Transição: Esbatimento'), h('option', { value: 'wipe' }, 'Transição: Deslizar'), h('option', { value: 'zoom' }, 'Transição: Zoom'), h('option', { value: 'none' }, 'Sem transição'));
+    transitionSelect.addEventListener('change', () => { snapshot(); slide().transition = transitionSelect.value; ctx.dirty(); });
     sizeSelect.addEventListener('change', () => {
       const fs = Number(sizeSelect.value);
       if (fs) withSelected((el) => (el.fs = fs), 'text');
@@ -961,7 +853,7 @@
             { label: 'Variantes', rows: [variantRow] },
             {
               label: 'Personalizar',
-              rows: [[colorButton('Cor de fundo', 'Cor de fundo do diapositivo', '#ffffff', liveColor((v) => (slide().bg = v)), colorDone, PICKER)]]
+              rows: [[colorButton('Cor de fundo', 'Cor de fundo do diapositivo', '#ffffff', liveColor((v) => (slide().bg = v)), colorDone, PICKER), transitionSelect]]
             }
           ]
         },
@@ -976,7 +868,6 @@
               label: 'Melhorar',
               rows: [[bigButton('sparkle', 'Sugestões', 'Sugestões para o diapositivo atual', aiSuggest)]]
             },
-            { label: 'IA local', rows: [[bigButton('export', 'Modelo de IA', 'Descarregar ou remover o modelo de IA local', modelDialog)]] }
           ]
         },
         {
@@ -1054,7 +945,6 @@
         ctx.dirty();
       });
       notesEl.addEventListener('blur', () => (notesSnapshotTaken = false));
-      if (localAI()) localAI().onEvent(onAIEvent);
       new ResizeObserver(fitStage).observe(stageBox);
     },
 
