@@ -97,7 +97,8 @@ A transferência do modelo requer Internet; depois de instalado, o processamento
 
 ## Aparência e produtividade
 
-- **Identidade visual MyOffice Workspace** — ecrã inicial próprio, navegação simples e foco no trabalho, sem reproduzir a disposição do Office Online.\n- **Desempenho** — interface sem animações decorativas obrigatórias e com efeitos visuais reduzidos para favorecer computadores modestos.
+- **Identidade visual MyOffice Workspace** — ecrã inicial próprio, navegação simples e foco no trabalho, sem reproduzir a disposição do Office Online.
+- **Desempenho** — interface sem animações decorativas obrigatórias e com efeitos visuais reduzidos para favorecer computadores modestos.
 - **Modo claro e escuro** — acompanha a preferência do sistema, com possibilidade de alteração na aplicação.
 - **13 temas de documento** — Escritório, Executivo, Oceano, Floresta, Pôr do sol, Coral, Menta, Lavanda, Areia, Grafite, Noite, Técnico e Contraste.
 - **Temas de apresentação** — cada tema inclui variantes Claro, Suave, Vivo e Escuro.
