@@ -270,7 +270,7 @@
     const footerRel = Object.values(rels).find((item) => item.type === 'footer' && !item.external);
     const footerPart = footerRel && parseXML(files, footerRel.path);
     const pageNumbers = Boolean(footerPart && all(footerPart, 'instrText').some((node) => /\\bPAGE\\b/i.test(node.textContent)));
-    return { html: body ? blocksOf(body).join('') : '', headerText, footerText: footerText.replace(/Página\\s*1?$/i, '').replace(/\\s*·\\s*$/, '').trim(), pageNumbers };
+    return { html: body ? blocksOf(body).join('') : '', headerText, footerText: pageNumbers ? footerText.replace(/Página\\s*1?$/i, '').replace(/\\s*·\\s*$/, '').trim() : footerText, pageNumbers };
   }
 
   // root: elemento com o conteúdo do documento (o editor); look: tipos de letra e cores do tema.
