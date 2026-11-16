@@ -33,6 +33,8 @@ As imagens abaixo são capturas da interface real do MyOffice. O ecrã inicial, 
 
 ![Assistente de apresentações do MyOffice](docs/screenshots/assistente.png)
 
+> Esta captura mantém-se da versão anterior, uma vez que o redesenho 1.3.0 incidiu no Workspace e não alterou o painel do Assistente.
+
 ### Modo escuro
 
 ![MyOffice em modo escuro](docs/screenshots/modo-escuro.png)
