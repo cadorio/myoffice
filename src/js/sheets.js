@@ -21,6 +21,83 @@
   let ctx, wrap, editorEl, nameBox, fxInput, statusEl;
   let showStates = () => {};
   let cells = {}; // endereço -> { v: texto introduzido, s: { b, i, a, bg, c } }
+  let workbookSheets = [];
+  let activeSheetId = 'sheet-1';
+  let sheetBar;
+  let nextSheetNumber = 2;
+
+  function snapshotSheet() {
+    const current = workbookSheets.find((s) => s.id === activeSheetId);
+    if (current) current.cells = JSON.parse(JSON.stringify(cells));
+  }
+
+  function renderSheetTabs() {
+    if (!sheetBar) return;
+    sheetBar.replaceChildren();
+    for (const sheet of workbookSheets) {
+      const tab = h('button', {
+        type: 'button',
+        class: 'sheet-tab' + (sheet.id === activeSheetId ? ' active' : ''),
+        'aria-pressed': sheet.id === activeSheetId ? 'true' : 'false',
+        title: 'Abrir ' + sheet.name
+      }, sheet.name);
+      tab.addEventListener('click', () => activateSheet(sheet.id));
+      tab.addEventListener('dblclick', () => renameSheet(sheet.id));
+      sheetBar.append(tab);
+    }
+    const add = h('button', { type: 'button', class: 'sheet-tab-add', title: 'Adicionar folha', 'aria-label': 'Adicionar folha' }, '+');
+    add.addEventListener('click', addSheet);
+    sheetBar.append(add);
+  }
+
+  function activateSheet(id) {
+    if (editing) stopEdit(true);
+    snapshotSheet();
+    const target = workbookSheets.find((s) => s.id === id);
+    if (!target || target.id === activeSheetId) return;
+    activeSheetId = id;
+    cells = JSON.parse(JSON.stringify(target.cells || {}));
+    undoStack = [];
+    redoStack = [];
+    cur = { r: 0, c: 0 };
+    end = { r: 0, c: 0 };
+    drawn.clear();
+    painted.clear();
+    refresh();
+    renderSheetTabs();
+    ctx.dirty();
+  }
+
+  function addSheet() {
+    if (editing) stopEdit(true);
+    snapshotSheet();
+    const id = 'sheet-' + nextSheetNumber++;
+    const name = 'Folha' + nextSheetNumber;
+    workbookSheets.push({ id, name, cells: {} });
+    activateSheet(id);
+    renderSheetTabs();
+  }
+
+  function renameSheet(id) {
+    const sheet = workbookSheets.find((s) => s.id === id);
+    if (!sheet) return;
+    const name = window.prompt('Nome da folha (máximo 31 caracteres):', sheet.name);
+    if (name == null) return;
+    const clean = name.trim().slice(0, 31);
+    if (!clean || /[\\/?*:[\\]]/.test(clean)) return MO.toast('Nome inválido. Evite \\ / ? * : [ ].');
+    if (workbookSheets.some((s) => s.id !== id && s.name.toLocaleLowerCase('pt-PT') === clean.toLocaleLowerCase('pt-PT'))) return MO.toast('Já existe uma folha com esse nome.');
+    sheet.name = clean;
+    renderSheetTabs();
+    ctx.dirty();
+  }
+
+  function resetWorkbook(initialCells = {}) {
+    workbookSheets = [{ id: 'sheet-1', name: 'Folha1', cells: initialCells }];
+    activeSheetId = 'sheet-1';
+    nextSheetNumber = 2;
+    cells = JSON.parse(JSON.stringify(initialCells));
+    renderSheetTabs();
+  }
   let values = new Map();
   let tds = [];
   let colHeads = [];
