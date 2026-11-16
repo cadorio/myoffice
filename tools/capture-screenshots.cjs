@@ -69,6 +69,7 @@ const { pathToFileURL } = require('node:url');
   await enterCell(2, 1, '150');
   await page.locator('#view-sheets td[data-r="0"][data-c="0"]').click();
   await page.locator('#view-sheets td[data-r="2"][data-c="1"]').click({ modifiers: ['Shift'] });
+  await page.locator('#view-sheets .ribbon-tabs .ribbon-tab').filter({ hasText: 'Dados' }).click();
   await page.locator('#view-sheets button[aria-label*="Criar gráfico"]').click();
   await page.locator('.mo-chart-dialog').waitFor({ state: 'visible' });
   await page.locator('.mo-chart-preview svg').waitFor({ state: 'visible' });
