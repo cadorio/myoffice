@@ -94,7 +94,7 @@
   }
 
   function resetWorkbook(initialCells = {}) {
-    workbookSheets = [{ id: 'sheet-1', name: 'Folha1', cells: initialCells }];
+    workbookSheets = [{ id: 'sheet-1', name: 'Folha1', cells: initialCells, filter: null }];
     activeSheetId = 'sheet-1';
     nextSheetNumber = 2;
     cells = JSON.parse(JSON.stringify(initialCells));
@@ -221,6 +221,7 @@
     for (const a of painted) if (!next.has(a)) paintCell(a);
     for (const a of next) paintCell(a);
     painted = next;
+    applySheetFilter();
     paintSelection(false);
   }
 
@@ -729,22 +730,36 @@
     renderChart(type.value);
   }
 
+  function applySheetFilter() {
+    const filter = workbookSheets.find((s) => s.id === activeSheetId)?.filter;
+    for (let r = 0; r < ROWS; r++) {
+      const row = tds[r]?.[0]?.parentElement;
+      if (!row) continue;
+      const inRange = filter && r > filter.r0 && r <= filter.r1;
+      const value = inRange ? F.format(values.get(F.addr(r, filter.col)) ?? '') : '';
+      row.hidden = Boolean(inRange && filter.term && !value.toLocaleLowerCase('pt-PT').includes(filter.term));
+    }
+  }
+
   function filterSelection() {
     if (editing) stopEdit(true);
     const { r0, r1 } = range();
-    const col = cur.c;
-    const term = window.prompt('Mostrar apenas as linhas em que esta coluna contém:');
+    if (r0 === r1) return MO.toast('Selecione também as linhas que pretende filtrar.');
+    const term = window.prompt('Mostrar apenas as linhas em que a coluna ativa contém:');
     if (term == null) return;
-    const needle = term.trim().toLocaleLowerCase('pt-PT');
-    for (let r = 0; r < ROWS; r++) {
-      const row = tds[r][0].parentElement;
-      row.hidden = Boolean(needle) && r > r0 && r <= r1 && !F.format(values.get(F.addr(r, col))).toLocaleLowerCase('pt-PT').includes(needle);
-    }
-    MO.toast(needle ? 'Filtro aplicado à seleção.' : 'Filtro removido.');
+    const sheet = workbookSheets.find((s) => s.id === activeSheetId);
+    if (!sheet) return;
+    sheet.filter = { r0, r1, col: cur.c, term: term.trim().toLocaleLowerCase('pt-PT') };
+    applySheetFilter();
+    ctx.dirty();
+    MO.toast(sheet.filter.term ? 'Filtro guardado neste livro.' : 'Filtro removido.');
   }
 
   function clearFilter() {
-    for (let r = 0; r < ROWS; r++) tds[r][0].parentElement.hidden = false;
+    const sheet = workbookSheets.find((s) => s.id === activeSheetId);
+    if (sheet) delete sheet.filter;
+    applySheetFilter();
+    ctx.dirty();
   }
 
   // ---------- Construção da interface ----------
@@ -1072,7 +1087,7 @@
           if (/[\\\\/?*:[\\]]/.test(name)) name = `Folha${i + 1}`;
           if (used.has(name.toLocaleLowerCase('pt-PT'))) name = `Folha${i + 1}`;
           used.add(name.toLocaleLowerCase('pt-PT'));
-          return { id: `sheet-${i + 1}`, name, cells: cleanCells(sheet.cells) };
+          return { id: `sheet-${i + 1}`, name, cells: cleanCells(sheet.cells), filter: null };
         });
         loadedActiveSheetId = loadedSheets[0].id;
         next = loadedSheets[0].cells;
@@ -1092,7 +1107,8 @@
             let name = String(s.name || `Folha${i + 1}`).trim().slice(0, 31) || `Folha${i + 1}`;
             if (used.has(name.toLocaleLowerCase('pt-PT'))) name = `Folha${i + 1}`;
             used.add(name.toLocaleLowerCase('pt-PT'));
-            return { id: String(s.id || `sheet-${i + 1}`), name, cells: cleanCells(s.cells) };
+            const filter = s.filter && Number.isInteger(s.filter.r0) && Number.isInteger(s.filter.r1) && Number.isInteger(s.filter.col) && s.filter.r0 >= 0 && s.filter.r1 < ROWS && s.filter.r1 > s.filter.r0 && s.filter.col >= 0 && s.filter.col < COLS ? { r0: s.filter.r0, r1: s.filter.r1, col: s.filter.col, term: String(s.filter.term || '').slice(0, 200).toLocaleLowerCase('pt-PT') } : null;
+            return { id: String(s.id || `sheet-${i + 1}`), name, cells: cleanCells(s.cells), filter };
           });
           loadedActiveSheetId = loadedSheets.some((s) => s.id === data.activeSheetId) ? data.activeSheetId : loadedSheets[0].id;
           next = loadedSheets.find((s) => s.id === loadedActiveSheetId).cells;
