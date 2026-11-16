@@ -61,3 +61,14 @@ assert.ok(visual.some((tip) => tip.includes('sobrepõe-se a uma caixa de texto')
 assert.deepEqual(A.suggestComposition([{ type: 'image', x: 100, y: 100, w: 300, h: 200 }]), [
   'O diapositivo contém apenas uma fotografia. Pode acrescentar um título ou uma legenda curta para dar contexto.'
 ]);
+
+
+// Núcleo MyOffice Intelligence: contratos, limites e análises locais determinísticas.
+assert.equal(A.request({ task: 'unknown', context: 'texto' }).error, 'Tarefa de inteligência não suportada.');
+assert.ok(A.request({ task: 'review', context: '' }).error);
+assert.ok(A.request({ task: 'review', context: 'x'.repeat(50001) }).error);
+const review = A.request({ task: 'review', context: 'Esta é uma frase muito longa que contém muitas palavras e que deve ser dividida em duas partes para melhorar a leitura do documento. Esta frase é curta.' });
+assert.equal(review.engine, 'myoffice-rules-v1');
+assert.ok(review.findings.some((item) => item.includes('frase(s)')));
+const analysis = A.request({ task: 'analyse', context: 'Produto | Vendas\nA | 10\nB | 20' });
+assert.ok(analysis.findings.some((item) => item.includes('média 15')));
