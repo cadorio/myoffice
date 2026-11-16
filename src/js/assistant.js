@@ -281,7 +281,44 @@
     return { tips: tipsFor(title, bullets, notes), suggestions };
   }
 
-  const api = { generateDeck, suggest, classify };
+  // Analisa a composição de fotografias e texto sem modificar qualquer elemento.
+  function suggestComposition(elements, width = 960, height = 540) {
+    const list = Array.isArray(elements) ? elements : [];
+    const images = list.filter((el) => el && el.type === 'image');
+    const texts = list.filter((el) => el && el.type === 'text');
+    const tips = [];
+    for (let i = 0; i < images.length; i++) {
+      const image = images[i];
+      const x = Number(image.x) || 0, y = Number(image.y) || 0;
+      const w = Math.max(0, Number(image.w) || 0), h = Math.max(0, Number(image.h) || 0);
+      if (x < 0 || y < 0 || x + w > width || y + h > height) {
+        tips.push('Uma fotografia ultrapassa os limites do diapositivo. Ajuste a posição ou o tamanho para evitar cortes.');
+      }
+      if (w < 120 || h < 90) tips.push('Há uma fotografia com dimensões reduzidas. Aumente-a se os detalhes forem importantes.');
+      if (texts.some((text) => {
+        const tx = Number(text.x) || 0, ty = Number(text.y) || 0;
+        const tw = Math.max(0, Number(text.w) || 0), th = Math.max(0, Number(text.h) || 0);
+        const overlapW = Math.max(0, Math.min(x + w, tx + tw) - Math.max(x, tx));
+        const overlapH = Math.max(0, Math.min(y + h, ty + th) - Math.max(y, ty));
+        return overlapW * overlapH > Math.min(w * h, tw * th) * 0.08;
+      })) tips.push('Uma fotografia sobrepõe-se a uma caixa de texto. Verifique se não tapa palavras e se existe contraste suficiente.');
+      for (let j = i + 1; j < images.length; j++) {
+        const other = images[j];
+        const ox = Number(other.x) || 0, oy = Number(other.y) || 0;
+        const ow = Math.max(0, Number(other.w) || 0), oh = Math.max(0, Number(other.h) || 0);
+        const overlapW = Math.max(0, Math.min(x + w, ox + ow) - Math.max(x, ox));
+        const overlapH = Math.max(0, Math.min(y + h, oy + oh) - Math.max(y, oy));
+        if (overlapW * overlapH > Math.min(w * h, ow * oh) * 0.12) {
+          tips.push('Duas fotografias sobrepõem-se bastante. Considere alinhá-las lado a lado ou criar uma composição em grelha.');
+        }
+      }
+    }
+    if (images.length === 1 && texts.length === 0) tips.push('O diapositivo contém apenas uma fotografia. Pode acrescentar um título ou uma legenda curta para dar contexto.');
+    if (images.length >= 2 && !tips.length) tips.push('Mantenha margens e espaçamento consistentes entre as fotografias.');
+    return [...new Set(tips)];
+  }
+
+  const api = { generateDeck, suggest, suggestComposition, classify };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else (root.MO = root.MO || {}).Assistant = api;
 })(typeof window !== 'undefined' ? window : globalThis);
