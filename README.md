@@ -48,11 +48,14 @@ A captura mostra o painel Assistente aberto no editor de Diapositivos, com as su
 
 ### Funcionalidades principais
 
+- **Espaço de trabalho MyOffice Horizon** — página inicial renovada com acesso direto às ferramentas, modelos editáveis e pesquisa de ficheiros recentes.
+- **Seis modelos prontos a usar** — relatório, ata de reunião, orçamento mensal com fórmulas, gestor de tarefas, apresentação de projeto e apresentação de aula.
 - **Três módulos integrados** — alternar entre documentos, folhas de cálculo e apresentações.
 - **Abertura de ficheiros Office** — importar DOCX, XLSX e PPTX e exportar para esses formatos.
 - **Abertura direta** — abrir ficheiros DOCX e PPTX com o MyOffice através do sistema operativo; no Windows, existem também atalhos para iniciar diretamente Texto, Folhas ou Diapositivos.
 - **Temas e personalização** — 13 temas partilhados, variantes de cor para apresentações e modo claro/escuro.
 - **Recuperação automática** — rascunhos de documentos alterados são guardados periodicamente para permitir recuperação após uma falha.
+- **Pesquisa de ficheiros recentes** — filtrar a lista de documentos usados recentemente diretamente no ecrã inicial.
 - **Privacidade local** — os documentos permanecem no computador; a aplicação não depende de uma conta nem de armazenamento na nuvem.
 
 ## Instalação
@@ -109,7 +112,7 @@ A transferência do modelo requer Internet; depois de instalado, o processamento
 
 ## Aparência e produtividade
 
-- **Identidade visual MyOffice Workspace** — ecrã inicial redesenhado, navegação simples e foco no trabalho, sem reproduzir a disposição do Office Online.
+- **Identidade visual MyOffice Horizon** — espaço de trabalho com hierarquia visual própria, modelos editáveis, pesquisa de ficheiros e acesso rápido às três ferramentas.
 - **Desempenho** — interface sem animações decorativas obrigatórias e com efeitos visuais reduzidos para favorecer computadores modestos.
 - **Modo claro e escuro** — acompanha a preferência do sistema, com possibilidade de alteração na aplicação.
 - **13 temas de documento** — Escritório, Executivo, Oceano, Floresta, Pôr do sol, Coral, Menta, Lavanda, Areia, Grafite, Noite, Técnico e Contraste.
