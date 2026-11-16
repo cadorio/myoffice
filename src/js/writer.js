@@ -234,11 +234,9 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
   async function aiReview() {
     const text = editor.innerText.trim();
     if (!text) return MO.toast('Escreva algum conteúdo antes de pedir uma revisão.');
-    if (!window.api?.ai?.assist) return MO.toast('O assistente de IA está disponível na aplicação instalada.');
-    MO.toast('A preparar a revisão local…');
-    const result = await window.api.ai.assist({ module: 'writer', task: 'review', content: text });
+    const result = MO.Assistant.request({ task: 'review', context: text });
     if (result.error) return MO.toast(result.error);
-    await MO.dialog({ title: 'Assistente MyOffice · Revisão', message: result.answer, okLabel: 'Fechar' });
+    await MO.dialog({ title: 'MyOffice Intelligence · Revisão experimental', message: result.summary + '\\n\\n' + result.findings.map((item) => '• ' + item).join('\\n') + '\\n\\nAnálise local baseada em regras; não é ainda um modelo generativo.', okLabel: 'Fechar' });
   }
 
   function select(options, title, onChange, resetAfter) {
