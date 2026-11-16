@@ -236,7 +236,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
     if (!text) return MO.toast('Escreva algum conteúdo antes de pedir uma revisão.');
     const result = MO.Assistant.request({ task: 'review', context: text });
     if (result.error) return MO.toast(result.error);
-    await MO.dialog({ title: 'MyOffice Intelligence · Revisão experimental', message: result.summary + '\\n\\n' + result.findings.map((item) => '• ' + item).join('\\n') + '\\n\\nAnálise local baseada em regras; não é ainda um modelo generativo.', okLabel: 'Fechar' });
+    await MO.dialog({ title: 'MyOffice Intelligence · Revisão experimental', message: result.summary + '\n\n' + result.findings.map((item) => '• ' + item).join('\n') + '\n\nAnálise local baseada em regras; não é ainda um modelo generativo.', okLabel: 'Fechar' });
   }
 
   function select(options, title, onChange, resetAfter) {
