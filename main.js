@@ -321,9 +321,7 @@ function lockDownSession() {
 const LICENSE_BLOCK = 'O período experimental terminou. Ative uma licença em Ficheiro › Licença para guardar e exportar.';
 
 function registerIpc() {
-  ai.register(ipcMain, fromOurWindow, (message) => {
-    if (win && rendererReady) win.webContents.send('ai:event', message);
-  });
+  ai.register(ipcMain, fromOurWindow);
   ipcMain.handle('license:status', (event) => (fromOurWindow(event) ? license.status() : null));
   ipcMain.handle('license:activate', (event, key) => (fromOurWindow(event) ? license.activate(key) : null));
 

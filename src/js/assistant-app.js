@@ -1,6 +1,6 @@
 'use strict';
 
-// Assistente autónomo do MyOffice. Usa o mesmo motor local, mas tem conversa própria.
+// Assistente autónomo do MyOffice. Usa o motor próprio de regras, sem modelos externos.
 (function () {
   const MO = window.MO;
   const { h } = MO;
@@ -33,7 +33,7 @@
     setBusy(true);
     try {
       const api = window.api && window.api.ai;
-      if (!api) throw new Error('A IA local só está disponível na aplicação instalada.');
+      if (!api) throw new Error('O Assistente MyOffice só está disponível na aplicação instalada.');
       const response = await api.assist({ module: 'assistant', task: 'chat', content: history.slice(-6).map((m) => (m.role === 'user' ? 'Utilizador: ' : 'Assistente: ') + m.content).join('\n\n') });
       if (response.error) throw new Error(response.error);
       const answer = response.answer || 'Não consegui formular uma resposta. Tente novamente.';
@@ -68,7 +68,7 @@
       h('header', { class: 'mo-assistant-hero' },
         h('span', { class: 'mo-assistant-kicker' }, 'MYOFFICE · INTELIGÊNCIA ARTIFICIAL'),
         h('h1', null, 'Em que posso ajudar?'),
-        h('p', null, 'Um assistente simples para esclarecer dúvidas e ajudar a trabalhar com Texto, Folhas e Diapositivos. As respostas são geradas localmente no seu computador.')
+        h('p', null, 'Um assistente independente para analisar texto e tabelas, criar estruturas de apresentação e ajudar com fórmulas. Funciona sem modelos descarregados ou serviços externos; as respostas seguem regras locais e têm limites.')
       ),
       h('section', { class: 'mo-assistant-shortcuts', 'aria-label': 'Sugestões rápidas' },
         shortcuts.map(([label, prompt]) => h('button', { type: 'button', onclick: () => { input.value = prompt; input.focus(); } },

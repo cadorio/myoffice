@@ -2,7 +2,7 @@
   "name": "myoffice",
   "version": "1.4.0",
   "private": true,
-  "description": "Suite de escritório leve para Windows com assistente de IA local: texto, folhas de cálculo e apresentações.",
+  "description": "Suite de escritório leve para Windows com assistente inteligente próprio: texto, folhas de cálculo e apresentações.",
   "main": "main.js",
   "author": {
     "name": "cadorio",
@@ -12,7 +12,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
-    "test": "node test/formula.test.js && node test/assistant.test.js && node test/license.test.js && node test/ai-download.test.js",
+    "test": "node test/formula.test.js && node test/assistant.test.js && node test/license.test.js",
     "dist": "electron-builder --publish never",
     "dist:win": "electron-builder --win --publish never",
     "notices": "node tools/notices.js",
@@ -28,19 +28,13 @@
     "files": [
       "main.js",
       "ai.js",
-      "ai-worker.mjs",
-      "ai-download.js",
       "license.js",
       "license-public.pem",
       "preload.js",
       "src/**/*",
       "build/icon.png",
       "THIRD-PARTY-NOTICES.md",
-      "package.json",
-      "!node_modules/@node-llama-cpp/*-cuda*/**",
-      "!node_modules/@node-llama-cpp/*-vulkan*/**",
-      "!node_modules/node-llama-cpp/llama/llama.cpp/**",
-      "!node_modules/node-llama-cpp/docs/**"
+      "package.json"
     ],
     "fileAssociations": [
       {
@@ -95,23 +89,16 @@
       "include": "build/installer.nsh"
     },
     "electronFuses": {
-      "runAsNode": true,
+      "runAsNode": false,
       "enableNodeOptionsEnvironmentVariable": false,
       "enableNodeCliInspectArguments": false,
       "onlyLoadAppFromAsar": true
-    },
-    "asarUnpack": [
-      "node_modules/node-llama-cpp/**",
-      "node_modules/@node-llama-cpp/**"
-    ]
+    }
   },
   "devDependencies": {
     "electron": "^45.3.2",
     "electron-builder": "^26.18.0",
     "fflate": "^0.8.3"
   },
-  "desktopName": "myoffice.desktop",
-  "dependencies": {
-    "node-llama-cpp": "^3.22.3"
-  }
+  "desktopName": "myoffice.desktop"
 }

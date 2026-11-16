@@ -862,7 +862,7 @@
                   bigButton('filter', 'Filtrar', 'Filtrar as linhas da seleção pela coluna ativa', filterSelection),
                   bigButton('filter', 'Limpar filtro', 'Mostrar novamente todas as linhas', clearFilter),
                   bigButton('chart', 'Gráfico', 'Criar gráfico a partir da seleção', openChart),
-                  bigButton('sparkle', 'Analisar com IA', 'Analisar os dados selecionados com IA local', aiAnalyseSelection)
+                  bigButton('sparkle', 'Analisar com IA', 'Calcular estatísticas e verificar células vazias com o motor próprio do MyOffice', aiAnalyseSelection)
                 ]
               ]
             }

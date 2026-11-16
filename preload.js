@@ -10,14 +10,9 @@ contextBridge.exposeInMainWorld('api', {
   exportPdf: (opts) => ipcRenderer.invoke('file:exportPdf', opts),
   getRecent: () => ipcRenderer.invoke('recent:get'),
   ai: {
-    status: () => ipcRenderer.invoke('ai:status'),
-    download: (id) => ipcRenderer.invoke('ai:download', id),
-    cancel: () => ipcRenderer.invoke('ai:cancel'),
-    remove: (id) => ipcRenderer.invoke('ai:remove', id),
     generate: (input) => ipcRenderer.invoke('ai:generate', input),
     suggest: (input) => ipcRenderer.invoke('ai:suggest', input),
-    assist: (input) => ipcRenderer.invoke('ai:assist', input),
-    onEvent: (callback) => ipcRenderer.on('ai:event', (_event, message) => callback(message))
+    assist: (input) => ipcRenderer.invoke('ai:assist', input)
   },
   drafts: {
     save: (draft) => ipcRenderer.invoke('draft:save', draft),

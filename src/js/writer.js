@@ -284,7 +284,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
             },
             {
               label: 'Edição',
-              rows: [[bigButton('search', 'Localizar', 'Localizar e substituir', findReplace), bigButton('sparkle', 'Rever com IA', 'Resumir o documento e sugerir melhorias usando IA local', aiReview)]]
+              rows: [[bigButton('search', 'Localizar', 'Localizar e substituir', findReplace), bigButton('sparkle', 'Rever com IA', 'Extrair frases relevantes e assinalar padrões com o motor próprio do MyOffice', aiReview)]]
             }
           ]
         },

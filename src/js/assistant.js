@@ -281,7 +281,118 @@
     return { tips: tipsFor(title, bullets, notes), suggestions };
   }
 
-  const api = { generateDeck, suggest, classify };
+  // ---------- Análise inteligente local de texto, tabelas e pedidos ----------
+
+  const STOP_WORDS = new Set(('a ao aos as até com como da das de dela delas dele deles depois do dos e é em entre era essa essas esse esses esta estas este estes foi foram há isso isto já mais mas me mesmo meu minha muito na nas nem no nos nós o os ou para pela pelas pelo pelos por porque que se sem ser seu sua suas também tem ter um uma umas uns vai vão').split(' '));
+  const tokens = (text) => String(text || '').toLocaleLowerCase('pt-PT').match(/[\p{L}\p{N}]+/gu) || [];
+
+  function reviewText(content) {
+    const paragraphs = content.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
+    const sentences = content.split(/(?<=[.!?])\s+|\n+/).map((part) => part.trim()).filter(Boolean);
+    const allWords = tokens(content);
+    const terms = new Map();
+    for (const word of allWords) {
+      if (word.length < 4 || STOP_WORDS.has(word)) continue;
+      terms.set(word, (terms.get(word) || 0) + 1);
+    }
+    const ranked = sentences.map((sentence, index) => ({
+      sentence,
+      index,
+      score: tokens(sentence).reduce((sum, word) => sum + (terms.get(word) || 0), 0) / Math.max(1, tokens(sentence).length)
+    }));
+    const summary = ranked
+      .slice()
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .slice(0, Math.min(3, ranked.length))
+      .sort((a, b) => a.index - b.index)
+      .map((item) => item.sentence);
+    const longSentences = sentences.filter((sentence) => tokens(sentence).length > 30).length;
+    const repeated = [...terms.entries()].filter(([, count]) => count >= 4).sort((a, b) => b[1] - a[1]).slice(0, 4);
+    const observations = [
+      `O texto tem ${allWords.length} palavras, ${sentences.length} frases e ${paragraphs.length} parágrafos.`,
+      summary.length ? `Resumo extraído do próprio texto: ${summary.join(' ')}` : ''
+    ].filter(Boolean);
+    const suggestions = [];
+    if (longSentences) suggestions.push(`${longSentences} frase(s) têm mais de 30 palavras; considere dividi-las.`);
+    if (paragraphs.length === 1 && allWords.length > 180) suggestions.push('O documento é um único parágrafo longo; separe-o por assunto.');
+    if (repeated.length) suggestions.push(`Termos repetidos com frequência: ${repeated.map(([word, count]) => `${word} (${count}×)`).join(', ')}.`);
+    if (!suggestions.length) suggestions.push('Não encontrei frases excessivamente longas nem repetições frequentes pelas regras locais.');
+    return { answer: `${observations.join('\n\n')}\n\nPontos a rever: ${suggestions.join(' ')}` };
+  }
+
+  function numberValue(value) {
+    let text = String(value || '').trim().replace(/[€$£%\s]/g, '');
+    if (!/^-?\d[\d.,]*$/.test(text)) return null;
+    if (text.includes(',') && text.includes('.')) text = text.replace(/\./g, '').replace(',', '.');
+    else if (text.includes(',')) text = text.replace(',', '.');
+    else if (/^-?\d{1,3}(?:\.\d{3})+$/.test(text)) text = text.replace(/\./g, '');
+    const number = Number(text);
+    return Number.isFinite(number) ? number : null;
+  }
+
+  function analyseTable(content) {
+    const rows = content.split(/\r?\n/).map((line) => line.split(/\s*\|\s*/).map((cell) => cell.trim())).filter((row) => row.some(Boolean));
+    if (!rows.length) return { error: 'Selecione dados antes de pedir uma análise.' };
+    const headers = rows[0];
+    const data = rows.slice(1);
+    const numericColumns = headers.map((header, column) => ({
+      header: header || `Coluna ${column + 1}`,
+      values: data.map((row) => numberValue(row[column])).filter((value) => value !== null)
+    })).filter((column) => column.values.length >= 2);
+    const missing = data.reduce((sum, row) => sum + Math.max(0, headers.length - row.filter((cell) => cell !== '').length), 0);
+    const findings = [`A seleção tem ${data.length} linha(s) de dados e ${headers.length} coluna(s).`];
+    for (const column of numericColumns.slice(0, 6)) {
+      const values = column.values;
+      const total = values.reduce((sum, value) => sum + value, 0);
+      const minimum = Math.min(...values);
+      const maximum = Math.max(...values);
+      findings.push(`${column.header}: ${values.length} valores numéricos; mínimo ${minimum}, máximo ${maximum}, média ${(total / values.length).toLocaleString('pt-PT', { maximumFractionDigits: 2 })}.`);
+    }
+    if (missing) findings.push(`Há ${missing} célula(s) vazia(s) nas linhas de dados.`);
+    if (!numericColumns.length) findings.push('Não encontrei colunas com pelo menos dois valores numéricos reconhecíveis.');
+    findings.push('A análise é calculada localmente e descreve apenas os valores selecionados; confirme cabeçalhos, unidades e período.');
+    return { answer: findings.join('\n\n') };
+  }
+
+  function chat(content) {
+    const messages = [...String(content || '').matchAll(/(?:^|\n\n)Utilizador:\s*([\s\S]*?)(?=\n\n(?:Assistente|Utilizador):|$)/g)];
+    const question = (messages.length ? messages[messages.length - 1][1] : content).trim();
+    const query = plain(question);
+    if (/\b(formula|somar|soma|media|m[eé]dia|procv|contar|folhas)\b/.test(query)) {
+      const formula = /\b(media|m[eé]dia)\b/.test(query) ? '=MÉDIA(B2:B8)' : /\b(procv|procurar|buscar)\b/.test(query) ? '=PROCV("pera";A1:C9;3;FALSO)' : /\b(contar|quantos)\b/.test(query) ? '=CONTAR(A1:A10)' : '=SOMA(A1:A10)';
+      return { answer: `Posso ajudar com fórmulas suportadas pelo MyOffice. Exemplo: ${formula}. Substitua as referências pelo intervalo das suas células. Se indicar o resultado que pretende e onde estão os dados, posso sugerir uma fórmula mais adequada.` };
+    }
+    if (/\b(apresenta[cç][aã]o|diapositivos|slides)\b/.test(query)) {
+      const match = question.match(/\b(?:sobre|acerca de)\s+(.+)/i);
+      if (match && match[1] && !/[.…]$/.test(match[1])) {
+        const deck = generateDeck({ topic: match[1], count: 6 });
+        if (!deck.error) return { answer: `Para «${deck.title}», sugiro uma apresentação do tipo ${deck.type} com esta sequência: ${deck.slides.map((slide, index) => `${index + 1}. ${slide.title}`).join('; ')}. Use Diapositivos › Assistente › Criar apresentação para gerar esta estrutura no documento.` };
+      }
+      return { answer: 'Em Diapositivos, abra o separador Assistente e escolha “Criar apresentação”. Indique o tema e o público para obter uma estrutura com tópicos e notas, sem inventar dados.' };
+    }
+    if (/\b(texto|documento|paragrafo|escrever|rever)\b/.test(query)) {
+      return { answer: 'Em Texto, escreva ou abra o documento e escolha “Rever com IA”. O Assistente local conta palavras, extrai frases relevantes e assinala frases longas ou termos repetidos; não altera o documento.' };
+    }
+    if (/\b(folha|tabela|dados|analise|analisar)\b/.test(query)) {
+      return { answer: 'Em Folhas, selecione as células que pretende analisar e escolha “Analisar com IA”. O Assistente calcula estatísticas das colunas numéricas reconhecidas e indica células vazias.' };
+    }
+    return { answer: 'Sou o Assistente independente do MyOffice e trabalho sem modelos descarregados nem serviços externos. Posso estruturar apresentações, sugerir melhorias de escrita, rever texto e calcular estatísticas de tabelas. Faça uma pergunta sobre uma destas tarefas para eu ajudar.' };
+  }
+
+  function assist(input) {
+    const module = input && input.module;
+    const task = input && input.task;
+    const content = typeof (input && input.content) === 'string' ? input.content.trim().slice(0, 6000) : '';
+    if (!['writer', 'sheets', 'assistant'].includes(module) || !['review', 'analyse', 'chat'].includes(task) || !content) {
+      return { error: 'Não há conteúdo suficiente para analisar.' };
+    }
+    if (module === 'writer' && task === 'review') return reviewText(content);
+    if (module === 'sheets' && task === 'analyse') return analyseTable(content);
+    if (module === 'assistant' && task === 'chat') return chat(content);
+    return { error: 'Esta tarefa não está disponível para este módulo.' };
+  }
+
+  const api = { generateDeck, suggest, classify, assist };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else (root.MO = root.MO || {}).Assistant = api;
 })(typeof window !== 'undefined' ? window : globalThis);

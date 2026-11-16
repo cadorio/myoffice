@@ -51,7 +51,7 @@ O Assistente IA tem uma área própria, com conversa e atalhos para obter ajuda 
 - **Espaço de trabalho MyOffice Horizon** — página inicial renovada com acesso direto às ferramentas, modelos editáveis e pesquisa de ficheiros recentes.
 - **Seis modelos prontos a usar** — relatório, ata de reunião, orçamento mensal com fórmulas, gestor de tarefas, apresentação de projeto e apresentação de aula.
 - **Gráficos em Folhas** — pré-visualização de gráficos de colunas e linhas a partir de dados selecionados, com exportação SVG.
-- **Assistente IA independente** — aplicação própria para conversar com a IA, esclarecer dúvidas sobre os três programas, pedir ajuda para escrever, criar fórmulas e estruturar apresentações. Também mantém as ações de revisão em Texto e análise em Folhas. Utiliza modelos de linguagem executados localmente no computador.
+- **Assistente MyOffice independente** — aplicação própria para responder a pedidos conhecidos sobre os três programas, analisar texto e tabelas, ajudar com fórmulas e estruturar apresentações. Usa regras e cálculos incluídos no projeto, sem modelos ou serviços externos.
 - **Filtros rápidos em Folhas** — mostrar apenas as linhas que correspondem a um texto na coluna ativa; a ordenação ascendente e descendente também está disponível.
 - **Três módulos integrados** — alternar entre documentos, folhas de cálculo e apresentações.
 - **Abertura de ficheiros Office** — importar DOCX, XLSX e PPTX e exportar para esses formatos.
@@ -67,7 +67,7 @@ Para criar um gráfico, selecione uma tabela com as categorias na primeira colun
 
 Os filtros rápidos permitem mostrar as linhas da seleção que correspondem a um texto na coluna ativa e podem ser removidos com **Limpar filtro**. **Limitações atuais:** os gráficos são pré-visualizações exportáveis, não objetos incorporados na folha; os filtros são temporários e não ficam guardados no ficheiro.
 
-A análise por IA é opcional, requer descarregar um dos modelos disponíveis e é executada localmente. Sem um modelo instalado, os módulos de escritório continuam a funcionar normalmente.
+O Assistente MyOffice funciona sem ligação à Internet, modelos descarregados ou serviços externos. Os módulos analisam o conteúdo no próprio computador e continuam disponíveis em qualquer máquina compatível.
 
 ## Instalação
 
@@ -91,9 +91,9 @@ Depois da instalação, os formatos nativos `.modoc`, `.mosheet` e `.moslides` p
 - **Sistema operativo:** Windows 10 versão 22H2 (64 bits) ou Windows 11.
 - **Memória:** 4 GB de RAM como objetivo mínimo; 8 GB recomendados.
 - **Processador:** dual-core como referência mínima.
-- **Ligação à Internet:** não é necessária para criar e editar documentos; é necessária para descarregar modelos opcionais de IA.
+- **Ligação à Internet:** não é necessária para criar, editar ou analisar documentos com o Assistente MyOffice.
 
-Os requisitos de hardware são objetivos de compatibilidade e ainda precisam de ser confirmados através de testes em computadores físicos de diferentes idades. O desempenho da IA local depende de requisitos superiores e não faz parte dos requisitos para utilizar os módulos de escritório.
+Os requisitos de hardware são objetivos de compatibilidade e ainda precisam de ser confirmados através de testes em computadores físicos de diferentes idades. O motor inteligente usa os mesmos requisitos dos módulos de escritório.
 
 ## Compatibilidade com Microsoft Office
 
@@ -107,22 +107,16 @@ O MyOffice importa e exporta `.docx`, `.xlsx` e `.pptx`. A conversão procura pr
 
 Os ficheiros originais não são alterados durante a importação: o documento convertido é guardado no formato próprio do MyOffice. Os ficheiros exportados foram verificados com LibreOffice e com as bibliotecas python-docx, openpyxl e python-pptx; não foram validados no Microsoft Office.
 
-## Assistente IA local
+## Assistente MyOffice independente
 
-O MyOffice 1.4.0 acrescenta uma aplicação independente chamada **Assistente IA**. A partir dela, o utilizador pode colocar perguntas, pedir instruções passo a passo sobre Texto, Folhas e Diapositivos, obter ajuda a escrever documentos, criar fórmulas e planear apresentações. O assistente não altera ficheiros automaticamente: as sugestões devem ser revistas e aplicadas pelo utilizador.
+O MyOffice inclui um motor inteligente próprio, executado no computador e sem modelos de terceiros, chamadas a serviços externos, contas ou descarregamentos. O motor combina análise de texto, estatísticas e regras linguísticas mantidas no projeto. Os dados dos documentos não saem do computador.
 
-A IA também está disponível nos próprios programas: revisão e resumo em **Texto** e análise de dados selecionados em **Folhas**. As funcionalidades de IA são opcionais e utilizam os modelos locais disponíveis na aplicação.
+- **Texto** — extrai frases relevantes do próprio documento, conta palavras e assinala frases longas e termos repetidos. Não inventa um resumo generativo.
+- **Folhas** — calcula estatísticas das colunas numéricas selecionadas e assinala células vazias; limita as conclusões aos valores fornecidos.
+- **Diapositivos** — classifica o tema, escolhe uma estrutura adequada e sugere formas mais concisas de apresentar o conteúdo.
+- **Assistente** — responde a pedidos conhecidos sobre os módulos e fórmulas suportadas. Quando não reconhece um pedido, explica as tarefas que consegue fazer.
 
-- **Texto** — produz um resumo, identifica pontos pouco claros e sugere melhorias para o documento.
-- **Folhas** — resume os dados selecionados, aponta tendências observáveis e identifica limitações da tabela.
-- **Diapositivos** — gera estruturas de apresentação, títulos, tópicos, notas e sugestões de melhoria.
-- **Modelos locais** — descarrega-se um modelo de linguagem aberto uma vez e executa-se no próprio computador, sem enviar o conteúdo dos documentos para um serviço externo.
-
-Modelos disponíveis:
-- **Phi-3.5 mini** (cerca de 2,4 GB, licença MIT) — opção de maior qualidade; recomendado para computadores com pelo menos 8 GB de memória.
-- **Qwen2.5 1.5B** (cerca de 1,1 GB, Apache 2.0) — mais leve e rápido, com respostas geralmente menos consistentes.
-
-A transferência do modelo requer Internet; depois de instalado, o processamento é local. O conteúdo gerado pode conter erros ou utilizar português do Brasil, pelo que deve ser revisto. O desempenho depende do hardware e da memória disponíveis.
+Este motor é intencionalmente transparente e não é um modelo de linguagem: não escreve texto livre sobre qualquer assunto. As estruturas e análises são determinísticas, revistas no código do MyOffice e não dependem de licenças, modelos ou fornecedores externos.
 
 ## Aparência e produtividade
 
@@ -165,7 +159,7 @@ O MyOffice foi concebido para manter o processamento dos documentos no computado
 - O conteúdo importado é validado e limpo antes de ser apresentado.
 - A exportação CSV neutraliza conteúdos que poderiam ser interpretados como fórmulas por outras folhas de cálculo.
 
-**Limitações de segurança a considerar:** os instaladores ainda não têm assinatura digital e a verificação de integridade do pacote não está ativa. A funcionalidade de IA requer descarregar os modelos, pelo que essa operação inicial necessita de Internet.
+**Limitações de segurança a considerar:** os instaladores ainda não têm assinatura digital e a verificação de integridade do pacote não está ativa. O motor inteligente não faz pedidos de rede nem transfere modelos.
 
 ## Limitações atuais
 
@@ -215,8 +209,7 @@ Os artefactos locais são colocados na pasta `dist/`. O workflow **Instalador Wi
 ```text
 main.js          Processo principal Electron: janela, menus e ficheiros
 preload.js       Ponte controlada entre interface e processo principal
-ai.js            Integração do assistente com IA local
-ai-worker.mjs    Processo de execução do modelo local
+ai.js            Ponte IPC para o motor inteligente próprio
 license.js       Verificação de licenças e período experimental
 src/             Interface HTML, CSS e JavaScript
   js/writer.js   Módulo Texto
@@ -225,7 +218,7 @@ src/             Interface HTML, CSS e JavaScript
   js/formula.js  Motor de fórmulas
   js/ooxml.js    Importação e exportação DOCX, XLSX e PPTX
   js/themes.js   Temas partilhados
-  js/assistant.js Assistente de apresentações
+  js/assistant.js Motor próprio de análise e assistência
 build/           Recursos e configuração do instalador
 test/            Testes automatizados
 tools/           Ferramentas de licenciamento e avisos de terceiros

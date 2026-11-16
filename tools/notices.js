@@ -20,13 +20,6 @@ const components = [
     license: read('node_modules/electron/LICENSE'),
     note: 'Inclui o Chromium e o Node.js; os avisos de licença completos desses projetos estão no ficheiro LICENSES.chromium.html, na pasta de instalação.'
   },
-  {
-    name: 'node-llama-cpp',
-    version: version('node-llama-cpp'),
-    url: 'https://github.com/withcatai/node-llama-cpp',
-    license: read('node_modules/node-llama-cpp/LICENSE'),
-    note: 'Executa o modelo de IA local. Inclui o llama.cpp (licença MIT). Os modelos de IA não vêm com a aplicação: são descarregados a pedido do utilizador — Phi-3.5 mini (MIT, Microsoft) e Qwen2.5 1.5B (Apache 2.0, Alibaba Cloud).'
-  },
   { name: 'fflate', version: version('fflate'), url: 'https://github.com/101arrowz/fflate', license: read('node_modules/fflate/LICENSE'), note: 'Compressão ZIP, usada para ler e escrever ficheiros .docx, .xlsx e .pptx.' }
 ];
 
