@@ -114,4 +114,4 @@
   "dependencies": {
     "node-llama-cpp": "^3.22.3"
   }
-}\n
+}
