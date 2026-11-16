@@ -561,7 +561,23 @@
         if (style && Object.keys(style).length) cell.s = { ...style };
         if (cell.v !== '' || cell.s) cells[F.addr(pos.r, pos.c)] = cell;
       }
-      return { cells, clipped };
+      const validations = [];
+      for (const node of all(sheet, 'dataValidation')) {
+        if (attr(node, 'type') !== 'list') continue;
+        const formula = (kid(node, 'formula1')?.textContent || '').trim();
+        if (formula.length < 2 || formula[0] !== '"' || formula[formula.length - 1] !== '"') continue;
+        const options = formula.slice(1, -1).split(',').map((v) => v.replace(/""/g, '"')).filter(Boolean).slice(0, 100);
+        const sqref = (attr(node, 'sqref') || '').split(/\\s+/);
+        for (const ref of sqref) {
+          const parts = ref.split(':');
+          const start = F.parseAddr(parts[0]);
+          const end = F.parseAddr(parts[1] || parts[0]);
+          if (start && end && options.length && end.r >= start.r && end.c >= start.c && end.r - start.r < rows && end.c - start.c < cols) {
+            validations.push({ r0: start.r, r1: end.r, c0: start.c, c1: end.c, options });
+          }
+        }
+      }
+      return { cells, clipped, validations };
     }
 
     let clipped = false;
@@ -570,7 +586,7 @@
       const path = rel ? rel.path : `xl/worksheets/sheet${index + 1}.xml`;
       const result = readSheet(parseXML(files, path));
       clipped = clipped || result.clipped;
-      return { name: attr(sheetEl, 'name') || `Folha${index + 1}`, cells: result.cells };
+      return { name: attr(sheetEl, 'name') || `Folha${index + 1}`, cells: result.cells, validations: result.validations };
     });
     return { cells: sheets[0].cells, sheets, clipped };
   }
@@ -627,7 +643,14 @@
         }
         rowsXML += `<row r="${r + 1}">${row}</row>`;
       }
-      parts[`xl/worksheets/sheet${indexSheet + 1}.xml`] = XML_HEAD + `<worksheet ${NS}><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="26" width="14" customWidth="1"/></cols><sheetData>${rowsXML}</sheetData></worksheet>`;
+      const validationEntries = (sheet.validations || []).filter((v) => Array.isArray(v.options) && v.options.length && Number.isInteger(v.r0) && Number.isInteger(v.r1) && Number.isInteger(v.c0) && Number.isInteger(v.c1) && v.r0 >= 0 && v.r1 >= v.r0 && v.c0 >= 0 && v.c1 >= v.c0 && v.r1 < 10000 && v.c1 < 16384).slice(0, 500).map((v) => {
+        const start = F.addr(v.r0, v.c0), end = F.addr(v.r1, v.c1);
+        const options = v.options.slice(0, 100).map((x) => String(x).slice(0, 200).replace(/"/g, '""'));
+        if (options.some((x) => /[,\\r\\n]/.test(x))) return '';
+        return `<dataValidation type="list" allowBlank="1" showErrorMessage="1" sqref="${start}:${end}"><formula1>"${options.map(esc).join(',')}"</formula1></dataValidation>`;
+      }).filter(Boolean).join('');
+      const validationsXML = validationEntries ? `<dataValidations count="${(validationEntries.match(/<dataValidation /g) || []).length}">${validationEntries}</dataValidations>` : '';
+      parts[`xl/worksheets/sheet${indexSheet + 1}.xml`] = XML_HEAD + `<worksheet ${NS}><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="26" width="14" customWidth="1"/></cols><sheetData>${rowsXML}</sheetData>${validationsXML}</worksheet>`;
     });
 
     return zip({
