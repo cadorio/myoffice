@@ -78,6 +78,13 @@ const { pathToFileURL } = require('node:url');
     throw new Error('O assistente IA de Folhas não está disponível na faixa.');
   }
   await capture('slides', 'diapositivos.png');
+  await capture('assistant', 'assistente-ia.png');
+  if (!(await page.locator('#view-assistant textarea[aria-label="Mensagem para o Assistente"]').count())) {
+    throw new Error('A aplicação Assistente IA não foi inicializada.');
+  }
+  if (!(await page.locator('#view-assistant .mo-assistant-shortcuts button').count())) {
+    throw new Error('Os atalhos do Assistente IA não foram apresentados.');
+  }
   if (pageErrors.length) throw new Error('Erros na interface: ' + pageErrors.join(' | '));
 
   // Captura o painel Assistente aberto a partir do separador da faixa de ferramentas.
