@@ -2,16 +2,16 @@
 
 **Uma suite de escritório para Windows, simples, privada e leve.**
 
-O MyOffice reúne três ferramentas numa única aplicação: **Texto**, **Folhas** e **Diapositivos**. Foi desenvolvido com Electron e é distribuído para computadores Windows de 64 bits, com Windows 10 versão 22H2 ou Windows 11. Os documentos são processados localmente e a aplicação foi concebida para funcionar sem ligação à Internet.
+O MyOffice reúne quatro áreas numa única aplicação: **Texto**, **Folhas**, **Diapositivos** e o **Assistente IA**, que ajuda a utilizar os programas e a criar conteúdos. Foi desenvolvido com Electron e é distribuído para computadores Windows de 64 bits, com Windows 10 versão 22H2 ou Windows 11. Os documentos são processados localmente e a aplicação foi concebida para funcionar sem ligação à Internet.
 
 [Consultar compilações e instaladores](https://github.com/cadorio/myoffice/actions) · [Ver código-fonte](https://github.com/cadorio/myoffice) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
-> **Versão em desenvolvimento: MyOffice Horizon**  
-> Esta branch prepara uma atualização da experiência de trabalho e acrescenta modelos editáveis, gráficos de análise em Folhas e assistência por IA local. Ainda não é uma versão estável publicada; consulta a PR e as compilações para acompanhar a validação.
+> **Versão 1.4.0 — MyOffice Horizon (em desenvolvimento)**  
+> Esta versão introduz um espaço de trabalho renovado, modelos editáveis, gráficos em Folhas e uma aplicação independente de Assistente IA. A versão 1.4.0 está em validação na PR #11; ainda não foi publicada como versão estável nem existe instalador final desta versão.
 
 ## Capturas de ecrã
 
-As imagens abaixo são capturas da interface real do MyOffice. O ecrã inicial, Texto, Folhas, Diapositivos e modo escuro foram novamente capturados a partir da interface da versão 1.3.0. Clica numa imagem para a abrir em tamanho completo.
+As imagens abaixo são capturas da interface real do MyOffice Horizon 1.4.0, geradas pelo workflow de pré-visualização. Clica numa imagem para a abrir em tamanho completo.
 
 ### Ecrã inicial
 
@@ -29,11 +29,11 @@ As imagens abaixo são capturas da interface real do MyOffice. O ecrã inicial, 
 
 ![Editor de apresentações MyOffice](docs/screenshots/diapositivos.png)
 
-### Assistente de apresentações
+### Assistente IA independente
 
-![Assistente de apresentações do MyOffice](docs/screenshots/assistente.png)
+![Assistente IA do MyOffice](docs/screenshots/assistente-ia.png)
 
-A captura mostra o painel Assistente aberto no editor de Diapositivos, com as sugestões geradas pelo motor integrado do MyOffice.
+O Assistente IA tem uma área própria, com conversa e atalhos para obter ajuda sobre Texto, Folhas e Diapositivos.
 
 ### Modo escuro
 
@@ -51,7 +51,7 @@ A captura mostra o painel Assistente aberto no editor de Diapositivos, com as su
 - **Espaço de trabalho MyOffice Horizon** — página inicial renovada com acesso direto às ferramentas, modelos editáveis e pesquisa de ficheiros recentes.
 - **Seis modelos prontos a usar** — relatório, ata de reunião, orçamento mensal com fórmulas, gestor de tarefas, apresentação de projeto e apresentação de aula.
 - **Gráficos em Folhas** — pré-visualização de gráficos de colunas e linhas a partir de dados selecionados, com exportação SVG.
-- **Assistente IA transversal** — revisão e resumo de documentos em Texto, análise de tabelas em Folhas e assistência à criação de apresentações. Utiliza modelos de linguagem executados localmente no computador.
+- **Assistente IA independente** — aplicação própria para conversar com a IA, esclarecer dúvidas sobre os três programas, pedir ajuda para escrever, criar fórmulas e estruturar apresentações. Também mantém as ações de revisão em Texto e análise em Folhas. Utiliza modelos de linguagem executados localmente no computador.
 - **Filtros rápidos em Folhas** — mostrar apenas as linhas que correspondem a um texto na coluna ativa; a ordenação ascendente e descendente também está disponível.
 - **Três módulos integrados** — alternar entre documentos, folhas de cálculo e apresentações.
 - **Abertura de ficheiros Office** — importar DOCX, XLSX e PPTX e exportar para esses formatos.
@@ -80,7 +80,7 @@ O MyOffice é distribuído oficialmente para computadores Windows de 64 bits. O 
 
 **[Consultar compilações e descarregar o instalador Windows](https://github.com/cadorio/myoffice/actions)**
 
-Abre a compilação mais recente concluída com sucesso e descarrega o artefacto `MyOffice-Windows`. O ZIP contém o instalador Windows x64 `MyOffice-Setup-1.3.0.exe`. As versões estáveis serão também disponibilizadas em [Releases](https://github.com/cadorio/myoffice/releases) quando forem publicadas.
+Abre a compilação mais recente concluída com sucesso e descarrega o artefacto `MyOffice-Windows`. O nome do instalador da versão 1.4.0 será `MyOffice-Setup-1.4.0.exe`, quando a versão for compilada e publicada. As versões estáveis serão também disponibilizadas em [Releases](https://github.com/cadorio/myoffice/releases) quando forem publicadas.
 
 > **Aviso de assinatura:** os instaladores atuais não estão assinados digitalmente. O Windows SmartScreen pode apresentar avisos na primeira execução. A assinatura requer certificados próprios, configurados como segredos no GitHub Actions.
 
@@ -109,7 +109,9 @@ Os ficheiros originais não são alterados durante a importação: o documento c
 
 ## Assistente IA local
 
-O MyOffice inclui assistência por IA em três áreas: revisão e resumo de documentos em **Texto**, análise de dados selecionados em **Folhas** e apoio à estruturação e melhoria de apresentações em **Diapositivos**. As funcionalidades de IA são opcionais e utilizam os modelos locais disponíveis na aplicação.
+O MyOffice 1.4.0 acrescenta uma aplicação independente chamada **Assistente IA**. A partir dela, o utilizador pode colocar perguntas, pedir instruções passo a passo sobre Texto, Folhas e Diapositivos, obter ajuda a escrever documentos, criar fórmulas e planear apresentações. O assistente não altera ficheiros automaticamente: as sugestões devem ser revistas e aplicadas pelo utilizador.
+
+A IA também está disponível nos próprios programas: revisão e resumo em **Texto** e análise de dados selecionados em **Folhas**. As funcionalidades de IA são opcionais e utilizam os modelos locais disponíveis na aplicação.
 
 - **Texto** — produz um resumo, identifica pontos pouco claros e sugere melhorias para o documento.
 - **Folhas** — resume os dados selecionados, aponta tendências observáveis e identifica limitações da tabela.
@@ -179,7 +181,7 @@ O MyOffice ainda não oferece todas as funcionalidades das suites comerciais. En
 
 ## Estado da versão Horizon
 
-A interface Horizon, os seis modelos editáveis, os gráficos de pré-visualização/exportação e a assistência IA em Texto e Folhas estão em desenvolvimento na [pull request #11](https://github.com/cadorio/myoffice/pull/11). A validação automática é acompanhada no [GitHub Actions](https://github.com/cadorio/myoffice/actions). Até a pull request ser integrada e uma versão estável ser publicada, estas funcionalidades devem ser consideradas em validação e não uma versão final para distribuição.
+A versão **1.4.0 — MyOffice Horizon** está em desenvolvimento na [pull request #11](https://github.com/cadorio/myoffice/pull/11). Inclui o novo espaço de trabalho, seis modelos editáveis, gráficos de pré-visualização/exportação em Folhas e a aplicação independente Assistente IA. A validação automática e as capturas são acompanhadas no [GitHub Actions](https://github.com/cadorio/myoffice/actions). Esta versão ainda não foi integrada em `main`, etiquetada ou publicada como versão estável.
 
 ## Desenvolvimento
 
