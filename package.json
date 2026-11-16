@@ -2,7 +2,7 @@
   "name": "myoffice",
   "version": "1.2.0",
   "private": true,
-  "description": "Suite de escritório para desktop: editor de texto, folha de cálculo e apresentações.",
+  "description": "Suite de escritório leve para Windows: editor de texto, folha de cálculo e apresentações.",
   "main": "main.js",
   "author": {
     "name": "cadorio",
@@ -15,8 +15,6 @@
     "test": "node test/formula.test.js && node test/assistant.test.js && node test/license.test.js && node test/ai-download.test.js",
     "dist": "electron-builder --publish never",
     "dist:win": "electron-builder --win --publish never",
-    "dist:mac": "electron-builder --mac --publish never",
-    "dist:linux": "electron-builder --linux --publish never",
     "notices": "node tools/notices.js",
     "license": "node tools/license.js"
   },
@@ -96,24 +94,6 @@
       "artifactName": "MyOffice-Setup-${version}.${ext}",
       "include": "build/installer.nsh"
     },
-    "mac": {
-      "target": [
-        "dmg"
-      ],
-      "category": "public.app-category.productivity",
-      "artifactName": "MyOffice-${version}-mac-${arch}.${ext}",
-      "hardenedRuntime": true
-    },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "category": "Office",
-      "maintainer": "cadorio <cadorio@users.noreply.github.com>",
-      "artifactName": "MyOffice-${version}-linux-${arch}.${ext}",
-      "syncDesktopName": true
-    },
     "electronFuses": {
       "runAsNode": true,
       "enableNodeOptionsEnvironmentVariable": false,
@@ -134,4 +114,4 @@
   "dependencies": {
     "node-llama-cpp": "^3.22.3"
   }
-}
+}\n
