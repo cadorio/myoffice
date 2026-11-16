@@ -54,6 +54,9 @@ img { max-width: 100%; } hr { border: 0; border-top: 1px solid #9aa1b1; margin: 
 hr.page-break { border: 0; margin: 0; break-after: page; }`;
 
   let ctx, editor, statusEl, savedRange;
+  let headerText = '';
+  let footerText = '';
+  let pageNumbers = false;
   let showStates = () => {};
 
   const STATE_TITLES = {
@@ -165,6 +168,33 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
     const cols = Math.min(12, Math.max(1, parseInt(res.cols, 10) || 1));
     const row = '<tr>' + '<td><br></td>'.repeat(cols) + '</tr>';
     insertHTML('<table><tbody>' + row.repeat(rows) + '</tbody></table>' + EMPTY);
+  }
+
+  async function editPageElement(kind) {
+    const isHeader = kind === 'header';
+    const current = isHeader ? headerText : footerText;
+    const result = await MO.dialog({
+      title: isHeader ? 'Cabeçalho do documento' : 'Rodapé do documento',
+      fields: [{ name: 'text', label: 'Texto (pode ficar vazio)', type: 'text', value: current, placeholder: isHeader ? 'Ex.: Nome da empresa' : 'Ex.: Confidencial' }],
+      okLabel: 'Guardar'
+    });
+    if (!result) return;
+    if (isHeader) headerText = String(result.text || '').slice(0, 250);
+    else footerText = String(result.text || '').slice(0, 250);
+    changed();
+    MO.toast(isHeader ? 'Cabeçalho atualizado.' : 'Rodapé atualizado.');
+  }
+
+  async function togglePageNumbers() {
+    const result = await MO.dialog({
+      title: 'Numeração de páginas',
+      message: 'Ativar ou desativar a numeração automática no rodapé dos ficheiros DOCX e na impressão?',
+      okLabel: pageNumbers ? 'Desativar' : 'Ativar'
+    });
+    if (result === null) return;
+    pageNumbers = !pageNumbers;
+    changed();
+    MO.toast(pageNumbers ? 'Numeração de páginas ativada.' : 'Numeração de páginas desativada.');
   }
 
   async function findReplace() {
@@ -304,6 +334,11 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
                 [
                   bigButton('line', 'Linha', 'Linha horizontal', () => insertHTML('<hr>' + EMPTY)),
                   bigButton('pageBreak', 'Quebra de página', 'Inserir quebra de página', () => insertHTML('<hr class="page-break">' + EMPTY))
+                ],
+                [
+                  bigButton('text', 'Cabeçalho', 'Definir cabeçalho do documento', () => editPageElement('header')),
+                  bigButton('text', 'Rodapé', 'Definir rodapé do documento', () => editPageElement('footer')),
+                  bigButton('numbers', 'N.º página', 'Ativar/desativar numeração automática', togglePageNumbers)
                 ]
               ]
             }
@@ -376,7 +411,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
     },
 
     serialize() {
-      return JSON.stringify({ format: 'myoffice-doc', version: 1, theme: theme.id, html: editor.innerHTML });
+      return JSON.stringify({ format: 'myoffice-doc', version: 2, theme: theme.id, html: editor.innerHTML, headerText, footerText, pageNumbers });
     },
 
     load(text, ext) {
@@ -386,10 +421,19 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
         const data = JSON.parse(text);
         if (!data || data.format !== 'myoffice-doc' || typeof data.html !== 'string') throw new Error('Formato inválido');
         html = data.html;
+        headerText = String(data.headerText || '').slice(0, 250);
+        footerText = String(data.footerText || '').slice(0, 250);
+        pageNumbers = Boolean(data.pageNumbers);
         nextTheme = T.byId(data.theme);
       } else if (ext === 'docx') {
         html = MO.OOXML.importDocx(text);
+        headerText = '';
+        footerText = '';
+        pageNumbers = false;
       } else if (ext === 'txt') {
+        headerText = '';
+        footerText = '';
+        pageNumbers = false;
         html = text
           .split(/\r?\n/)
           .map((line) => `<p>${MO.escapeHTML(line) || '<br>'}</p>`)
@@ -397,6 +441,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
       } else {
         html = text;
       }
+      if (ext !== 'modoc' && ext !== 'docx' && ext !== 'txt') { headerText = ''; footerText = ''; pageNumbers = false; }
       editor.innerHTML = MO.sanitizeHTML(html) || EMPTY;
       setTheme(nextTheme);
       savedRange = null;
@@ -404,7 +449,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
     },
 
     exports: [
-      { label: 'Documento do Word (.docx)', ext: 'docx', filterName: 'Documento do Word', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', get: () => MO.OOXML.exportDocx(editor, T.docLook(theme)) },
+      { label: 'Documento do Word (.docx)', ext: 'docx', filterName: 'Documento do Word', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', get: () => MO.OOXML.exportDocx(editor, T.docLook(theme), { headerText, footerText, pageNumbers }) },
       { label: 'Página web (.html)', ext: 'html', filterName: 'Página web', mime: 'text/html', get: (title) => standaloneHTML(title) },
       { label: 'Texto simples (.txt)', ext: 'txt', filterName: 'Texto simples', mime: 'text/plain', get: () => editor.innerText }
     ],
@@ -413,6 +458,8 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
       const node = h('div', { class: 'print-doc' });
       node.innerHTML = editor.innerHTML;
       showTheme(node);
+      if (headerText) node.prepend(h('div', { class: 'print-page-header' }, headerText));
+      if (footerText || pageNumbers) node.append(h('div', { class: 'print-page-footer' }, footerText, pageNumbers ? ' · Página automática no DOCX' : ''));
       return { node, page: 'A4 portrait', margin: '20mm' };
     },
 
