@@ -1,6 +1,6 @@
 {
   "name": "myoffice",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Suite de escritório para desktop: editor de texto, folha de cálculo e apresentações.",
   "main": "main.js",
