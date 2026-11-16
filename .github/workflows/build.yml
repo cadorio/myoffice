@@ -19,14 +19,8 @@ jobs:
       matrix:
         include:
           - name: Windows
-            os: windows-latest
+            os: windows-2022
             args: --win
-          - name: macOS
-            os: macos-latest
-            args: --mac
-          - name: Linux
-            os: ubuntu-latest
-            args: --linux
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
