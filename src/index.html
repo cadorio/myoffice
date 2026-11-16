@@ -43,52 +43,92 @@
       <div id="main">
         <section id="view-home" class="view">
           <div class="home">
-            <header class="workspace-heading">
-              <div>
-                <span class="workspace-kicker">O SEU ESPAÇO DE TRABALHO</span>
-                <h1 id="greeting">Bem-vindo ao MyOffice</h1>
-                <p>Crie, organize e trabalhe. Os seus ficheiros ficam no seu computador.</p>
-              </div>
-              <button type="button" class="btn open-file-btn" data-action="open"><span aria-hidden="true">＋</span> Abrir ficheiro</button>
+            <header class="home-topline">
+              <div class="brand-lockup"><span class="brand-glyph">M</span><span><strong>MyOffice</strong><small>O seu espaço de trabalho</small></span></div>
+              <button type="button" class="btn open-file-btn" data-action="open">＋ Abrir ficheiro</button>
             </header>
 
-            <section class="create-section" aria-labelledby="create-title">
-              <div class="section-heading">
-                <span class="section-index">01</span>
-                <div><h2 id="create-title">Começar um trabalho</h2><p>Escolha uma ferramenta para começar do zero.</p></div>
+            <section class="home-hero" aria-labelledby="greeting">
+              <div class="hero-copy">
+                <span class="hero-eyebrow">PRODUTIVIDADE SEM COMPLICAÇÕES</span>
+                <h1 id="greeting">Bom trabalho começa aqui.</h1>
+                <p>Documentos, cálculos e apresentações. Tudo num só lugar, com os seus ficheiros no seu computador.</p>
+                <div class="hero-actions">
+                  <button type="button" class="hero-primary" data-view="writer">Criar documento <span>↗</span></button>
+                  <span class="hero-note"><span class="privacy-dot"></span> Privado por defeito · Funciona offline</span>
+                </div>
+              </div>
+              <div class="hero-art" aria-hidden="true">
+                <div class="art-sheet art-back"><i></i><i></i><i></i><i></i></div>
+                <div class="art-sheet art-front"><b></b><i></i><i></i><i></i><i></i><i></i></div>
+                <div class="art-orbit"></div>
+                <span class="art-stamp">MO</span>
+              </div>
+            </section>
+
+            <section class="tools-section" aria-labelledby="tools-title">
+              <div class="home-section-head">
+                <div><span class="section-kicker">01 / FERRAMENTAS</span><h2 id="tools-title">Escolha como quer trabalhar</h2></div>
+                <span class="section-hint">Comece em branco ou use um modelo</span>
               </div>
               <div class="workspace-tools">
                 <button type="button" class="workspace-tool writer" data-view="writer">
-                  <span class="tool-symbol" aria-hidden="true">T</span>
-                  <span class="tool-copy"><strong>Texto</strong><small>Documentos e escrita</small></span>
-                  <span class="tool-arrow" aria-hidden="true">↗</span>
+                  <span class="tool-symbol">T</span><span class="tool-copy"><strong>Texto</strong><small>Escreva e organize documentos</small></span><span class="tool-arrow">↗</span>
                 </button>
                 <button type="button" class="workspace-tool sheets" data-view="sheets">
-                  <span class="tool-symbol" aria-hidden="true">F</span>
-                  <span class="tool-copy"><strong>Folhas</strong><small>Cálculos e organização</small></span>
-                  <span class="tool-arrow" aria-hidden="true">↗</span>
+                  <span class="tool-symbol">F</span><span class="tool-copy"><strong>Folhas</strong><small>Calcule, analise e planeie</small></span><span class="tool-arrow">↗</span>
                 </button>
                 <button type="button" class="workspace-tool slides" data-view="slides">
-                  <span class="tool-symbol" aria-hidden="true">D</span>
-                  <span class="tool-copy"><strong>Diapositivos</strong><small>Ideias e apresentações</small></span>
-                  <span class="tool-arrow" aria-hidden="true">↗</span>
+                  <span class="tool-symbol">D</span><span class="tool-copy"><strong>Diapositivos</strong><small>Apresente ideias com clareza</small></span><span class="tool-arrow">↗</span>
+                </button>
+              </div>
+            </section>
+
+            <section class="templates-section" aria-labelledby="templates-title">
+              <div class="home-section-head">
+                <div><span class="section-kicker">02 / COMEÇAR MAIS RÁPIDO</span><h2 id="templates-title">Modelos prontos a usar</h2></div>
+                <span class="section-hint">Conteúdo editável, não apenas exemplos visuais</span>
+              </div>
+              <div class="template-grid">
+                <button type="button" class="template-card" data-template-module="writer" data-template="report">
+                  <span class="template-preview preview-report"><b>RELATÓRIO</b><i></i><i></i><i></i><i></i><em></em></span>
+                  <span class="template-meta"><strong>Relatório</strong><small>Texto · Estrutura profissional</small></span><span class="template-arrow">＋</span>
+                </button>
+                <button type="button" class="template-card" data-template-module="writer" data-template="meeting">
+                  <span class="template-preview preview-meeting"><b>ATA DE REUNIÃO</b><i></i><i></i><em></em><i></i></span>
+                  <span class="template-meta"><strong>Ata de reunião</strong><small>Texto · Decisões e tarefas</small></span><span class="template-arrow">＋</span>
+                </button>
+                <button type="button" class="template-card" data-template-module="sheets" data-template="budget">
+                  <span class="template-preview preview-budget"><b>Categoria　 Orçamento　 Real</b><i></i><i></i><i></i><i></i><i></i></span>
+                  <span class="template-meta"><strong>Orçamento mensal</strong><small>Folhas · Fórmulas incluídas</small></span><span class="template-arrow">＋</span>
+                </button>
+                <button type="button" class="template-card" data-template-module="sheets" data-template="tasks">
+                  <span class="template-preview preview-tasks"><b>Tarefa　 Responsável　 Estado</b><i></i><i></i><i></i><i></i></span>
+                  <span class="template-meta"><strong>Gestor de tarefas</strong><small>Folhas · Acompanhamento</small></span><span class="template-arrow">＋</span>
+                </button>
+                <button type="button" class="template-card" data-template-module="slides" data-template="pitch">
+                  <span class="template-preview preview-pitch"><b>A NOSSA<br>PROPOSTA</b><i></i><em></em></span>
+                  <span class="template-meta"><strong>Apresentação de projeto</strong><small>Diapositivos · 5 páginas</small></span><span class="template-arrow">＋</span>
+                </button>
+                <button type="button" class="template-card" data-template-module="slides" data-template="lesson">
+                  <span class="template-preview preview-lesson"><b>TEMA DA<br>APRESENTAÇÃO</b><i></i><em></em></span>
+                  <span class="template-meta"><strong>Apresentação de aula</strong><small>Diapositivos · 5 páginas</small></span><span class="template-arrow">＋</span>
                 </button>
               </div>
             </section>
 
             <section class="recent-section" aria-labelledby="recent-title">
-              <div class="section-heading recent-heading">
-                <span class="section-index">02</span>
-                <div><h2 id="recent-title">Continuar de onde ficou</h2><p>Os ficheiros abertos recentemente aparecem aqui.</p></div>
+              <div class="home-section-head recent-head">
+                <div><span class="section-kicker">03 / CONTINUAR</span><h2 id="recent-title">Trabalho recente</h2></div>
+                <label class="recent-search-wrap"><span aria-hidden="true">⌕</span><input id="recent-search" type="search" placeholder="Procurar ficheiros…" autocomplete="off"></label>
               </div>
               <ul class="recent-list"></ul>
               <p class="recent-empty">Ainda não existem ficheiros recentes. Abra um ficheiro para começar.</p>
             </section>
 
-            <footer class="workspace-footer">
-              <span class="footer-mark" aria-hidden="true">M</span>
-              <span><strong>MyOffice</strong><small>Simples. Local. Seu.</small></span>
-              <span class="local-note"><span aria-hidden="true">●</span> Os seus documentos permanecem no computador</span>
+            <footer class="home-footer">
+              <div class="footer-brand"><span class="brand-glyph small">M</span><strong>MyOffice</strong><span>Ferramentas essenciais. Sem complicações.</span></div>
+              <div class="footer-benefits"><span>● Ficheiros locais</span><span>● Modo offline</span><span>● Recuperação automática</span></div>
             </footer>
           </div>
         </section>
