@@ -186,8 +186,8 @@ test('estatística e funções de matriz', () => {
     D5: '=VAR.P(A1:A3)',
     D6: '=CONTAR.VAZIO(A1:A4)',
     D7: '=SOMARPRODUTO(A1:A3;B1:B3)',
-    D8: '=ARREDONDAR.PARA.CIMA(1,231;2)',
-    D9: '=ARREDONDAR.PARA.BAIXO(-1,239;2)'
+    D8: '=ARREDONDAR.PARA.CIMA(1.231;2)',
+    D9: '=ARREDONDAR.PARA.BAIXO(-1.239;2)'
   });
   assert.equal(v('D1'), 4);
   assert.equal(v('D2'), 2);
