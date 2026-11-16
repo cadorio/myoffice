@@ -104,6 +104,15 @@ async function openInRenderer(p) {
   win.webContents.send('open-file', await readDocument(p));
 }
 
+function openViewInRenderer(view) {
+  if (!['writer', 'sheets', 'slides'].includes(view)) return;
+  if (!win || !rendererReady) {
+    pendingView = view;
+    return;
+  }
+  win.webContents.send('open-view', view);
+}
+
 function sendMenu(action) {
   if (win) win.webContents.send('menu', action);
 }
@@ -459,7 +468,7 @@ if (!app.requestSingleInstanceLock()) {
     if (p) openInRenderer(p);
     else {
       const view = viewFromArgv(argv);
-      if (view) win.webContents.send('open-view', view);
+      if (view) openViewInRenderer(view);
     }
   });
 
