@@ -650,11 +650,9 @@
     }
     const content = rows.join('\n').slice(0, 6000);
     if (!content.trim()) return MO.toast('Selecione dados antes de pedir uma análise.');
-    if (!window.api?.ai?.assist) return MO.toast('O assistente de IA está disponível na aplicação instalada.');
-    MO.toast('A analisar os dados localmente…');
-    const result = await window.api.ai.assist({ module: 'sheets', task: 'analyse', content });
+    const result = MO.Assistant.request({ task: 'analyse', context: content });
     if (result.error) return MO.toast(result.error);
-    await MO.dialog({ title: 'Assistente MyOffice · Análise de dados', message: result.answer, okLabel: 'Fechar' });
+    await MO.dialog({ title: 'MyOffice Intelligence · Análise experimental', message: result.findings.map((item) => '• ' + item).join('\\n') + '\\n\\nAnálise local baseada em regras; não é ainda um modelo generativo.', okLabel: 'Fechar' });
   }
 
   // ---------- Gráficos e filtros ----------
