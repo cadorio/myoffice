@@ -1058,11 +1058,29 @@
       new ResizeObserver(fitStage).observe(stageBox);
     },
 
-    newDoc() {
+    newDoc(template) {
       releaseImages();
       theme = T.slideLook(T.LIST[0], 'claro');
       syncThemeUI();
-      slides = [makeSlide('title')];
+      if (template === 'pitch') {
+        slides = [
+          makeSlide('title', { title: 'A nossa proposta', subtitle: 'Apresentação do projeto · [Data]' }),
+          makeSlide('content', { title: 'O desafio', bullets: ['Que problema queremos resolver?', 'Quem é afetado?', 'Porque é importante agir agora?'] }),
+          makeSlide('content', { title: 'A solução', bullets: ['A nossa abordagem', 'O que nos distingue', 'Benefícios para o público'] }),
+          makeSlide('content', { title: 'Plano de execução', bullets: ['Fase 1 · Preparação', 'Fase 2 · Implementação', 'Fase 3 · Avaliação'] }),
+          makeSlide('content', { title: 'Próximos passos', bullets: ['Decisão necessária', 'Responsáveis', 'Calendário'] })
+        ];
+      } else if (template === 'lesson') {
+        slides = [
+          makeSlide('title', { title: 'Tema da apresentação', subtitle: 'Aula · [Disciplina] · [Data]' }),
+          makeSlide('content', { title: 'Objetivos de aprendizagem', bullets: ['Compreender o conceito principal', 'Identificar os elementos essenciais', 'Aplicar o conhecimento num exemplo'] }),
+          makeSlide('content', { title: 'Conceitos-chave', bullets: ['Conceito 1 · Definição', 'Conceito 2 · Características', 'Conceito 3 · Exemplo'] }),
+          makeSlide('content', { title: 'Exemplo prático', bullets: ['Contexto', 'Resolução passo a passo', 'Resultado'] }),
+          makeSlide('content', { title: 'Síntese', bullets: ['O que aprendemos?', 'Questões para discussão', 'Leitura ou tarefa seguinte'] })
+        ];
+      } else {
+        slides = [makeSlide('title')];
+      }
       idx = 0;
       selId = null;
       editingId = null;

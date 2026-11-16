@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('api', {
     remove: (id) => ipcRenderer.invoke('ai:remove', id),
     generate: (input) => ipcRenderer.invoke('ai:generate', input),
     suggest: (input) => ipcRenderer.invoke('ai:suggest', input),
+    assist: (input) => ipcRenderer.invoke('ai:assist', input),
     onEvent: (callback) => ipcRenderer.on('ai:event', (_event, message) => callback(message))
   },
   drafts: {

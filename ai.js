@@ -245,6 +245,32 @@ async function suggest(input) {
   }
 }
 
+// Assistente transversal: ajuda a interpretar texto e dados sem enviar documentos para a rede.
+async function assist(input) {
+  const module = input && input.module;
+  const task = input && input.task;
+  const content = typeof (input && input.content) === 'string' ? input.content.trim().slice(0, 6000) : '';
+  if (!['writer', 'sheets', 'assistant'].includes(module) || !['review', 'analyse', 'chat'].includes(task) || !content) {
+    return { error: 'Não há conteúdo suficiente para analisar.' };
+  }
+  const context = module === 'assistant'
+    ? 'És o MyOffice Assistente, uma IA simples integrada numa suite de escritório. Ajudas o utilizador a utilizar Texto, Folhas e Diapositivos, esclarecer dúvidas informáticas relacionadas com produtividade, criar rascunhos, estruturar documentos e apresentações e explicar fórmulas. Dá instruções práticas, passo a passo, em português de Portugal. Se não souberes uma funcionalidade específica do MyOffice, assume a incerteza e não inventes menus ou botões. Não afirmes que alteraste ficheiros ou executaste ações. Mantém respostas claras e curtas.'
+    : module === 'writer'
+      ? 'Estás a apoiar o utilizador no MyOffice Texto. Resume ou revê o documento, identifica pontos pouco claros e propõe melhorias sem alterar os factos.'
+      : 'Estás a apoiar o utilizador no MyOffice Folhas. Analisa a tabela fornecida, identifica tendências e anomalias e sugere perguntas úteis. Não calcules valores que não estejam nos dados.';
+  try {
+    const result = await ask(
+      context + ' Responde em português de Portugal, de forma concisa. Não inventes dados. Distingue observações de hipóteses. Responde apenas com JSON.',
+      (task === 'chat' ? 'Responde à seguinte pergunta ou pedido do utilizador. Se for necessário, explica os passos e apresenta um exemplo simples.\n\n' : task === 'review' ? 'Revê este documento e apresenta um resumo, pontos fortes e melhorias prioritárias.\n\n' : 'Analisa esta tabela. Resume os indicadores, tendências observáveis e limitações dos dados.\n\n') + content,
+      { type: 'object', properties: { answer: { type: 'string' } } },
+      700
+    );
+    return { answer: str(result.answer, 5000) || 'Não foi possível obter uma análise utilizável.' };
+  } catch (error) {
+    return { error: error.message || 'A IA não conseguiu responder.' };
+  }
+}
+
 function register(ipcMain, isTrusted, send) {
   notify = send;
   const guard = (fn) => async (event, arg) => (isTrusted(event) ? fn(arg) : { error: 'Pedido não autorizado.' });
@@ -254,6 +280,7 @@ function register(ipcMain, isTrusted, send) {
   ipcMain.handle('ai:remove', guard(remove));
   ipcMain.handle('ai:generate', guard(generate));
   ipcMain.handle('ai:suggest', guard(suggest));
+  ipcMain.handle('ai:assist', guard(assist));
   app.on('before-quit', () => {
     cancel();
     stopWorker();

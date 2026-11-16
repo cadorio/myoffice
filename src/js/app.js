@@ -24,13 +24,17 @@
   }
 
   function updateChrome() {
-    const inModule = current !== 'home';
+    const inModule = ORDER.includes(current);
     if (inModule) {
       const d = docs[current];
       const state = d.dirty ? ' • Por guardar' : d.path || d.name ? ' • Guardado' : '';
       $('#app-name').textContent = MO.modules[current].label;
       $('#doc-title').textContent = titleOf(current) + state;
       document.title = `${titleOf(current)}${d.dirty ? ' •' : ''} — ${MO.BRAND.name}`;
+    } else if (current === 'assistant') {
+      $('#app-name').textContent = 'Assistente IA';
+      $('#doc-title').textContent = 'Ajuda para trabalhar melhor';
+      document.title = `Assistente IA — ${MO.BRAND.name}`;
     } else {
       $('#app-name').textContent = MO.BRAND.name;
       $('#doc-title').textContent = '';
@@ -55,6 +59,7 @@
       greet();
       refreshRecent();
     }
+    else if (id === 'assistant') MO.AssistantApp.show();
     else MO.modules[id].show();
     updateChrome();
   }
@@ -98,6 +103,20 @@
     if (api) return loadFile(await api.open());
     const picked = await MO.pickFile({ accept: Object.keys(EXT_MODULE).map((e) => '.' + e).join(','), binaryExt: BINARY_EXT });
     if (picked) loadFile({ path: null, name: picked.name, content: picked.content });
+  }
+
+  // Inicia um documento a partir de um modelo real, pronto a editar.
+  function createFromTemplate(id, template) {
+    if (!MO.modules[id] || !confirmDiscard(id)) return;
+    current = id;
+    MO.modules[id].newDoc(template);
+    docs[id] = { path: null, name: null, dirty: Boolean(template), };
+    dropDraft(id);
+    show(id);
+    if (template) {
+      stale.add(id);
+      MO.toast('Modelo criado. Personalize e guarde o seu ficheiro.');
+    }
   }
 
   async function save(saveAs) {
@@ -183,7 +202,7 @@
     const bs = $('#backstage');
     if (bs.hidden) return;
     bs.hidden = true;
-    if (current !== 'home') MO.modules[current].show();
+    if (ORDER.includes(current)) MO.modules[current].show();
   }
 
   function openBackstage() {
@@ -241,6 +260,22 @@
         })
       )
     );
+    filterRecent($('#recent-search')?.value || '');
+  }
+
+  function filterRecent(query) {
+    const needle = String(query || '').trim().toLocaleLowerCase('pt-PT');
+    document.querySelectorAll('.recent-list .recent-item').forEach((item) => {
+      item.closest('li').hidden = needle && !item.textContent.toLocaleLowerCase('pt-PT').includes(needle);
+    });
+    document.querySelectorAll('.recent-empty').forEach((empty) => {
+      const hasFiles = document.querySelector('.recent-list li');
+      const visible = [...document.querySelectorAll('.recent-list li')].some((li) => !li.hidden);
+      empty.textContent = hasFiles && needle && !visible
+        ? 'Não foram encontrados ficheiros com esse nome.'
+        : 'Ainda não existem ficheiros recentes. Abra um ficheiro para começar.';
+      empty.hidden = Boolean(visible);
+    });
   }
 
   // ---------- Recuperação automática (só na aplicação instalada) ----------
@@ -334,8 +369,7 @@
   }
 
   function greet() {
-    const hour = new Date().getHours();
-    $('#greeting').textContent = hour < 6 ? 'Boa noite' : hour < 13 ? 'Bom dia' : hour < 20 ? 'Boa tarde' : 'Boa noite';
+    $('#greeting').textContent = 'Bom trabalho começa aqui.';
   }
 
   // ---------- Ações globais ----------
@@ -394,7 +428,7 @@
     if (actions[action]) {
       closeBackstage();
       actions[action]();
-    } else if (action === 'home' || MO.modules[action]) {
+    } else if (action === 'home' || action === 'assistant' || MO.modules[action]) {
       show(action);
     }
   }
@@ -402,6 +436,8 @@
   function init() {
     document.querySelectorAll('[data-icon]').forEach((el) => el.prepend(MO.icon(el.dataset.icon)));
     initMode();
+
+    MO.AssistantApp.init($('#view-assistant'));
 
     for (const id of ORDER) {
       docs[id] = { path: null, name: null, dirty: false };
@@ -418,13 +454,16 @@
     }
 
     document.addEventListener('click', (e) => {
+      const templateBtn = e.target.closest('[data-template-module]');
       const viewBtn = e.target.closest('[data-view]');
       const actionBtn = e.target.closest('[data-action]');
-      if (viewBtn) show(viewBtn.dataset.view);
+      if (templateBtn) createFromTemplate(templateBtn.dataset.templateModule, templateBtn.dataset.template || 'default');
+      else if (viewBtn) show(viewBtn.dataset.view);
       else if (actionBtn) run(actionBtn.dataset.action);
       if (!e.target.closest('.menu-wrap')) closeLauncher();
     });
     $('#launcher').addEventListener('click', toggleLauncher);
+    $('#recent-search')?.addEventListener('input', (e) => filterRecent(e.target.value));
 
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;

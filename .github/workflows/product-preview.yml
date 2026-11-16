@@ -1,0 +1,58 @@
+name: MyOffice product preview
+
+on:
+  push:
+    branches: [product/premium-workspace-templates]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tools/capture-screenshots.cjs'
+      - 'test/**'
+      - '.github/workflows/product-preview.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: myoffice-product-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Testes e pré-visualização da interface
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci
+      - name: Executar testes
+        run: npm test
+      - name: Instalar Playwright
+        run: npm install --no-save playwright
+      - name: Instalar Chromium
+        run: npx playwright install chromium
+      - name: Capturar interface real
+        run: node tools/capture-screenshots.cjs
+      - name: Atualizar capturas na branch
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots/*.png
+          if git diff --cached --quiet; then
+            echo "As capturas já estão atualizadas."
+          else
+            git commit -m "docs: refresh MyOffice Horizon screenshots"
+            git push
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: MyOffice-Horizon-Preview
+          if-no-files-found: error
+          path: docs/screenshots/*.png
