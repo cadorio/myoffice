@@ -154,7 +154,7 @@
 
   // Expressões longas e a forma curta equivalente. Os limites de palavra usam \p{L} porque \b não
   // reconhece letras acentuadas.
-  const phrase = (source) => new RegExp('(?<!\\p{L})(?:' + source + ')(?!\\p{L})', 'giu');
+  const phrase = (source) => new RegExp('(?<!\p{L})(?:' + source + ')(?!\p{L})', 'giu');
   const SHORTER = [
     [phrase('é importante (?:referir|salientar|notar|destacar|sublinhar) que'), ''],
     [phrase('(?:importa|convém|vale a pena|gostaria de) (?:referir|salientar|notar|destacar|sublinhar) que'), ''],
@@ -166,7 +166,7 @@
     [phrase('a nível de|ao nível de|em termos de|no que diz respeito a|no que toca a|relativamente a'), 'em'],
     [phrase('neste momento|atualmente|nos dias de hoje|hoje em dia'), 'hoje'],
     [phrase('a grande maioria de'), 'a maioria de'],
-    [phrase('(?:bastante|muito|extremamente|realmente|verdadeiramente|claramente|totalmente)(?= \\p{L})'), '']
+    [phrase('(?:bastante|muito|extremamente|realmente|verdadeiramente|claramente|totalmente)(?= \p{L})'), '']
   ];
 
   function shorten(text) {
@@ -329,12 +329,12 @@
     if (context.length > 50000) return { error: 'O conteúdo selecionado excede o limite de análise (50 000 caracteres).' };
     if (task === 'review') {
       const text = context.trim();
-      const sentences = text.split(/(?<=[.!?])\\s+/).filter(Boolean);
+      const sentences = text.split(/(?<=[.!?])\s+/).filter(Boolean);
       const long = sentences.filter((s) => words(s).length > 30);
       const repeated = [];
       const seen = new Set();
       for (const sentence of sentences) {
-        const key = plain(sentence).replace(/[^\\p{L}\\p{N}]+/gu, ' ').trim();
+        const key = plain(sentence).replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
         if (key.length > 24 && seen.has(key) && !repeated.includes(sentence)) repeated.push(sentence);
         seen.add(key);
       }
@@ -345,7 +345,7 @@
       return { task, engine: 'myoffice-rules-v1', findings, summary: sentences.length + ' frases analisadas; ' + words(text).length + ' palavras.' };
     }
     if (task === 'analyse') {
-      const rows = context.split(/\\r?\\n/).filter(Boolean).map((line) => line.split(/\\s*\\|\\s*/));
+      const rows = context.split(/\r?\\n/).filter(Boolean).map((line) => line.split(/\s*\\|\s*/));
       const nums = rows.flat().map((v) => Number(String(v).replace(',', '.'))).filter((v) => Number.isFinite(v) && String(v).trim() !== '');
       const findings = ['Tabela com ' + rows.length + ' linha(s) e ' + Math.max(0, ...rows.map((r) => r.length)) + ' coluna(s).'];
       if (nums.length) {
