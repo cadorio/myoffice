@@ -50,13 +50,13 @@ O MyOffice é distribuído oficialmente para computadores Windows de 64 bits. O 
 | Windows 10 | `.exe` | Versão 22H2, 64 bits |
 | Windows 11 | `.exe` | 64 bits |
 
-**[Abrir a execução de compilação 1.2.0 e descarregar os três artefactos](https://github.com/cadorio/myoffice/actions/runs/43866280716)**
+**[Consultar as compilações e descarregar o instalador Windows](https://github.com/cadorio/myoffice/actions)**
 
-Na secção **Artifacts**, descarrega o pacote `MyOffice-Windows`. O artefacto é um ZIP que contém o instalador.
+Na secção **Artifacts**, descarrega o pacote `MyOffice-Windows`. O artefacto é um ZIP que contém o instalador Windows x64.
 
 As próximas versões publicadas estarão disponíveis em [Releases](https://github.com/cadorio/myoffice/releases). O workflow cria uma Release automaticamente quando é publicada uma tag `vX.Y.Z` correspondente à versão indicada no `package.json`.
 
-> **Aviso de assinatura:** os instaladores atuais não estão assinados digitalmente. O Windows SmartScreen e o macOS Gatekeeper podem apresentar avisos na primeira execução. A assinatura requer certificados próprios, configurados como segredos no GitHub Actions.
+> **Aviso de assinatura:** os instaladores atuais não estão assinados digitalmente. O Windows SmartScreen pode apresentar avisos na primeira execução. A assinatura requer certificados próprios, configurados como segredos no GitHub Actions.
 
 Depois da instalação, os formatos nativos `.modoc`, `.mosheet` e `.moslides` podem ser associados ao MyOffice. A configuração do instalador também regista DOCX e PPTX como formatos que podem ser abertos com a aplicação.
 
@@ -172,8 +172,6 @@ npm start
 npm test           # executa os testes automatizados
 npm run dist       # cria o instalador para o sistema atual
 npm run dist:win   # instalador Windows
-npm run dist:mac   # instalador macOS
-npm run dist:linux # pacotes Linux
 ```
 
 Os artefactos locais são colocados na pasta `dist/`. O workflow **Instaladores** do GitHub Actions executa `npm ci` e `npm test` antes de compilar o instalador Windows de 64 bits. Cada push para `main` gera artefactos; uma tag `vX.Y.Z` publica também uma GitHub Release.
