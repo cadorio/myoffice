@@ -528,6 +528,27 @@
     return '﻿' + lines.join('\r\n') + '\r\n';
   }
 
+  async function aiAnalyseSelection() {
+    if (editing) stopEdit(true);
+    const { r0, r1, c0, c1 } = range();
+    const rows = [];
+    for (let r = r0; r <= r1; r++) {
+      const row = [];
+      for (let c = c0; c <= c1; c++) {
+        const a = F.addr(r, c);
+        row.push(F.format(values.get(a) ?? (cells[a] ? cells[a].v : '')));
+      }
+      rows.push(row.join(' | '));
+    }
+    const content = rows.join('\n').slice(0, 6000);
+    if (!content.trim()) return MO.toast('Selecione dados antes de pedir uma análise.');
+    if (!window.api?.ai?.assist) return MO.toast('O assistente de IA está disponível na aplicação instalada.');
+    MO.toast('A analisar os dados localmente…');
+    const result = await window.api.ai.assist({ module: 'sheets', task: 'analyse', content });
+    if (result.error) return MO.toast(result.error);
+    await MO.dialog({ title: 'Assistente MyOffice · Análise de dados', message: result.answer, okLabel: 'Fechar' });
+  }
+
   // ---------- Gráficos e filtros ----------
 
   let chartDialog = null;
@@ -840,7 +861,8 @@
                   bigButton('sortDesc', 'Descendente', 'Ordenar a seleção por ordem descendente', () => sortRange(true)),
                   bigButton('filter', 'Filtrar', 'Filtrar as linhas da seleção pela coluna ativa', filterSelection),
                   bigButton('filter', 'Limpar filtro', 'Mostrar novamente todas as linhas', clearFilter),
-                  bigButton('chart', 'Gráfico', 'Criar gráfico a partir da seleção', openChart)
+                  bigButton('chart', 'Gráfico', 'Criar gráfico a partir da seleção', openChart),
+                  bigButton('sparkle', 'Analisar com IA', 'Analisar os dados selecionados com IA local', aiAnalyseSelection)
                 ]
               ]
             }
