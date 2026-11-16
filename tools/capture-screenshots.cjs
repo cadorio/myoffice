@@ -30,6 +30,25 @@ const { pathToFileURL } = require('node:url');
   }
 
   await capture('home', 'inicio.png');
+
+  // Testa os três fluxos de criação a partir de modelos editáveis.
+  console.log('A validar modelos de arranque...');
+  await page.locator('[data-template-module="writer"][data-template="report"]').click();
+  await page.locator('#view-writer').waitFor({ state: 'visible' });
+  if (!(await page.locator('#view-writer .page').innerText()).includes('Relatório de projeto')) {
+    throw new Error('O modelo de relatório não foi aplicado.');
+  }
+  await page.locator('[data-template-module="sheets"][data-template="budget"]').click();
+  await page.locator('#view-sheets').waitFor({ state: 'visible' });
+  if (!(await page.locator('#view-sheets').innerText()).includes('Habitação')) {
+    throw new Error('O modelo de orçamento não foi aplicado.');
+  }
+  await page.locator('[data-template-module="slides"][data-template="pitch"]').click();
+  await page.locator('#view-slides').waitFor({ state: 'visible' });
+  if (!(await page.locator('#view-slides').innerText()).includes('A nossa proposta')) {
+    throw new Error('O modelo de apresentação não foi aplicado.');
+  }
+
   await capture('writer', 'texto.png');
   await capture('sheets', 'folhas.png');
   await capture('slides', 'diapositivos.png');
