@@ -2,6 +2,8 @@ name: Instalador Windows
 
 # Compila o instalador Windows x64 em PRs, pushes para main e tags de versão.
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main, design/lightweight-windows-workspace]
     tags: ['v*']
