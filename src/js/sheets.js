@@ -1058,6 +1058,8 @@
       let next = {};
       let nextTheme = T.LIST[0];
       let clipped = false;
+      let loadedSheets = null;
+      let loadedActiveSheetId = null;
       if (ext === 'xlsx') {
         const book = MO.OOXML.importXlsx(text, ROWS, COLS);
         next = cleanCells(book.cells);
@@ -1074,20 +1076,18 @@
         nextTheme = T.byId(data.theme);
         if (data.version >= 2 && Array.isArray(data.sheets) && data.sheets.length) {
           const used = new Set();
-          workbookSheets = data.sheets.slice(0, 100).map((s, i) => {
+          loadedSheets = data.sheets.slice(0, 100).map((s, i) => {
             let name = String(s.name || `Folha${i + 1}`).trim().slice(0, 31) || `Folha${i + 1}`;
             if (used.has(name.toLocaleLowerCase('pt-PT'))) name = `Folha${i + 1}`;
             used.add(name.toLocaleLowerCase('pt-PT'));
             return { id: String(s.id || `sheet-${i + 1}`), name, cells: cleanCells(s.cells) };
           });
-          activeSheetId = workbookSheets.some((s) => s.id === data.activeSheetId) ? data.activeSheetId : workbookSheets[0].id;
-          next = workbookSheets.find((s) => s.id === activeSheetId).cells;
-          nextSheetNumber = workbookSheets.length + 1;
+          loadedActiveSheetId = loadedSheets.some((s) => s.id === data.activeSheetId) ? data.activeSheetId : loadedSheets[0].id;
+          next = loadedSheets.find((s) => s.id === loadedActiveSheetId).cells;
         } else {
           next = cleanCells(data.cells);
-          workbookSheets = [{ id: 'sheet-1', name: 'Folha1', cells: next }];
-          activeSheetId = 'sheet-1';
-          nextSheetNumber = 2;
+          loadedSheets = [{ id: 'sheet-1', name: 'Folha1', cells: next }];
+          loadedActiveSheetId = 'sheet-1';
         }
       }
       this.newDoc();
@@ -1095,7 +1095,10 @@
       if (clipped) MO.toast(`O livro tem dados fora de ${ROWS} linhas × ${COLS} colunas; essa parte não foi importada.`);
       if (ext === 'xlsx' || ext === 'csv') resetWorkbook(next);
       else {
-        cells = next;
+        workbookSheets = loadedSheets || [{ id: 'sheet-1', name: 'Folha1', cells: next }];
+        activeSheetId = loadedActiveSheetId || workbookSheets[0].id;
+        cells = JSON.parse(JSON.stringify(workbookSheets.find((s) => s.id === activeSheetId).cells));
+        nextSheetNumber = workbookSheets.length + 1;
         renderSheetTabs();
       }
       refresh();
