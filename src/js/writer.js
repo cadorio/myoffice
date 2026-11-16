@@ -201,6 +201,16 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
     MO.toast(count ? `${count} ${count === 1 ? 'substituição feita' : 'substituições feitas'}.` : 'Não foram encontradas ocorrências.');
   }
 
+  async function aiReview() {
+    const text = editor.innerText.trim();
+    if (!text) return MO.toast('Escreva algum conteúdo antes de pedir uma revisão.');
+    if (!window.api?.ai?.assist) return MO.toast('O assistente de IA está disponível na aplicação instalada.');
+    MO.toast('A preparar a revisão local…');
+    const result = await window.api.ai.assist({ module: 'writer', task: 'review', content: text });
+    if (result.error) return MO.toast(result.error);
+    await MO.dialog({ title: 'Assistente MyOffice · Revisão', message: result.answer, okLabel: 'Fechar' });
+  }
+
   function select(options, title, onChange, resetAfter) {
     const el = h(
       'select',
@@ -274,7 +284,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
             },
             {
               label: 'Edição',
-              rows: [[bigButton('search', 'Localizar', 'Localizar e substituir', findReplace)]]
+              rows: [[bigButton('search', 'Localizar', 'Localizar e substituir', findReplace), bigButton('sparkle', 'Rever com IA', 'Resumir o documento e sugerir melhorias usando IA local', aiReview)]]
             }
           ]
         },
