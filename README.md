@@ -109,14 +109,14 @@ Os ficheiros originais não são alterados durante a importação: o documento c
 
 ## Assistente MyOffice independente
 
-O MyOffice inclui um motor inteligente próprio, executado no computador e sem modelos de terceiros, chamadas a serviços externos, contas ou descarregamentos. O motor combina análise de texto, estatísticas e regras linguísticas mantidas no projeto. Os dados dos documentos não saem do computador.
+O MyOffice inclui um motor inteligente próprio, executado no computador e sem modelos pré-treinados, chamadas a serviços externos, contas ou descarregamentos. O Assistente consulta um índice estatístico BM25 construído de raiz a partir deste README; revisão de texto, análise de folhas e estruturas de diapositivos usam algoritmos próprios em JavaScript. Os dados dos documentos não saem do computador.
 
 - **Texto** — extrai frases relevantes do próprio documento, conta palavras e assinala frases longas e termos repetidos. Não inventa um resumo generativo.
 - **Folhas** — calcula estatísticas das colunas numéricas selecionadas e assinala células vazias; limita as conclusões aos valores fornecidos.
 - **Diapositivos** — classifica o tema, escolhe uma estrutura adequada e sugere formas mais concisas de apresentar o conteúdo.
-- **Assistente** — responde a pedidos conhecidos sobre os módulos e fórmulas suportadas. Quando não reconhece um pedido, explica as tarefas que consegue fazer.
+- **Assistente** — procura os trechos mais relevantes da documentação do MyOffice e devolve-os com a secção de origem. Quando não encontra uma resposta, diz que o assunto está fora da documentação.
 
-Este motor é intencionalmente transparente e não é um modelo de linguagem: não escreve texto livre sobre qualquer assunto. As estruturas e análises são determinísticas, revistas no código do MyOffice e não dependem de licenças, modelos ou fornecedores externos.
+Este motor é intencionalmente transparente e não é um modelo generativo: não escreve texto livre sobre qualquer assunto. O índice pode ser reconstruído após alterações à documentação com `npm run train:ai`. As respostas são limitadas ao conteúdo do MyOffice e às análises determinísticas implementadas no código.
 
 ## Aparência e produtividade
 
@@ -210,6 +210,7 @@ Os artefactos locais são colocados na pasta `dist/`. O workflow **Instalador Wi
 main.js          Processo principal Electron: janela, menus e ficheiros
 preload.js       Ponte controlada entre interface e processo principal
 ai.js            Ponte IPC para o motor inteligente próprio
+src/ai-model.json Índice estatístico gerado da documentação do MyOffice
 license.js       Verificação de licenças e período experimental
 src/             Interface HTML, CSS e JavaScript
   js/writer.js   Módulo Texto
@@ -222,6 +223,7 @@ src/             Interface HTML, CSS e JavaScript
 build/           Recursos e configuração do instalador
 test/            Testes automatizados
 tools/           Ferramentas de licenciamento e avisos de terceiros
+  train-ai.js    Constrói o índice documental próprio
 ```
 
 ## Licenciamento
