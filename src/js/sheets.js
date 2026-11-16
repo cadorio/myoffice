@@ -652,7 +652,7 @@
     if (!content.trim()) return MO.toast('Selecione dados antes de pedir uma análise.');
     const result = MO.Assistant.request({ task: 'analyse', context: content });
     if (result.error) return MO.toast(result.error);
-    await MO.dialog({ title: 'MyOffice Intelligence · Análise experimental', message: result.findings.map((item) => '• ' + item).join('\\n') + '\\n\\nAnálise local baseada em regras; não é ainda um modelo generativo.', okLabel: 'Fechar' });
+    await MO.dialog({ title: 'MyOffice Intelligence · Análise experimental', message: result.findings.map((item) => '• ' + item).join('\n') + '\n\nAnálise local baseada em regras; não é ainda um modelo generativo.', okLabel: 'Fechar' });
   }
 
   // ---------- Gráficos e filtros ----------
