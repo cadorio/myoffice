@@ -24,13 +24,17 @@
   }
 
   function updateChrome() {
-    const inModule = current !== 'home';
+    const inModule = ORDER.includes(current);
     if (inModule) {
       const d = docs[current];
       const state = d.dirty ? ' • Por guardar' : d.path || d.name ? ' • Guardado' : '';
       $('#app-name').textContent = MO.modules[current].label;
       $('#doc-title').textContent = titleOf(current) + state;
       document.title = `${titleOf(current)}${d.dirty ? ' •' : ''} — ${MO.BRAND.name}`;
+    } else if (current === 'assistant') {
+      $('#app-name').textContent = 'Assistente IA';
+      $('#doc-title').textContent = 'Ajuda para trabalhar melhor';
+      document.title = `Assistente IA — ${MO.BRAND.name}`;
     } else {
       $('#app-name').textContent = MO.BRAND.name;
       $('#doc-title').textContent = '';
@@ -55,6 +59,7 @@
       greet();
       refreshRecent();
     }
+    else if (id === 'assistant') MO.AssistantApp.show();
     else MO.modules[id].show();
     updateChrome();
   }
@@ -197,7 +202,7 @@
     const bs = $('#backstage');
     if (bs.hidden) return;
     bs.hidden = true;
-    if (current !== 'home') MO.modules[current].show();
+    if (ORDER.includes(current)) MO.modules[current].show();
   }
 
   function openBackstage() {
@@ -423,7 +428,7 @@
     if (actions[action]) {
       closeBackstage();
       actions[action]();
-    } else if (action === 'home' || MO.modules[action]) {
+    } else if (action === 'home' || action === 'assistant' || MO.modules[action]) {
       show(action);
     }
   }
