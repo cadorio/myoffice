@@ -11,7 +11,7 @@
   const MAX_UNDO = 60;
   const SIZES = [14, 18, 24, 28, 32, 40, 54, 72, 96];
 
-  let ctx, root, stageBox, stage, thumbs, sizeSelect, counterEl, notesEl, aiPanel, aiBody;
+  let ctx, root, stageBox, stage, thumbs, sizeSelect, transitionSelect, counterEl, notesEl, aiPanel, aiBody;
   let slides = [];
   let idx = 0;
   let selId = null;
@@ -63,7 +63,7 @@
       if (layout === 'content') els.push(body(60, 840, c.bullets && c.bullets.length ? c.bullets : ['Primeiro ponto', 'Segundo ponto']));
       if (layout === 'two') els.push(body(60, 405, ['Coluna da esquerda']), body(495, 405, ['Coluna da direita']));
     }
-    const s = { bg: theme.bg, accent: theme.accent, font: theme.font, headFont: theme.headFont, deco: theme.deco, notes: c.notes || '', els };
+    const s = { bg: theme.bg, accent: theme.accent, font: theme.font, headFont: theme.headFont, deco: theme.deco, notes: c.notes || '', transition: 'fade', els };
     if (layout === 'title') s.lead = true;
     return s;
   }
@@ -792,6 +792,8 @@
       const k = Math.min(window.innerWidth / W, window.innerHeight / H);
       node.style.transform = `translate(-50%, -50%) scale(${k})`;
       overlay.replaceChildren(node, h('div', { class: 'present-count' }, `${i + 1} / ${slides.length}`));
+      const transition = slides[i].transition || 'fade';
+      if (transition !== 'none' && node.animate) node.animate(transition === 'zoom' ? [{ opacity: 0, transform: 'translate(-50%, -50%) scale(.88)' }, { opacity: 1, transform: `translate(-50%, -50%) scale(${k})` }] : transition === 'wipe' ? [{ opacity: 0, clipPath: 'inset(0 100% 0 0)' }, { opacity: 1, clipPath: 'inset(0)' }] : [{ opacity: 0 }, { opacity: 1 }], { duration: 420, easing: 'ease-out' });
     }
 
     function close() {
@@ -842,6 +844,8 @@
       h('option', { value: '' }, 'Tamanho'),
       SIZES.map((s) => h('option', { value: s }, s))
     );
+    transitionSelect = h('select', { class: 'tool-select', title: 'Transição do diapositivo', 'aria-label': 'Transição do diapositivo' }, h('option', { value: 'fade' }, 'Transição: Esbatimento'), h('option', { value: 'wipe' }, 'Transição: Deslizar'), h('option', { value: 'zoom' }, 'Transição: Zoom'), h('option', { value: 'none' }, 'Sem transição'));
+    transitionSelect.addEventListener('change', () => { snapshot(); slide().transition = transitionSelect.value; ctx.dirty(); });
     sizeSelect.addEventListener('change', () => {
       const fs = Number(sizeSelect.value);
       if (fs) withSelected((el) => (el.fs = fs), 'text');
@@ -961,7 +965,7 @@
             { label: 'Variantes', rows: [variantRow] },
             {
               label: 'Personalizar',
-              rows: [[colorButton('Cor de fundo', 'Cor de fundo do diapositivo', '#ffffff', liveColor((v) => (slide().bg = v)), colorDone, PICKER)]]
+              rows: [[colorButton('Cor de fundo', 'Cor de fundo do diapositivo', '#ffffff', liveColor((v) => (slide().bg = v)), colorDone, PICKER), transitionSelect]]
             }
           ]
         },
