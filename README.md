@@ -7,7 +7,7 @@ O MyOffice reúne três ferramentas numa única aplicação: **Texto**, **Folhas
 [Descarregar versões](https://github.com/cadorio/myoffice/actions) · [Ver código-fonte](https://github.com/cadorio/myoffice) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
 > **Versão atual do código: 1.2.0**  
-> Os três instaladores desta versão foram compilados com sucesso e os testes automatizados passaram. Ainda falta validação manual em computadores reais com Windows, macOS e Linux. Os instaladores desta execução estão disponíveis em [GitHub Actions — Instaladores](https://github.com/cadorio/myoffice/actions/runs/43866280716).
+> O instalador Windows 1.2.0 foi compilado anteriormente. Esta branch introduz alterações ainda sujeitas a testes e a uma nova compilação.
 
 ## Capturas de ecrã
 
@@ -15,7 +15,7 @@ As imagens seguintes são capturas reais da aplicação MyOffice.
 
 | Ecrã inicial | MyOffice Texto |
 | --- | --- |
-| ![Ecrã inicial do MyOffice](docs/screenshots/inicio.png) | ![Editor MyOffice Texto](docs/screenshots/texto.png) |
+| ![Ecrã inicial do MyOffice 1.2.0, anterior ao novo Workspace](docs/screenshots/inicio.png) | ![Editor MyOffice Texto](docs/screenshots/texto.png) |
 
 | MyOffice Folhas | MyOffice Diapositivos |
 | --- | --- |
