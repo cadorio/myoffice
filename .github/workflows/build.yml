@@ -2,8 +2,6 @@ name: Instalador Windows
 
 # Compila o instalador Windows x64 em PRs, pushes para main e tags de versão.
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [main, design/lightweight-windows-workspace]
     tags: ['v*']
@@ -40,14 +38,14 @@ jobs:
           npx playwright install chromium
           node tools/capture-screenshots.cjs
       - name: Atualizar capturas na branch da PR
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: github.ref == 'refs/heads/design/lightweight-windows-workspace' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p "$RUNNER_TEMP/myoffice-captures"
           cp docs/screenshots/inicio.png docs/screenshots/texto.png docs/screenshots/folhas.png docs/screenshots/diapositivos.png docs/screenshots/modo-escuro.png "$RUNNER_TEMP/myoffice-captures/"
-          branch="${{ github.event.pull_request.head.ref }}"
+          branch="${{ github.event.pull_request.head.ref || github.ref_name }}"
           for attempt in 1 2 3 4 5; do
             git fetch origin "$branch"
             git checkout -f -B screenshot-update "origin/$branch"
