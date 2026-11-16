@@ -4,7 +4,7 @@
 
 O MyOffice reúne três ferramentas numa única aplicação: **Texto**, **Folhas** e **Diapositivos**. Foi desenvolvido com Electron e é distribuído para computadores Windows de 64 bits, com Windows 10 versão 22H2 ou Windows 11. Os documentos são processados localmente e a aplicação foi concebida para funcionar sem ligação à Internet.
 
-[Descarregar a versão mais recente](https://github.com/cadorio/myoffice/releases/latest) · [Ver código-fonte](https://github.com/cadorio/myoffice) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
+[Consultar compilações e instaladores](https://github.com/cadorio/myoffice/actions) · [Ver código-fonte](https://github.com/cadorio/myoffice) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
 > **Nova versão em preparação: 1.3.0**  
 > A versão 1.3.0 introduz o MyOffice Workspace redesenhado, com foco numa experiência simples e leve em Windows 10 22H2 e Windows 11. O instalador será disponibilizado após a validação da compilação.
@@ -50,9 +50,9 @@ O MyOffice é distribuído oficialmente para computadores Windows de 64 bits. O 
 | Windows 10 | `.exe` | Versão 22H2, 64 bits |
 | Windows 11 | `.exe` | 64 bits |
 
-**[Descarregar MyOffice para Windows](https://github.com/cadorio/myoffice/releases/latest)**
+**[Consultar compilações e descarregar o instalador Windows](https://github.com/cadorio/myoffice/actions)**
 
-Na página de Releases, descarrega o instalador `MyOffice-Setup-1.3.0.exe` quando a versão for publicada. As compilações de teste e os artefactos de desenvolvimento podem ser consultados em [GitHub Actions](https://github.com/cadorio/myoffice/actions).
+Abre a compilação mais recente concluída com sucesso e descarrega o artefacto `MyOffice-Windows`. O ZIP contém o instalador Windows x64 `MyOffice-Setup-1.3.0.exe`. As versões estáveis serão também disponibilizadas em [Releases](https://github.com/cadorio/myoffice/releases) quando forem publicadas.
 
 > **Aviso de assinatura:** os instaladores atuais não estão assinados digitalmente. O Windows SmartScreen pode apresentar avisos na primeira execução. A assinatura requer certificados próprios, configurados como segredos no GitHub Actions.
 
