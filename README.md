@@ -39,7 +39,7 @@ O MyOffice gera pacotes para os três principais sistemas operativos:
 
 Na secção **Artifacts**, descarrega o pacote correspondente ao teu sistema: `MyOffice-Windows`, `MyOffice-macOS` ou `MyOffice-Linux`. Cada artefacto é um ZIP que contém o instalador.
 
-As próximas versões publicadas estarão disponíveis em [Releases](https://github.com/cadorio/myoffice/releases). O workflow cria uma Release automaticamente quando é publicada uma tag `vX.Y.Z) correspondente à versão indicada no `package.json`.
+As próximas versões publicadas estarão disponíveis em [Releases](https://github.com/cadorio/myoffice/releases). O workflow cria uma Release automaticamente quando é publicada uma tag `vX.Y.Z` correspondente à versão indicada no `package.json`.
 
 > **Aviso de assinatura:** os instaladores atuais não estão assinados digitalmente. O Windows SmartScreen e o macOS Gatekeeper podem apresentar avisos na primeira execução. A assinatura requer certificados próprios, configurados como segredos no GitHub Actions.
 
