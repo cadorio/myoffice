@@ -82,7 +82,9 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "requestedExecutionLevel": "asInvoker",
+      "signAndEditExecutable": true
     },
     "nsis": {
       "oneClick": false,
