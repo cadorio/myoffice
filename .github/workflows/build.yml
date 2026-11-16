@@ -16,16 +16,37 @@ jobs:
   build:
     name: Windows x64
     runs-on: windows-2022
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          persist-credentials: false
+          persist-credentials: true
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npm test
+      - name: Instalar Chromium para capturas
+        run: npm install --no-save playwright
+      - name: Gerar capturas reais do MyOffice
+        run: |
+          npx playwright install chromium
+          node tools/capture-screenshots.cjs
+      - name: Atualizar capturas na branch da PR
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots/inicio.png docs/screenshots/texto.png docs/screenshots/folhas.png docs/screenshots/diapositivos.png docs/screenshots/modo-escuro.png
+          if git diff --cached --quiet; then
+            echo "As capturas já estão atualizadas."
+            exit 0
+          fi
+          git commit -m "docs: refresh MyOffice 1.3.0 screenshots"
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
       # A assinatura Windows é opcional e requer WIN_CSC_LINK e WIN_CSC_KEY_PASSWORD.
       - name: Preparar assinatura
         shell: bash
@@ -47,41 +68,6 @@ jobs:
           name: MyOffice-Windows
           if-no-files-found: error
           path: dist/*.exe
-
-  screenshots:
-    name: Capturas reais da aplicação
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          persist-credentials: true
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84cf3bd7f3d6820020 # v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Instalar Chromium para capturas
-        run: npm install --no-save playwright
-      - name: Gerar capturas da aplicação
-        run: |
-          npx playwright install chromium
-          node tools/capture-screenshots.cjs
-      - name: Atualizar capturas na branch da PR
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/screenshots/inicio.png docs/screenshots/texto.png docs/screenshots/folhas.png docs/screenshots/diapositivos.png docs/screenshots/modo-escuro.png
-          if git diff --cached --quiet; then
-            echo "As capturas já estão atualizadas."
-            exit 0
-          fi
-          git commit -m "docs: refresh MyOffice 1.3.0 screenshots"
-          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
 
   release:
     name: Publicar Release Windows
