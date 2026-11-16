@@ -94,11 +94,7 @@
       "enableNodeOptionsEnvironmentVariable": false,
       "enableNodeCliInspectArguments": false,
       "onlyLoadAppFromAsar": true
-    },
-    "asarUnpack": [
-      "node_modules/node-llama-cpp/**",
-      "node_modules/@node-llama-cpp/**"
-    ]
+    }
   },
   "devDependencies": {
     "electron": "^45.3.2",
