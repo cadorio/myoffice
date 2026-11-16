@@ -175,4 +175,29 @@ test('procura e funções condicionais', () => {
   assert.equal(v('E8'), '#REF!');
 });
 
+test('estatística e funções de matriz', () => {
+  const v = sheet({
+    A1: '2', A2: '4', A3: '6', A4: '',
+    B1: '10', B2: '20', B3: '30',
+    D1: '=MEDIANA(A1:A3)',
+    D2: '=DESVPAD(A1:A3)',
+    D3: '=DESVPAD.P(A1:A3)',
+    D4: '=VAR(A1:A3)',
+    D5: '=VAR.P(A1:A3)',
+    D6: '=CONTAR.VAZIO(A1:A4)',
+    D7: '=SOMARPRODUTO(A1:A3;B1:B3)',
+    D8: '=ARREDONDAR.PARA.CIMA(1,231;2)',
+    D9: '=ARREDONDAR.PARA.BAIXO(-1,239;2)'
+  });
+  assert.equal(v('D1'), 4);
+  assert.equal(v('D2'), 2);
+  assert.equal(v('D3'), Math.sqrt(8 / 3));
+  assert.equal(v('D4'), 4);
+  assert.equal(v('D5'), 8 / 3);
+  assert.equal(v('D6'), 1);
+  assert.equal(v('D7'), 280);
+  assert.equal(v('D8'), 1.24);
+  assert.equal(v('D9'), -1.23);
+});
+
 console.log(`${count} grupos de testes passaram.`);
