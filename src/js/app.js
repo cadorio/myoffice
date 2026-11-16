@@ -100,6 +100,20 @@
     if (picked) loadFile({ path: null, name: picked.name, content: picked.content });
   }
 
+  // Inicia um documento a partir de um modelo real, pronto a editar.
+  function createFromTemplate(id, template) {
+    if (!MO.modules[id] || !confirmDiscard(id)) return;
+    current = id;
+    MO.modules[id].newDoc(template);
+    docs[id] = { path: null, name: null, dirty: Boolean(template), };
+    dropDraft(id);
+    show(id);
+    if (template) {
+      stale.add(id);
+      MO.toast('Modelo criado. Personalize e guarde o seu ficheiro.');
+    }
+  }
+
   async function save(saveAs) {
     if (current === 'home') return;
     const id = current;
@@ -241,6 +255,22 @@
         })
       )
     );
+    filterRecent($('#recent-search')?.value || '');
+  }
+
+  function filterRecent(query) {
+    const needle = String(query || '').trim().toLocaleLowerCase('pt-PT');
+    document.querySelectorAll('.recent-list .recent-item').forEach((item) => {
+      item.closest('li').hidden = needle && !item.textContent.toLocaleLowerCase('pt-PT').includes(needle);
+    });
+    document.querySelectorAll('.recent-empty').forEach((empty) => {
+      const hasFiles = document.querySelector('.recent-list li');
+      const visible = [...document.querySelectorAll('.recent-list li')].some((li) => !li.hidden);
+      empty.textContent = hasFiles && needle && !visible
+        ? 'Não foram encontrados ficheiros com esse nome.'
+        : 'Ainda não existem ficheiros recentes. Abra um ficheiro para começar.';
+      empty.hidden = Boolean(visible);
+    });
   }
 
   // ---------- Recuperação automática (só na aplicação instalada) ----------
@@ -418,13 +448,16 @@
     }
 
     document.addEventListener('click', (e) => {
+      const templateBtn = e.target.closest('[data-template-module]');
       const viewBtn = e.target.closest('[data-view]');
       const actionBtn = e.target.closest('[data-action]');
-      if (viewBtn) show(viewBtn.dataset.view);
+      if (templateBtn) createFromTemplate(templateBtn.dataset.templateModule, templateBtn.dataset.template || 'default');
+      else if (viewBtn) show(viewBtn.dataset.view);
       else if (actionBtn) run(actionBtn.dataset.action);
       if (!e.target.closest('.menu-wrap')) closeLauncher();
     });
     $('#launcher').addEventListener('click', toggleLauncher);
+    $('#recent-search')?.addEventListener('input', (e) => filterRecent(e.target.value));
 
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
