@@ -810,7 +810,9 @@
       };
       visit(first(doc, 'spTree'));
 
-      const slide = { bg: solid(first(kid(first(doc, 'cSld'), 'bg'), 'bgPr')) || '#ffffff', els, notes: '' };
+      const transitionNode = first(doc, 'transition');
+      const transitionType = transitionNode ? kids(transitionNode).find((node) => ['fade', 'wipe', 'zoom', 'push'].includes(node.localName))?.localName : null;
+      const slide = { bg: solid(first(kid(first(doc, 'cSld'), 'bg'), 'bgPr')) || '#ffffff', els, notes: '', transition: ({ fade: 'fade', wipe: 'wipe', zoom: 'zoom', push: 'wipe' })[transitionType] || 'fade' };
       const notesRel = Object.values(rels).find((r) => r.type === 'notesSlide');
       const notes = notesRel && parseXML(files, notesRel.path);
       for (const sp of all(notes, 'sp')) {
@@ -921,10 +923,11 @@
           shapes += `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Forma ${id}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr>${xfrm(el)}<a:prstGeom prst="${el.type === 'ellipse' ? 'ellipse' : 'rect'}"><a:avLst/></a:prstGeom>${fill(el.fill)}<a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang="pt-PT"/></a:p></p:txBody></p:sp>`;
         }
       }
+      const transition = ({ fade: '<p:fade/>', wipe: '<p:wipe dir="l"/>', zoom: '<p:zoom/>', none: '' })[slide.transition || 'fade'] || '<p:fade/>';
       parts[`ppt/slides/slide${n}.xml`] =
         XML_HEAD +
         `<p:sld ${A} ${R} ${P}><p:cSld><p:bg><p:bgPr>${fill(slide.bg)}<a:effectLst/></p:bgPr></p:bg><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>` +
-        `<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>${shapes}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
+        `<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>${shapes}</p:spTree></p:cSld>${transition ? `<p:transition spd="med" advClick="1">${transition}</p:transition>` : ''}<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
       parts[`ppt/slides/_rels/slide${n}.xml.rels`] = XML_HEAD + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels.join('')}</Relationships>`;
     });
 
