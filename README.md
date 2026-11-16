@@ -4,10 +4,10 @@
 
 O MyOffice reúne três ferramentas numa única aplicação: **Texto**, **Folhas** e **Diapositivos**. Foi desenvolvido com Electron e é distribuído para computadores Windows de 64 bits, com Windows 10 versão 22H2 ou Windows 11. Os documentos são processados localmente e a aplicação foi concebida para funcionar sem ligação à Internet.
 
-[Descarregar versões](https://github.com/cadorio/myoffice/actions) · [Ver código-fonte](https://github.com/cadorio/myoffice) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
+[Descarregar a versão mais recente](https://github.com/cadorio/myoffice/releases/latest) · [Ver código-fonte](https://github.com/cadorio/myoffice) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
-> **Versão atual do código: 1.2.0**  
-> O instalador Windows 1.2.0 foi compilado anteriormente. Esta branch introduz alterações ainda sujeitas a testes e a uma nova compilação.
+> **Nova versão em preparação: 1.3.0**  
+> A versão 1.3.0 introduz o MyOffice Workspace redesenhado, com foco numa experiência simples e leve em Windows 10 22H2 e Windows 11. O instalador será disponibilizado após a validação da compilação.
 
 ## Capturas de ecrã
 
@@ -50,11 +50,9 @@ O MyOffice é distribuído oficialmente para computadores Windows de 64 bits. O 
 | Windows 10 | `.exe` | Versão 22H2, 64 bits |
 | Windows 11 | `.exe` | 64 bits |
 
-**[Consultar as compilações e descarregar o instalador Windows](https://github.com/cadorio/myoffice/actions)**
+**[Descarregar MyOffice para Windows](https://github.com/cadorio/myoffice/releases/latest)**
 
-Na secção **Artifacts**, descarrega o pacote `MyOffice-Windows`. O artefacto é um ZIP que contém o instalador Windows x64.
-
-As próximas versões publicadas estarão disponíveis em [Releases](https://github.com/cadorio/myoffice/releases). O workflow cria uma Release automaticamente quando é publicada uma tag `vX.Y.Z` correspondente à versão indicada no `package.json`.
+Na página de Releases, descarrega o instalador `MyOffice-Setup-1.3.0.exe` quando a versão for publicada. As compilações de teste e os artefactos de desenvolvimento podem ser consultados em [GitHub Actions](https://github.com/cadorio/myoffice/actions).
 
 > **Aviso de assinatura:** os instaladores atuais não estão assinados digitalmente. O Windows SmartScreen pode apresentar avisos na primeira execução. A assinatura requer certificados próprios, configurados como segredos no GitHub Actions.
 
@@ -97,7 +95,7 @@ A transferência do modelo requer Internet; depois de instalado, o processamento
 
 ## Aparência e produtividade
 
-- **Identidade visual MyOffice Workspace** — ecrã inicial próprio, navegação simples e foco no trabalho, sem reproduzir a disposição do Office Online.
+- **Identidade visual MyOffice Workspace** — ecrã inicial redesenhado, navegação simples e foco no trabalho, sem reproduzir a disposição do Office Online.
 - **Desempenho** — interface sem animações decorativas obrigatórias e com efeitos visuais reduzidos para favorecer computadores modestos.
 - **Modo claro e escuro** — acompanha a preferência do sistema, com possibilidade de alteração na aplicação.
 - **13 temas de documento** — Escritório, Executivo, Oceano, Floresta, Pôr do sol, Coral, Menta, Lavanda, Areia, Grafite, Noite, Técnico e Contraste.
