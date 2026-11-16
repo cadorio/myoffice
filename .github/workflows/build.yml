@@ -107,9 +107,15 @@ jobs:
 
           $defender = Join-Path $env:ProgramFiles 'Windows Defender/MpCmdRun.exe'
           if (Test-Path $defender) {
-            & $defender -Scan -ScanType 3 -File $installer.FullName
-            if ($LASTEXITCODE -ne 0) { throw "O Microsoft Defender reportou um problema (código $LASTEXITCODE)." }
-            Add-Content 'dist/SECURITY-REPORT.txt' 'Microsoft Defender: análise concluída sem deteções.'
+            $scanOutput = (& $defender -Scan -ScanType 3 -File $installer.FullName 2>&1 | Out-String)
+            $scanExitCode = $LASTEXITCODE
+            $scanOutput | Set-Content -Encoding utf8 'dist/DEFENDER-SCAN.txt'
+            if ($scanExitCode -ne 0) { throw "O Microsoft Defender reportou um problema (código $scanExitCode)." }
+            if ($scanOutput -match '(?i)was skipped|scan.*skipped|ignorado|ignorada') {
+              Add-Content 'dist/SECURITY-REPORT.txt' 'Microsoft Defender: o pedido de análise foi aceite, mas o motor ignorou este ficheiro; não existe resultado de deteção para o instalador.'
+            } else {
+              Add-Content 'dist/SECURITY-REPORT.txt' 'Microsoft Defender: comando de análise concluído sem mensagens de ficheiro ignorado. Isto não é uma certificação de ausência de malware.'
+            }
           } else {
             Add-Content 'dist/SECURITY-REPORT.txt' 'Microsoft Defender: ferramenta não disponível neste runner; análise não executada.'
           }
@@ -123,6 +129,7 @@ jobs:
             dist/*.exe
             dist/*.sha256
             dist/SECURITY-REPORT.txt
+            dist/DEFENDER-SCAN.txt
             dist/MyOffice-sbom.cdx.json
 
   release:
