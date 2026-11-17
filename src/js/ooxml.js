@@ -164,12 +164,37 @@
     const ordered = {};
     for (const num of kids(numbering && numbering.documentElement, 'num')) ordered[attr(num, 'numId')] = abstractOrdered[attr(kid(num, 'abstractNumId'), 'val')];
 
+    // Comentários e notas de rodapé: texto simples de cada um, indexado pelo id do Word.
+    const partByType = (type) => {
+      const rel = Object.values(rels).find((item) => item.type === type);
+      return rel ? parseXML(files, rel.path) : null;
+    };
+    const plainText = (node) => kids(node, 'p').map((p) => all(p, 't').map((t) => t.textContent).join('')).join('\n').trim();
+    const comments = {};
+    for (const c of all(partByType('comments'), 'comment')) {
+      const id = attr(c, 'id');
+      if (!/^\d{1,6}$/.test(id || '')) continue;
+      const text = plainText(c);
+      const author = attr(c, 'author');
+      if (text) comments['c' + id] = { text: (author ? author + ': ' : '') + text, date: attr(c, 'date') || '' };
+    }
+    const notes = {};
+    for (const n of all(partByType('footnotes'), 'footnote')) {
+      const id = attr(n, 'id');
+      if (attr(n, 'type') || !/^\d{1,6}$/.test(id || '')) continue;
+      notes['f' + id] = plainText(n);
+    }
+    const openComments = [];
+
     function runHTML(run) {
       const rPr = kid(run, 'rPr');
       let out = '';
       for (const node of run.children) {
-        if (node.localName === 't') out += html(node.textContent);
-        else if (node.localName === 'tab') out += '\t';
+        if (node.localName === 't' || node.localName === 'delText') out += html(node.textContent);
+        else if (node.localName === 'footnoteReference') {
+          const id = attr(node, 'id');
+          if (/^\d{1,6}$/.test(id || '') && notes['f' + id] != null) out += `<sup class="mo-fn" data-id="f${id}">0</sup>`;
+        } else if (node.localName === 'tab') out += '\t';
         else if (node.localName === 'br') out += attr(node, 'type') === 'page' ? '\u0000' : '<br>';
         else if (node.localName === 'drawing' || node.localName === 'pict') {
           const blip = first(node, 'blip');
@@ -205,7 +230,15 @@
           const inner = inlineHTML(node);
           const href = rel && rel.external && /^(https?:|mailto:)/i.test(rel.path) ? rel.path : null;
           out += href ? `<a href="${html(href)}">${inner}</a>` : inner;
-        } else if (['ins', 'smartTag', 'sdt', 'sdtContent', 'fldSimple'].includes(node.localName)) out += inlineHTML(node);
+        } else if (node.localName === 'ins') out += `<ins class="mo-ins">${inlineHTML(node)}</ins>`;
+        else if (node.localName === 'del') out += `<del class="mo-del">${inlineHTML(node)}</del>`;
+        else if (node.localName === 'commentRangeStart') {
+          const id = 'c' + attr(node, 'id');
+          if (comments[id] && !openComments.includes(id)) { openComments.push(id); out += `<mark class="mo-comment" data-id="${id}">`; }
+        } else if (node.localName === 'commentRangeEnd') {
+          const at = openComments.indexOf('c' + attr(node, 'id'));
+          if (at >= 0) { openComments.splice(at, 1); out += '</mark>'; }
+        } else if (['smartTag', 'sdt', 'sdtContent', 'fldSimple'].includes(node.localName)) out += inlineHTML(node);
       }
       return out;
     }
@@ -224,7 +257,9 @@
           const numId = attr(first(kid(pPr, 'numPr'), 'numId'), 'val') || styleNum[styleId] || (styleList[styleId] ? 'style' : null);
           const align = { center: 'center', right: 'right', end: 'right', both: 'justify' }[attr(kid(pPr, 'jc'), 'val')];
           // \u0000 marca uma quebra de página dentro do parágrafo.
-          const parts = inlineHTML(node).split('\u0000');
+          const reopen = openComments.map((id) => `<mark class="mo-comment" data-id="${id}">`).join('');
+          const inner = inlineHTML(node);
+          const parts = (reopen + inner + '</mark>'.repeat(openComments.length)).split('\u0000');
           parts.forEach((part, i) => {
             if (i > 0) {
               closeList();
@@ -246,8 +281,29 @@
           });
         } else if (node.localName === 'tbl') {
           closeList();
-          const rows = kids(node, 'tr').map((tr) => '<tr>' + kids(tr, 'tc').map((tc) => `<td>${kids(tc, 'p').map(inlineHTML).join('<br>') || '<br>'}</td>`).join('') + '</tr>');
-          out.push(`<table><tbody>${rows.join('')}</tbody></table>`);
+          // gridSpan -> colspan; vMerge (restart/continue) -> rowspan na célula de origem.
+          const grid = []; // coluna -> célula de origem da fusão vertical em curso
+          const rows = kids(node, 'tr').map((tr) => {
+            const cells = [];
+            let column = 0;
+            for (const tc of kids(tr, 'tc')) {
+              const tcPr = kid(tc, 'tcPr');
+              const span = Math.max(1, Math.min(64, Number(attr(kid(tcPr, 'gridSpan'), 'val')) || 1));
+              const vMerge = kid(tcPr, 'vMerge');
+              const vVal = vMerge ? attr(vMerge, 'val') || 'continue' : null;
+              if (vVal === 'continue' && grid[column]) {
+                grid[column].rowspan++;
+              } else {
+                const cell = { html: kids(tc, 'p').map(inlineHTML).join('<br>') || '<br>', colspan: span, rowspan: 1 };
+                cells.push(cell);
+                for (let i = 0; i < span; i++) grid[column + i] = vVal === 'restart' ? cell : null;
+              }
+              column += span;
+            }
+            return cells;
+          });
+          const cellHTML = (c) => `<td${c.colspan > 1 ? ` colspan="${c.colspan}"` : ''}${c.rowspan > 1 ? ` rowspan="${c.rowspan}"` : ''}>${c.html}</td>`;
+          out.push(`<table><tbody>${rows.map((cells) => '<tr>' + cells.map(cellHTML).join('') + '</tr>').join('')}</tbody></table>`);
         } else if (node.localName === 'sdt') {
           closeList();
           const content = kid(node, 'sdtContent');
@@ -265,9 +321,22 @@
       return part ? all(part, 't').filter((t) => {
         for (let parent = t.parentElement; parent; parent = parent.parentElement) if (parent.localName === 'fldSimple') return false;
         return true;
-      }).map((t) => t.textContent).join('') : '';
-    };
-    return { html: body ? blocksOf(body).join('') : '', header: pagePart('header'), footer: pagePart('footer') };
+      }).map((t) => t.textContent).join('').replace(/\s+\/\s*$/, '').trim() : '';
+    };  // o número de página é gerado pelo MyOffice; tira o separador " / " que sobra
+    const sect = body && kids(body, 'sectPr')[0];
+    const pgSz = kid(sect, 'pgSz');
+    const pgMar = kid(sect, 'pgMar');
+    let page = null;
+    if (pgSz) {
+      const w = Number(attr(pgSz, 'w')) || 11906;
+      const hgt = Number(attr(pgSz, 'h')) || 16838;
+      const short = Math.min(w, hgt);
+      const size = Math.abs(short - 12240) < 150 ? 'Letter' : Math.abs(short - 8391) < 300 ? 'A5' : 'A4';
+      const left = Number(attr(pgMar, 'left')) || 1134;
+      page = { size, orient: w > hgt ? 'landscape' : 'portrait', margin: left <= 800 ? 'narrow' : left >= 1900 ? 'wide' : 'normal' };
+    }
+    const html_ = body ? blocksOf(body).join('') : '';
+    return { html: html_, header: pagePart('header'), footer: pagePart('footer'), comments, notes, page };
   }
 
   // root: elemento com o conteúdo do documento (o editor); look: tipos de letra e cores do tema.
@@ -404,7 +473,30 @@
           out += paragraph(node, { list: ctx.list || 1, level: Math.min(ctx.level || 0, 8) });
           if (hasBlocks(node)) out += blocks(node, { list: ctx.list, level: (ctx.level || 0) + 1, nestedOnly: true });
         } else if (tag === 'TABLE') {
-          const rows = [...node.rows].map((tr) => '<w:tr>' + [...tr.cells].map((td) => `<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/></w:tcPr>${paragraph(td, {})}</w:tc>`).join('') + '</w:tr>');
+          // colspan -> gridSpan; rowspan -> vMerge, com células de continuação nas linhas seguintes.
+          const pending = []; // coluna -> { left, span } de fusões verticais
+          const rows = [...node.rows].map((tr) => {
+            let xml = '';
+            let column = 0;
+            const cont = () => {
+              while (pending[column] && pending[column].left > 0) {
+                const p = pending[column];
+                p.left--;
+                xml += `<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/>${p.span > 1 ? `<w:gridSpan w:val="${p.span}"/>` : ''}<w:vMerge/></w:tcPr><w:p/></w:tc>`;
+                column += p.span;
+              }
+            };
+            for (const td of tr.cells) {
+              cont();
+              const span = Math.max(1, Math.min(64, td.colSpan || 1));
+              const down = Math.max(1, Math.min(1000, td.rowSpan || 1));
+              if (down > 1) pending[column] = { left: down - 1, span };
+              xml += `<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/>${span > 1 ? `<w:gridSpan w:val="${span}"/>` : ''}${down > 1 ? '<w:vMerge w:val="restart"/>' : ''}</w:tcPr>${paragraph(td, {})}</w:tc>`;
+              column += span;
+            }
+            cont();
+            return '<w:tr>' + xml + '</w:tr>';
+          });
           const border = (side) => `<w:${side} w:val="single" w:sz="4" w:space="0" w:color="9AA1B1"/>`;
           out += `<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders>${['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(border).join('')}</w:tblBorders></w:tblPr>${rows.join('')}</w:tbl><w:p/>`;
         } else if (tag === 'HR') {
@@ -559,6 +651,12 @@
         return style && style !== 'none';
       }).map(([, k]) => k).join('')
     );
+    // Formatos diferenciais (dxf) usados pela formatação condicional: cor de fundo e do texto.
+    const argb = (node) => { const v = attr(node, 'rgb'); return v && /^[0-9a-f]{8}$/i.test(v) ? '#' + v.slice(2).toLowerCase() : null; };
+    const dxfs = kids(first(stylesDoc, 'dxfs'), 'dxf').map((dxf) => ({
+      bg: argb(first(first(dxf, 'fill'), 'bgColor')) || argb(first(first(dxf, 'fill'), 'fgColor')),
+      c: argb(first(first(dxf, 'font'), 'color'))
+    }));
     const xfs = kids(first(stylesDoc, 'cellXfs'), 'xf').map((xf) => {
       const s = {};
       const bd = borders[Number(attr(xf, 'borderId'))];
@@ -659,7 +757,29 @@
         const xs = Math.round(Number(attr(pane, 'xSplit')) || 0);
         if (ys || xs) freeze = { rows: Math.min(50, ys), cols: Math.min(20, xs) };
       }
-      importedSheets.push({ name, cells, charts, merges, widths, freeze });
+      const rules = [];
+      const OPS = { greaterThan: 'gt', lessThan: 'lt', between: 'between', equal: 'eq' };
+      for (const cf of all(sheet, 'conditionalFormatting')) {
+        const [from, to] = String(attr(cf, 'sqref') || '').split(/\s+/)[0].split(':').map((x) => F.parseAddr(x));
+        if (!from) continue;
+        const end = to || from;
+        const range = { r0: Math.min(from.r, end.r), r1: Math.min(rows - 1, Math.max(from.r, end.r)), c0: Math.min(from.c, end.c), c1: Math.min(cols - 1, Math.max(from.c, end.c)) };
+        for (const rule of kids(cf, 'cfRule')) {
+          const kind = attr(rule, 'type');
+          const formulas = kids(rule, 'formula').map((f) => f.textContent.replace(/^"|"$/g, ''));
+          const look = attr(rule, 'dxfId') != null ? dxfs[Number(attr(rule, 'dxfId'))] || {} : {};
+          let type = null; let a = ''; let b = '';
+          if (kind === 'colorScale') type = 'scale';
+          else if (kind === 'cellIs' && OPS[attr(rule, 'operator')]) { type = OPS[attr(rule, 'operator')]; a = formulas[0] || ''; b = formulas[1] || ''; }
+          else if (kind === 'containsText') { type = 'text'; a = attr(rule, 'text') || ''; }
+          if (!type || rules.length >= 200) continue;
+          const out = { range, type, a, b };
+          if (look.bg) out.bg = look.bg;
+          if (look.c) out.c = look.c;
+          rules.push(out);
+        }
+      }
+      importedSheets.push({ name, cells, charts, merges, widths, freeze, rules });
     }
     return { sheets: importedSheets, clipped };
   }
@@ -712,6 +832,33 @@
       if (next < 256) out.push(`<col min="${next + 1}" max="256" width="14" customWidth="1"/>`);
       return `<cols>${out.join('')}</cols>`;
     }
+    // Formatação condicional: regras do MyOffice -> conditionalFormatting + dxfs em styles.xml.
+    const dxfList = [];
+    const xmlEsc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const cfValue = (v) => (v !== '' && F.parseNumber(String(v)) !== null ? String(F.parseNumber(String(v))) : `"${xmlEsc(String(v).replace(/"/g, '""'))}"`);
+    function rulesXML(rules) {
+      let priority = 1;
+      return (Array.isArray(rules) ? rules : []).map((rule) => {
+        const g = rule.range;
+        if (!g) return '';
+        const ref = `${F.addr(g.r0, g.c0)}:${F.addr(g.r1, g.c1)}`;
+        if (rule.type === 'scale') {
+          return `<conditionalFormatting sqref="${ref}"><cfRule type="colorScale" priority="${priority++}"><colorScale><cfvo type="min"/><cfvo type="percentile" val="50"/><cfvo type="max"/><color rgb="FFF8696B"/><color rgb="FFFFEB84"/><color rgb="FF63BE7B"/></colorScale></cfRule></conditionalFormatting>`;
+        }
+        const hex = (x) => 'FF' + String(x || '').replace('#', '').toUpperCase();
+        const dxf = `<dxf>${rule.c ? `<font><color rgb="${hex(rule.c)}"/></font>` : ''}${rule.bg ? `<fill><patternFill><bgColor rgb="${hex(rule.bg)}"/></patternFill></fill>` : ''}</dxf>`;
+        const id = index(dxfList, dxf);
+        if (rule.type === 'text') {
+          const t = xmlEsc(rule.a);
+          return `<conditionalFormatting sqref="${ref}"><cfRule type="containsText" dxfId="${id}" priority="${priority++}" operator="containsText" text="${t}"><formula>NOT(ISERROR(SEARCH("${t.replace(/&quot;/g, '""')}",${F.addr(g.r0, g.c0)})))</formula></cfRule></conditionalFormatting>`;
+        }
+        const op = { gt: 'greaterThan', lt: 'lessThan', between: 'between', eq: 'equal' }[rule.type];
+        if (!op) return '';
+        const formulas = `<formula>${cfValue(rule.a)}</formula>${rule.type === 'between' ? `<formula>${cfValue(rule.b)}</formula>` : ''}`;
+        return `<conditionalFormatting sqref="${ref}"><cfRule type="cellIs" dxfId="${id}" priority="${priority++}" operator="${op}">${formulas}</cfRule></conditionalFormatting>`;
+      }).join('');
+    }
+
     function mergeXML(merges) {
       const list = (Array.isArray(merges) ? merges : []).filter((m) => m && [m.r0, m.r1, m.c0, m.c1].every(Number.isInteger));
       return list.length ? `<mergeCells count="${list.length}">${list.map((m) => `<mergeCell ref="${F.addr(m.r0, m.c0)}:${F.addr(m.r1, m.c1)}"/>`).join('')}</mergeCells>` : '';
@@ -787,7 +934,7 @@
           sheetFiles[`xl/worksheets/_rels/sheet${i + 1}.xml.rels`] = XML_HEAD + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/${drawingName}.xml"/></Relationships>`;
         }
       }
-      sheetFiles[`xl/worksheets/sheet${i + 1}.xml`] = XML_HEAD + `<worksheet ${NS} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${sheetView(sheet.freeze)}<sheetFormatPr defaultRowHeight="15"/>${colsXML(sheet.widths)}<sheetData>${rowsXML}</sheetData>${mergeXML(sheet.merges)}${drawingTag}</worksheet>`;
+      sheetFiles[`xl/worksheets/sheet${i + 1}.xml`] = XML_HEAD + `<worksheet ${NS} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${sheetView(sheet.freeze)}<sheetFormatPr defaultRowHeight="15"/>${colsXML(sheet.widths)}<sheetData>${rowsXML}</sheetData>${mergeXML(sheet.merges)}${rulesXML(sheet.rules)}${drawingTag}</worksheet>`;
       sheetParts.push(`<sheet name="${esc(safeName)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`);
       sheetRels.push(`<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`);
       sheetOverrides.push(`<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`);
@@ -817,7 +964,7 @@
         `<fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills>` +
         `<borders count="${borders.length}">${borders.join('')}</borders>` +
         '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-        `<cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`,
+        `<cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>${dxfList.length ? `<dxfs count="${dxfList.length}">${dxfList.join('')}</dxfs>` : ''}</styleSheet>`,
       ...sheetFiles,
       ...drawingFiles,
       ...chartFiles
@@ -856,11 +1003,46 @@
       if (!off || !ext) return null;
       return { x: Math.round(Number(attr(off, 'x')) * k + dx), y: Math.round(Number(attr(off, 'y')) * k + dy), w: Math.round(Number(attr(ext, 'cx')) * k), h: Math.round(Number(attr(ext, 'cy')) * k) };
     };
-    const solid = (node) => {
-      const fill = kid(node, 'solidFill');
-      const value = attr(kid(fill, 'srgbClr'), 'val');
-      return value && /^[0-9a-f]{6}$/i.test(value) ? '#' + value.toLowerCase() : null;
+    // Cores do tema (schemeClr) e ajustes de luminosidade (lumMod/lumOff), como o PowerPoint usa.
+    let scheme = {};
+    function loadScheme(masterPath) {
+      scheme = {};
+      const themeRel = masterPath && Object.values(relsOf(files, masterPath)).find((r) => r.type === 'theme');
+      const themeDoc = themeRel && parseXML(files, themeRel.path);
+      for (const node of kids(first(themeDoc, 'clrScheme'))) {
+        const value = attr(kid(node, 'srgbClr'), 'val') || attr(kid(node, 'sysClr'), 'lastClr');
+        if (value && /^[0-9a-f]{6}$/i.test(value)) scheme[node.localName] = value.toLowerCase();
+      }
+    }
+    const ALIAS = { bg1: 'lt1', tx1: 'dk1', bg2: 'lt2', tx2: 'dk2' };
+    function adjust(hex, colorNode) {
+      const mod = Number(attr(kid(colorNode, 'lumMod'), 'val'));
+      const off = Number(attr(kid(colorNode, 'lumOff'), 'val'));
+      if (!mod && !off) return hex;
+      let [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let hue = 0, sat = 0, lum = (max + min) / 2;
+      if (max !== min) {
+        const d = max - min;
+        sat = lum > 0.5 ? d / (2 - max - min) : d / (max + min);
+        hue = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+        hue /= 6;
+      }
+      lum = Math.max(0, Math.min(1, lum * (mod ? mod / 100000 : 1) + (off ? off / 100000 : 0)));
+      const q = lum < 0.5 ? lum * (1 + sat) : lum + sat - lum * sat;
+      const p = 2 * lum - q;
+      const ch = (t) => { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
+      [r, g, b] = sat ? [ch(hue + 1 / 3), ch(hue), ch(hue - 1 / 3)] : [lum, lum, lum];
+      return [r, g, b].map((x) => Math.round(x * 255).toString(16).padStart(2, '0')).join('');
+    }
+    const colorOf = (fill) => {
+      const rgb = kid(fill, 'srgbClr');
+      if (rgb && /^[0-9a-f]{6}$/i.test(attr(rgb, 'val') || '')) return '#' + adjust(attr(rgb, 'val').toLowerCase(), rgb);
+      const sc = kid(fill, 'schemeClr');
+      const base = sc && scheme[ALIAS[attr(sc, 'val')] || attr(sc, 'val')];
+      return base ? '#' + adjust(base, sc) : null;
     };
+    const solid = (node) => colorOf(kid(node, 'solidFill'));
 
     // Posição de um marcador de posição herdada do esquema ou do modelo global.
     function inheritedBox(doc, type, idx) {
@@ -927,11 +1109,23 @@
       const layout = layoutRel && parseXML(files, layoutRel.path);
       const masterRel = layoutRel && Object.values(relsOf(files, layoutRel.path)).find((r) => r.type === 'slideMaster');
       const master = masterRel && parseXML(files, masterRel.path);
+      loadScheme(masterRel && masterRel.path);
       const els = [];
 
       const visit = (tree) => {
         for (const node of kids(tree)) {
           if (node.localName === 'grpSp') visit(node);
+          else if (node.localName === 'graphicFrame' && first(node, 'tbl')) {
+            // Tabela: o texto de cada célula; a cor do cabeçalho vem do preenchimento da primeira linha.
+            const box = boxOf(kid(node, 'xfrm'));
+            const trs = kids(first(node, 'tbl'), 'tr').slice(0, 20);
+            if (!box || !trs.length) continue;
+            const rows = trs.map((tr) => kids(tr, 'tc').slice(0, 10).map((tc) => kids(kid(tc, 'txBody'), 'p').map((p) => all(p, 't').map((t) => t.textContent).join('')).join(' ').trim().slice(0, 500)));
+            const firstCell = kids(trs[0], 'tc')[0];
+            const accent = solid(kid(firstCell, 'tcPr')) || (scheme.accent1 ? '#' + scheme.accent1 : '#1f5fbf');
+            const sz = Number(attr(first(node, 'rPr'), 'sz'));
+            els.push({ type: 'table', ...box, rows, fs: Math.max(8, Math.min(72, Math.round(sz ? (sz / 100) * ptToPx : 18))), accent });
+          }
           else if (node.localName === 'pic') {
             const blipRel = rels[attr(first(node, 'blip'), 'embed')];
             const src = blipRel && imageDataURL(files, blipRel.path);
@@ -972,7 +1166,12 @@
 
       const transition = first(doc, 'transition');
       const transitionKind = transition && kids(transition).find((node) => ['fade', 'push', 'wipe'].includes(node.localName));
-      const slide = { bg: solid(first(kid(first(doc, 'cSld'), 'bg'), 'bgPr')) || '#ffffff', els, notes: '', transition: transitionKind ? transitionKind.localName : '' };
+      // Fundo: cor (também do tema) ou imagem, que passa a ser uma imagem por trás de tudo.
+      const bgPr = first(kid(first(doc, 'cSld'), 'bg'), 'bgPr');
+      const bgBlip = first(kid(bgPr, 'blipFill'), 'blip');
+      const bgSrc = bgBlip && rels[attr(bgBlip, 'embed')] && imageDataURL(files, rels[attr(bgBlip, 'embed')].path);
+      if (bgSrc) els.unshift({ type: 'image', src: bgSrc, x: Math.round(dx), y: Math.round(dy), w: Math.round(cx * k), h: Math.round(cy * k) });
+      const slide = { bg: solid(bgPr) || '#ffffff', els, notes: '', transition: transitionKind ? transitionKind.localName : '' };
       const notesRel = Object.values(rels).find((r) => r.type === 'notesSlide');
       const notes = notesRel && parseXML(files, notesRel.path);
       for (const sp of all(notes, 'sp')) {

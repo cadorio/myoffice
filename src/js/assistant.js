@@ -432,7 +432,7 @@
     ['comando procurar atalho atalhos ctrl botao onde encontrar', 'Encontrar qualquer comando', ['Carregue em Ctrl+K.', 'Escreva o que quer fazer, por exemplo "borda" ou "PDF", e carregue em Enter.', 'Ctrl+. esconde ou mostra o painel de ferramentas.']],
     ['zoom ampliar aumentar diminuir', 'Zoom', ['Use o controlo de zoom no canto inferior direito, de 50% a 200%.']],
     ['instalar instalacao instalador windows smartscreen setup', 'Instalar o MyOffice', ['Descarregue MyOffice-Setup a partir da página de versões no GitHub.', 'Abra o ficheiro; se o Windows mostrar "O Windows protegeu o computador", clique em Mais informações › Executar mesmo assim (o instalador ainda não tem assinatura digital).', 'Siga os passos do instalador; o MyOffice fica no menu Iniciar.']],
-    ['limitacoes limites falta faltam suporta', 'O que o MyOffice ainda não faz', ['Tabelas dinâmicas compatíveis com o Excel (use o Resumo dinâmico).', 'Animações complexas e formatação condicional no XLSX exportado.', 'Coautoria em tempo real, nuvem, correio e calendário.', 'Instaladores oficiais para macOS e Linux.']],
+    ['limitacoes limites falta faltam suporta', 'O que o MyOffice ainda não faz', ['Tabelas dinâmicas compatíveis com o Excel (use o Resumo dinâmico).', 'Animações complexas, gráficos e SmartArt do PowerPoint.', 'Coautoria em tempo real, nuvem, correio e calendário.', 'Instaladores oficiais para macOS e Linux.']],
     ['ortografia ortografica erros revisao', 'Revisão ortográfica (Texto)', ['As palavras com erro ficam sublinhadas a vermelho, quando o Windows tem o dicionário de português.', 'Clique com o botão direito para ver sugestões.']]
   ].map(([keys, title, steps]) => ({ keys: keys.split(' '), title, steps }));
 

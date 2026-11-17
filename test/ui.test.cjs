@@ -514,6 +514,47 @@ const cellText = (page, a) =>
     assert.match(xml, /Norte/);
   });
 
+  await test('Word: comentários, notas, revisões, células unidas e página voltam ao abrir', page, async () => {
+    const doc = await page.evaluate(() => {
+      const ed = document.createElement('div');
+      ed.innerHTML = '<p>Olá <mark class="mo-comment" data-id="a1">mundo</mark> <ins class="mo-ins">novo</ins><del class="mo-del">velho</del><sup class="mo-fn" data-id="n1">1</sup></p><table><tbody><tr><td colspan="2">A</td><td rowspan="2">C</td></tr><tr><td>D</td><td>E</td></tr></tbody></table>';
+      const bytes = MO.OOXML.exportDocx(ed, {}, { comments: { a1: { text: 'Rever', date: '2026-01-01T00:00:00Z' } }, notes: { n1: 'Fonte' }, page: { size: 'A4', orient: 'landscape', margin: 'narrow' } });
+      return MO.OOXML.importDocx(bytes);
+    });
+    assert.match(doc.html, /<mark class="mo-comment" data-id="c\d+">mundo<\/mark>/);
+    assert.match(doc.html, /<ins class="mo-ins">novo<\/ins><del class="mo-del">velho<\/del>/);
+    assert.match(doc.html, /<sup class="mo-fn" data-id="f1">/);
+    assert.match(doc.html, /<td colspan="2">A<\/td><td rowspan="2">C<\/td>/);
+    assert.ok(Object.values(doc.comments).some((c) => c.text.endsWith('Rever')));
+    assert.equal(doc.notes.f1, 'Fonte');
+    assert.deepEqual(doc.page, { size: 'A4', orient: 'landscape', margin: 'narrow' });
+    assert.equal(doc.footer, '');
+  });
+
+  await test('Excel: fórmulas entre folhas e formatação condicional', page, async () => {
+    const out = await page.evaluate(() => {
+      const F = MO.Formula;
+      const s1 = { A1: { v: '=Dados!A1*2' }, A2: { v: "=SOMA('Vendas 2026'!B1:B2)" }, A3: { v: '=Nada!A1' } };
+      const book = { folha1: s1, dados: { A1: { v: '21' } }, 'vendas 2026': { B1: { v: '1' }, B2: { v: '2' } } };
+      const values = F.compute(s1, 100, 26, book);
+      const rules = [{ range: { r0: 0, r1: 2, c0: 0, c1: 0 }, type: 'gt', a: '10', b: '', bg: '#c6efce', c: '#006100' }, { range: { r0: 0, r1: 2, c0: 0, c1: 0 }, type: 'scale', a: '', b: '' }];
+      const bytes = MO.OOXML.exportXlsx([{ name: 'Folha1', cells: s1, rules, values }, { name: 'Dados', cells: book.dados, values: new Map() }]);
+      return { a1: F.format(values.get('A1')), a2: F.format(values.get('A2')), a3: F.format(values.get('A3')), rules: MO.OOXML.importXlsx(bytes, 1000, 26).sheets[0].rules };
+    });
+    assert.deepEqual([out.a1, out.a2, out.a3], ['42', '3', '#REF!']);
+    assert.deepEqual(out.rules.map((r) => r.type), ['gt', 'scale']);
+    assert.equal(out.rules[0].bg, '#c6efce');
+  });
+
+  await test('PowerPoint: tabelas e cores do tema são importadas', page, async () => {
+    const slides = await page.evaluate(() => {
+      const bytes = MO.OOXML.exportPptx([{ bg: '#ffffff', els: [{ type: 'table', x: 80, y: 140, w: 800, h: 160, rows: [['Região', 'Vendas'], ['Norte', '82']], fs: 20, accent: '#1f5fbf' }] }], { sans: 'Arial' });
+      return MO.OOXML.importPptx(bytes);
+    });
+    const table = slides[0].els.find((e) => e.type === 'table');
+    assert.deepEqual(table.rows, [['Região', 'Vendas'], ['Norte', '82']]);
+  });
+
   await test('Sem erros na consola da página', page, async () => {
     assert.deepEqual(errors, []);
   });
