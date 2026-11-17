@@ -220,11 +220,12 @@ npm start
 
 ```bash
 npm test           # executa os testes automatizados
+npm run test:ui    # testes da interface no browser (Desenho, várias folhas, gráficos); requer o Playwright
 npm run dist       # cria o instalador para o sistema atual
 npm run dist:win   # instalador Windows
 ```
 
-Os artefactos locais são colocados na pasta `dist/`. O workflow **Instalador Windows** do GitHub Actions executa `npm ci` e `npm test` antes de compilar o instalador Windows de 64 bits. Cada push para `main` gera artefactos; uma tag `vX.Y.Z` publica também uma GitHub Release.
+Os artefactos locais são colocados na pasta `dist/`. O workflow **Instalador Windows** do GitHub Actions executa `npm ci`, `npm test` e os testes da interface antes de compilar o instalador Windows de 64 bits. Cada push para `main` gera artefactos; uma tag `vX.Y.Z` publica também uma GitHub Release.
 
 ## Estrutura do projeto
 

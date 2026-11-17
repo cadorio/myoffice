@@ -17,7 +17,8 @@
     "dist:win": "electron-builder --win --publish never",
     "notices": "node tools/notices.js",
     "train:ai": "node tools/train-ai.js",
-    "license": "node tools/license.js"
+    "license": "node tools/license.js",
+    "test:ui": "node test/ui.test.cjs"
   },
   "build": {
     "appId": "com.github.cadorio.myoffice",

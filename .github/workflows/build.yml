@@ -33,6 +33,10 @@ jobs:
       - run: npm test
       - name: Instalar Chromium para capturas
         run: npm install --no-save playwright
+      - name: Testes da interface (Desenho, várias folhas, gráficos)
+        run: |
+          npx playwright install chromium
+          npm run test:ui
       - name: Gerar capturas reais do MyOffice
         run: |
           npx playwright install chromium
