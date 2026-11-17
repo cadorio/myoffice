@@ -42,31 +42,79 @@ const cellText = (page, a) =>
   // ---------------- Desenho ----------------
   await go(page, 'draw');
 
-  await test('Desenho: modelos de fluxo, mapa mental e organograma', page, async () => {
-    for (const [label, nodes, links] of [['Fluxo', 4, 3], ['Mapa mental', 5, 4], ['Organização', 4, 3]]) {
-      await page.click(`.draw-template:has-text("${label}")`);
+  await test('Desenho: modelos de fluxo, mapa mental, organograma, linha temporal e SWOT', page, async () => {
+    for (const [label, nodes, links] of [['Fluxo', 6, 6], ['Mapa mental', 5, 4], ['Organização', 4, 3], ['Linha temporal', 10, 4], ['SWOT', 4, 0]]) {
+      await page.click(`#view-draw .draw-template:has-text("${label}")`);
       const data = JSON.parse(await page.evaluate(() => MO.modules.draw.serialize()));
       assert.equal(data.nodes.length, nodes, label + ': elementos');
       assert.equal(data.links.length, links, label + ': ligações');
     }
   });
 
-  await test('Desenho: acrescentar elementos e editar texto e cor', page, async () => {
-    await page.click('.draw-template:has-text("Fluxo")');
-    await page.click('.draw-action:has-text("Caixa")');
-    await page.click('.draw-action:has-text("Decisão")');
-    await page.fill('.draw-inspector textarea', 'Aprovado?');
+  await test('Desenho: acrescentar formas, mudar aspeto, anular e ligar arrastando', page, async () => {
+    await page.click('#view-draw .draw-template:has-text("Em branco")');
+    await page.click('#view-draw .tool[title="Acrescentar: Caixa"]');
+    await page.click('#view-draw .tool[title="Acrescentar: Decisão"]');
+    await page.click('#view-draw .tool[title="Acrescentar: Base de dados"]');
+    let data = JSON.parse(await page.evaluate(() => MO.modules.draw.serialize()));
+    assert.deepEqual(data.nodes.map((n) => n.type), ['rect', 'diamond', 'cylinder']);
+    // Formatar o último (selecionado): cor de fundo e tamanho do texto
+    await page.click('#view-draw .ribbon-tab:has-text("Formatar")');
+    await page.click('#view-draw .draw-swatch[title="Cor de fundo #c5ef75"]');
+    await page.selectOption('#view-draw select[data-prop="fontSize"]', '24');
+    data = JSON.parse(await page.evaluate(() => MO.modules.draw.serialize()));
+    assert.equal(data.nodes[2].fill, '#c5ef75');
+    assert.equal(data.nodes[2].fontSize, 24);
+    await page.keyboard.press('Control+z');
+    data = JSON.parse(await page.evaluate(() => MO.modules.draw.serialize()));
+    assert.equal(data.nodes[2].fontSize, 18, 'anular desfaz o tamanho');
+    // Afastar as formas (as novas aparecem quase no mesmo sítio)
     await page.evaluate(() => {
-      const input = document.querySelector('.draw-inspector input[type=color]');
-      input.value = '#ff8800';
-      input.dispatchEvent(new Event('input'));
+      MO.modules.draw._debug.nodes().forEach((n, i) => { n.x = 100 + i * 320; n.y = 200; });
+      MO.modules.draw._debug.select([]);
     });
-    const data = JSON.parse(await page.evaluate(() => MO.modules.draw.serialize()));
+    // Escrever na forma com duplo clique
+    const first = await page.evaluate(() => {
+      const [a] = MO.modules.draw._debug.nodes();
+      const svg = document.querySelector('#view-draw svg').getBoundingClientRect();
+      const k = svg.width / 1400;
+      return { x: svg.left + (a.x + a.w / 2) * k, y: svg.top + (a.y + a.h / 2) * k };
+    });
+    await page.mouse.dblclick(first.x, first.y);
+    await page.fill('.draw-text-editor', 'Pedido recebido');
+    await page.click('#view-draw .draw-canvas', { position: { x: 5, y: 5 } });
+    // Ligar arrastando a partir de um ponto
+    const ports = await page.evaluate(() => {
+      const [a, b] = MO.modules.draw._debug.nodes();
+      const svg = document.querySelector('#view-draw svg').getBoundingClientRect();
+      const k = svg.width / 1400;
+      return { from: { x: svg.left + (a.x + a.w) * k, y: svg.top + (a.y + a.h / 2) * k }, to: { x: svg.left + (b.x + b.w / 2) * k, y: svg.top + (b.y + b.h / 2) * k } };
+    });
+    await page.mouse.move(ports.from.x - 30, ports.from.y);
+    await page.mouse.move(ports.from.x, ports.from.y);
+    await page.mouse.down();
+    await page.mouse.move(ports.to.x, ports.to.y, { steps: 6 });
+    await page.mouse.up();
+    data = JSON.parse(await page.evaluate(() => MO.modules.draw.serialize()));
+    assert.equal(data.nodes[0].text, 'Pedido recebido');
+    assert.equal(data.links.length, 1);
+    assert.deepEqual([data.links[0].from, data.links[0].to], [0, 1]);
+  });
+
+  await test('Desenho: alinhar, duplicar e eliminar várias formas', page, async () => {
+    await page.evaluate(() => MO.modules.draw._debug.select(MO.modules.draw._debug.nodes().map((n) => n.id)));
+    await page.click('#view-draw .ribbon-tab:has-text("Organizar")');
+    await page.click('#view-draw .tool[title="Alinhar em cima"]');
+    let data = JSON.parse(await page.evaluate(() => MO.modules.draw.serialize()));
+    assert.equal(new Set(data.nodes.map((n) => n.y)).size, 1, 'todos à mesma altura');
+    await page.keyboard.press('Control+d');
+    data = JSON.parse(await page.evaluate(() => MO.modules.draw.serialize()));
     assert.equal(data.nodes.length, 6);
-    const last = data.nodes[5];
-    assert.equal(last.type, 'diamond');
-    assert.equal(last.text, 'Aprovado?');
-    assert.equal(last.fill, '#ff8800');
+    assert.equal(data.links.length, 2, 'a ligação também é duplicada');
+    await page.keyboard.press('Delete');
+    data = JSON.parse(await page.evaluate(() => MO.modules.draw.serialize()));
+    assert.equal(data.nodes.length, 3);
+    assert.equal(data.links.length, 1);
   });
 
   await test('Desenho: guardar e voltar a abrir mantém o diagrama', page, async () => {
@@ -88,12 +136,14 @@ const cellText = (page, a) =>
         { type: 'script', x: 1, y: 1 },
         { type: 'ellipse', x: 'abc', y: 1 }
       ],
-      links: []
+      links: [{ from: 0, to: 2 }, { from: 0, to: 0 }]
     };
     await page.evaluate((text) => MO.modules.draw.load(text), JSON.stringify(hostile));
     const data = JSON.parse(await page.evaluate(() => MO.modules.draw.serialize()));
     assert.equal(data.nodes.length, 1, 'só o elemento válido fica');
-    assert.ok(data.nodes[0].w <= 600 && data.nodes[0].h >= 40, 'tamanhos limitados');
+    assert.ok(data.nodes[0].w <= 900 && data.nodes[0].h >= 30, 'tamanhos limitados');
+    assert.equal(data.nodes[0].fill, '#e8efe5', 'cor inválida substituída');
+    assert.equal(data.links.length, 0, 'ligações para elementos inválidos descartadas');
     assert.equal(await page.locator('.draw-canvas img').count(), 0, 'texto não é interpretado como HTML');
     await assert.rejects(page.evaluate(() => MO.modules.draw.load('{"format":"outro"}')));
   });
@@ -101,6 +151,8 @@ const cellText = (page, a) =>
   await test('Desenho: exportação SVG válida', page, async () => {
     await page.evaluate(() => MO.modules.draw.newDoc('org'));
     const svg = await page.evaluate(() => MO.modules.draw.exports[0].get());
+    const png = await page.evaluate(async () => Array.from((await MO.modules.draw.exports[1].get()).slice(0, 4)));
+    assert.deepEqual(png, [137, 80, 78, 71], 'PNG válido');
     const ok = await page.evaluate((text) => !new DOMParser().parseFromString(text, 'image/svg+xml').querySelector('parsererror'), svg);
     assert.ok(ok, 'SVG bem formado');
     assert.match(svg, /Direção/);

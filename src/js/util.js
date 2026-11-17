@@ -361,7 +361,9 @@
     minus.className = plus.className = '';
     out.addEventListener('dblclick', () => set(100));
     out.title = 'Duplo clique para repor 100%';
-    return h('div', { class: 'zoom' }, minus, range, plus, out);
+    const el = h('div', { class: 'zoom' }, minus, range, plus, out);
+    el.setZoom = set; // permite ao programa mudar o zoom (por exemplo, ajustar ao ecrã)
+    return el;
   };
 
   // Liga botões do friso a um estado (ativo/inativo). titles: { 'Início do título': chave }.

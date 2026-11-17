@@ -333,7 +333,9 @@ async function clearDrafts(id) {
   }
 }
 
-const SAVE_EXT = [...NATIVE_EXT, ...BINARY_EXT, 'html', 'txt', 'csv'];
+const SAVE_EXT = [...NATIVE_EXT, ...BINARY_EXT, 'html', 'txt', 'csv', 'svg', 'png'];
+// Formatos gravados como bytes (os restantes são texto).
+const BINARY_SAVE = [...BINARY_EXT, 'png'];
 function cleanExt(filters) {
   const ext = Array.isArray(filters) && filters[0] && Array.isArray(filters[0].extensions) ? String(filters[0].extensions[0]).toLowerCase() : '';
   return SAVE_EXT.includes(ext) ? ext : null;
@@ -470,7 +472,7 @@ function registerIpc() {
     const ext = cleanExt(opts.filters);
     if (!ext) return null;
     // O conteúdo tem de corresponder ao tipo: binário só nos formatos ZIP, texto nos restantes.
-    if (binary !== BINARY_EXT.includes(ext)) return null;
+    if (binary !== BINARY_SAVE.includes(ext)) return null;
     const filters = [{ name: String(opts.filters[0].name || ext).slice(0, 60), extensions: [ext] }];
     // Escrita direta só em documentos próprios que o utilizador já abriu ou guardou; tudo o resto passa pelo diálogo.
     const direct = typeof opts.path === 'string' && approvedPaths.has(opts.path) && NATIVE_EXT.includes(extOf(opts.path));
