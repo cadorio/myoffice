@@ -804,6 +804,18 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
       return { node, page: `${docPage.size === 'Letter' ? 'letter' : docPage.size} ${docPage.orient}`, margin: `${mv}mm ${mh}mm`, pageRule: '@bottom-right { content: counter(page) " / " counter(pages); font: 9pt Arial; color: #667085; }' };
     },
 
+    // Usado pelo Assistente: ler o texto do documento e inserir um rascunho no fim.
+    assist: {
+      text: () => (editor ? editor.innerText : ''),
+      insert(html) {
+        if (!editor) return;
+        const empty = !editor.innerText.trim();
+        const clean = MO.sanitizeHTML(html);
+        if (empty) editor.innerHTML = clean;
+        else editor.insertAdjacentHTML('beforeend', clean);
+        ctx.dirty();
+      }
+    },
     show() {
       editor.focus();
     }

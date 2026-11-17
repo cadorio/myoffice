@@ -70,3 +70,15 @@ const table = A.assist({ module: 'sheets', task: 'analyse', content: 'Mês | Ven
 assert.ok(table.includes('máximo 150 (Mar)') && table.includes('subiu 50%'));
 console.log('Testes da conversa do assistente passaram.');
 assert.ok(ask('o que ainda não faz?').startsWith('O que o MyOffice ainda não faz'));
+
+// Rascunhos, seguimento e ações
+const chatTo = (c) => A.assist({ module: 'assistant', task: 'chat', content: c });
+const draft = chatTo('Utilizador: escreve uma reclamação sobre a fatura da luz');
+assert.equal(draft.action.kind, 'draft');
+assert.ok(draft.answer.includes('Assunto: Reclamação sobre a fatura da luz'));
+assert.ok(draft.action.html.startsWith('<p>'));
+assert.ok(chatTo('Utilizador: preciso de um pedido de férias').answer.includes('Assunto: Pedido de férias'));
+assert.ok(chatTo('Utilizador: escreve um email para a equipa sobre a reunião').answer.startsWith('Email'));
+const follow = chatTo('Utilizador: soma de B2 a B10\n\nAssistente: Fórmula: =SOMA(B2:B10)\n\nUtilizador: e a média?');
+assert.deepEqual(follow.action, { kind: 'formula', label: 'Inserir na célula ativa', value: '=MÉDIA(B2:B10)' });
+console.log('Testes de rascunhos e seguimento passaram.');

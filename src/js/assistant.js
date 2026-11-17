@@ -492,10 +492,50 @@
     return null;
   }
 
+  // ---------- Rascunhos de documentos ----------
+
+  // [palavras-chave, título, parágrafos]. {tema} é substituído pelo assunto indicado no pedido.
+  const DRAFTS = [
+    [['reclamacao', 'queixa', 'reclamar'], 'Reclamação', ['[Nome]\n[Morada]\n[Código postal e localidade]', '[Entidade]\n[Morada da entidade]', '[Localidade], [data]', 'Assunto: Reclamação sobre {tema}', 'Exmos. Senhores,', 'Venho por este meio apresentar reclamação sobre {tema}. No dia [data], [descreva o que aconteceu, com factos concretos: o que foi contratado ou comprado, o que correu mal e os contactos já feitos].', 'Esta situação causou-me [prejuízo ou incómodo]. Assim, solicito [o que pretende: reparação, substituição, reembolso ou resposta] no prazo de [15] dias úteis.', 'Junto em anexo [fatura, fotografias ou outros documentos].', 'Com os melhores cumprimentos,', '[Nome]']],
+    [['ferias', 'pedido', 'requerimento', 'solicitar', 'declaracao'], 'Pedido', ['[Nome]\n[Função ou número]', 'Exmo(a). Senhor(a) [Nome e cargo],', 'Assunto: Pedido de {tema}', 'Venho por este meio solicitar {tema}, [indique datas, quantidades ou outros pormenores].', '[Explique brevemente o motivo, se for útil.]', 'Fico disponível para qualquer esclarecimento.', 'Com os melhores cumprimentos,', '[Nome]', '[Localidade], [data]']],
+    [['ata', 'reuniao'], 'Ata de reunião', ['Ata: {tema}', 'Data: [data] · Hora: [início]–[fim] · Local: [local ou videochamada]', 'Presentes: [nomes]\nAusentes: [nomes]', 'Ordem de trabalhos:\n1. [Ponto 1]\n2. [Ponto 2]\n3. Outros assuntos', 'Resumo da discussão:\n[Pontos principais de cada tema, em frases curtas.]', 'Decisões:\n• [Decisão] — responsável: [nome], prazo: [data]', 'Próxima reunião: [data e hora]']],
+    [['convite', 'convidar', 'evento', 'festa'], 'Convite', ['Convite: {tema}', 'Temos o prazer de o(a) convidar para {tema}, que terá lugar no dia [data], às [hora], em [local].', '[Uma ou duas frases sobre o programa ou o motivo do evento.]', 'Agradecemos a confirmação da presença até [data], através de [contacto].', 'Contamos consigo!', '[Nome ou organização]']],
+    [['agradecimento', 'agradecer', 'obrigado'], 'Agradecimento', ['Caro(a) [Nome],', 'Quero agradecer-lhe {tema}. [Diga concretamente o que fez a diferença e porquê.]', '[Uma frase sobre o impacto ou sobre o futuro.]', 'Muito obrigado(a),', '[Nome]']],
+    [['email', 'mail', 'mensagem'], 'Email', ['Assunto: {tema}', 'Olá [Nome],', '[Primeira frase: o motivo do email, sobre {tema}.]', '[Pormenores necessários, em dois ou três pontos curtos.]', '[O que precisa da outra pessoa e até quando.]', 'Obrigado(a),\n[Nome]']],
+    [['carta', 'oficio'], 'Carta formal', ['[Nome]\n[Morada]', '[Destinatário]\n[Morada]', '[Localidade], [data]', 'Assunto: {tema}', 'Exmo(a). Senhor(a),', '[Primeiro parágrafo: o motivo da carta, sobre {tema}.]', '[Segundo parágrafo: os pormenores e os factos relevantes.]', '[Último parágrafo: o que pede ou propõe e como pode ser contactado(a).]', 'Com os melhores cumprimentos,', '[Nome]']],
+    [['relatorio', 'informe'], 'Relatório', ['Relatório: {tema}', 'Resumo\n[A conclusão principal em duas ou três frases.]', 'Contexto\n[Porque foi feito este relatório e que período ou área cobre.]', 'Resultados\n[Dados principais, com números e comparação com o objetivo.]', 'Análise\n[O que explica os resultados.]', 'Recomendações\n[Ações propostas, com responsável e prazo.]']]
+  ].map(([keys, title, paragraphs]) => ({ keys, title, paragraphs }));
+
+  function draftFor(question) {
+    const q = plain(question);
+    if (!/\b(escreve|escrever|redige|redigir|rascunho|modelo|minuta|ajuda-me a escrever|preciso de uma?|faz(?:-me)? uma?|cria(?:-me)? uma?)\b/.test(q)) return null;
+    // O tipo de documento é a palavra-chave que aparece primeiro ("email sobre a reunião" é um email).
+    let draft = null;
+    let at = Infinity;
+    for (const d of DRAFTS) for (const k of d.keys) { const i = q.indexOf(k); if (i >= 0 && i < at) { at = i; draft = d; } }
+    if (!draft) return null;
+    // Assunto: o que vem depois de "sobre"; senão, o que vem depois do tipo de documento.
+    const about = question.match(/\b(?:sobre|acerca de|a pedir)\s+(.+)$/i);
+    const after = plain(question).slice(at).replace(/^\S+/, '');
+    const rest = about ? about[1] : question.slice(question.length - after.length).replace(/^\s*(?:de|da|do|para|ao|à|a|com)\s+/i, '').replace(/^(?:um|uma|o|a|os|as)\s+/i, '');
+    const topic = stripEnd(rest.replace(/[?!…]+$/, '')).slice(0, 120) || '[assunto]';
+    const filled = draft.paragraphs.map((p) => p.replace(/\{tema\}/g, topic));
+    const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const html = filled.map((p, i) => (i === 0 && /^(Relatório|Ata|Convite):/.test(p) ? `<h1>${esc(p)}</h1>` : `<p>${esc(p).replace(/\n/g, '<br>')}</p>`)).join('');
+    return { answer: `${draft.title} — rascunho pronto a completar (substitua o que está entre [ ]):\n\n${filled.join('\n\n')}`, action: { kind: 'draft', label: 'Inserir no Texto', html } };
+  }
+
   function chat(content, searchDocs) {
     const messages = [...String(content || '').matchAll(/(?:^|\n\n)Utilizador:\s*([\s\S]*?)(?=\n\n(?:Assistente|Utilizador):|$)/g)];
-    const question = (messages.length ? messages[messages.length - 1][1] : content).trim();
+    let question = (messages.length ? messages[messages.length - 1][1] : content).trim();
+    // Pergunta de seguimento ("e a média?"): reaproveita o intervalo da pergunta anterior.
+    const previous = messages.length > 1 ? messages[messages.length - 2][1].trim() : '';
+    if (previous && words(question).length <= 5 && /^(e|agora|e se|e o|e a)\b/i.test(question) && !rangeIn(question) && rangeIn(previous)) {
+      question = `${question} de ${rangeIn(previous)}`;
+    }
     const query = plain(question);
+    const draft = draftFor(question);
+    if (draft) return draft;
     if (/^(ola|bom dia|boa tarde|boa noite|oi|obrigad[oa])\b/.test(query) && words(query).length <= 4) {
       return { answer: /obrigad/.test(query) ? 'De nada! Se precisar de mais alguma coisa, é só perguntar.' : 'Olá! Pergunte-me como fazer algo no MyOffice, peça uma fórmula (por exemplo "soma de B2 a B10") ou a estrutura de uma apresentação.' };
     }
@@ -503,7 +543,7 @@
       const built = buildFormula(question);
       if (built) {
         const where = rangeIn(question) ? '' : ' Substitua o intervalo pelo das suas células.';
-        return { answer: `Fórmula: ${built.formula}\n\nO que faz: ${built.explain}${where}\n\nEscreva-a numa célula de Folhas e carregue em Enter. Os nomes em inglês (SUM, AVERAGE…) também funcionam.` };
+        return { answer: `Fórmula: ${built.formula}\n\nO que faz: ${built.explain}${where}\n\nPode inseri-la na célula ativa das Folhas com o botão abaixo. Os nomes em inglês (SUM, AVERAGE…) também funcionam.`, action: { kind: 'formula', label: 'Inserir na célula ativa', value: built.formula } };
       }
     }
     if (/\b(apresentacao|diapositivos|slides)\b/.test(query)) {
