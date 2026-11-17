@@ -3,26 +3,31 @@
 ; Cada programa tem um atalho no menu Iniciar com o mesmo identificador (AppUserModelID) que a
 ; sua janela, para que fixar na barra de tarefas e as listas de atalhos funcionem por programa.
 
-!macro moShortcut NAME ARG AUMI DESC
-  CreateShortCut "$SMPROGRAMS\MyOffice\${NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "${ARG}" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" 0 SW_SHOWNORMAL "" "${DESC}"
+; Cada programa tem o seu ícone (resources\icons\<id>.ico), no menu Iniciar e no ambiente de trabalho.
+!macro moShortcut NAME ARG AUMI DESC ICON
+  CreateShortCut "$SMPROGRAMS\MyOffice\${NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "${ARG}" "$INSTDIR\resources\icons\${ICON}.ico" 0 SW_SHOWNORMAL "" "${DESC}"
   WinShell::SetLnkAUMI "$SMPROGRAMS\MyOffice\${NAME}.lnk" "${AUMI}"
+  CreateShortCut "$DESKTOP\${NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "${ARG}" "$INSTDIR\resources\icons\${ICON}.ico" 0 SW_SHOWNORMAL "" "${DESC}"
+  WinShell::SetLnkAUMI "$DESKTOP\${NAME}.lnk" "${AUMI}"
 !macroend
 
 !macro moRemoveShortcut NAME AUMI
   WinShell::UninstShortcut "$SMPROGRAMS\MyOffice\${NAME}.lnk"
   Delete "$SMPROGRAMS\MyOffice\${NAME}.lnk"
+  WinShell::UninstShortcut "$DESKTOP\${NAME}.lnk"
+  Delete "$DESKTOP\${NAME}.lnk"
   WinShell::UninstAppUserModelId "${AUMI}"
 !macroend
 
 !macro customInstall
   CreateDirectory "$SMPROGRAMS\MyOffice"
-  !insertmacro moShortcut "MyOffice Texto" "--writer" "pt.myoffice.writer" "Escrever documentos, cartas e relatórios"
-  !insertmacro moShortcut "MyOffice Folhas" "--sheets" "pt.myoffice.sheets" "Folhas de cálculo, fórmulas e gráficos"
-  !insertmacro moShortcut "MyOffice Diapositivos" "--slides" "pt.myoffice.slides" "Criar e apresentar diapositivos"
-  !insertmacro moShortcut "MyOffice Desenho" "--draw" "pt.myoffice.draw" "Fluxogramas, mapas mentais e organogramas"
-  !insertmacro moShortcut "MyOffice PDF" "--pdf" "pt.myoffice.pdf" "Ler, anotar, assinar e organizar PDF"
-  !insertmacro moShortcut "MyOffice Bases de dados" "--db" "pt.myoffice.db" "Tabelas, formulários, consultas e relatórios"
-  !insertmacro moShortcut "MyOffice Assistente" "--assistant" "pt.myoffice.assistant" "Ajuda, fórmulas e rascunhos sem Internet"
+  !insertmacro moShortcut "MyOffice Texto" "--writer" "pt.myoffice.writer" "Escrever documentos, cartas e relatórios" "writer"
+  !insertmacro moShortcut "MyOffice Folhas" "--sheets" "pt.myoffice.sheets" "Folhas de cálculo, fórmulas e gráficos" "sheets"
+  !insertmacro moShortcut "MyOffice Diapositivos" "--slides" "pt.myoffice.slides" "Criar e apresentar diapositivos" "slides"
+  !insertmacro moShortcut "MyOffice Desenho" "--draw" "pt.myoffice.draw" "Fluxogramas, mapas mentais e organogramas" "draw"
+  !insertmacro moShortcut "MyOffice PDF" "--pdf" "pt.myoffice.pdf" "Ler, anotar, assinar e organizar PDF" "pdf"
+  !insertmacro moShortcut "MyOffice Bases de dados" "--db" "pt.myoffice.db" "Tabelas, formulários, consultas e relatórios" "db"
+  !insertmacro moShortcut "MyOffice Assistente" "--assistant" "pt.myoffice.assistant" "Ajuda, fórmulas e rascunhos sem Internet" "assistant"
 !macroend
 
 !macro customUnInstall
@@ -35,6 +40,9 @@
   !insertmacro moRemoveShortcut "MyOffice Bases de dados" "pt.myoffice.db"
   !insertmacro moRemoveShortcut "MyOffice Assistente" "pt.myoffice.assistant"
   WinShell::UninstAppUserModelId "pt.myoffice.home"
+  ; Atalhos gerais "MyOffice" de versões anteriores (havia um menu inicial).
+  Delete "$DESKTOP\MyOffice.lnk"
+  Delete "$SMPROGRAMS\MyOffice.lnk"
   RMDir "$SMPROGRAMS\MyOffice"
 
   ; Pré-visualizações de impressão que possam ter ficado na pasta temporária.
