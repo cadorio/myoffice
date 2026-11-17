@@ -2,12 +2,12 @@
 
 **Uma suite de escritório para Windows, simples, privada e leve.**
 
-O MyOffice reúne quatro áreas numa única aplicação: **Texto**, **Folhas**, **Diapositivos** e o **Assistente IA**, que ajuda a utilizar os programas e a criar conteúdos. Foi desenvolvido com Electron e é distribuído para computadores Windows de 64 bits, com Windows 10 versão 22H2 ou Windows 11. Os documentos são processados localmente e a aplicação foi concebida para funcionar sem ligação à Internet.
+O MyOffice reúne cinco áreas numa única aplicação: **Texto**, **Folhas**, **Diapositivos**, **Desenho** e o **Assistente IA**. A nova aplicação Desenho cria fluxogramas, mapas mentais e organogramas vetoriais. Foi desenvolvido com Electron e é distribuído para computadores Windows de 64 bits, com Windows 10 versão 22H2 ou Windows 11. Os documentos são processados localmente e a aplicação foi concebida para funcionar sem ligação à Internet.
 
 [Descarregar instalador Windows](https://github.com/cadorio/myoffice/releases/download/v1.4.0-independent.2/MyOffice-Setup-1.4.0.exe) · [Consultar compilações](https://github.com/cadorio/myoffice/actions) · [Ver código-fonte](https://github.com/cadorio/myoffice) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
-> **Versão 1.4.0 — MyOffice Horizon**  
-> A versão base está na branch `main`. Está disponível a pré-versão Windows x64 `v1.4.0-independent.2`, construída a partir da branch `codex/independent-local-ai`, com as melhorias mais recentes de IA e dos editores.
+> **Código fonte atual — MyOffice**
+> A branch `main` inclui o novo editor Desenho e as sugestões de design para diapositivos. O instalador disponível `v1.4.0-independent.2` é uma versão anterior e ainda não inclui estas alterações.
 
 ## Capturas de ecrã
 
@@ -33,6 +33,10 @@ As capturas mostram a interface atual do MyOffice, com a nova identidade visual 
 
 ![Editor de apresentações MyOffice](docs/screenshots/diapositivos.png)
 
+### MyOffice Desenho
+
+![Editor de diagramas vetoriais MyOffice](docs/screenshots/desenho.png)
+
 ### Assistente IA independente
 
 ![Assistente IA do MyOffice](docs/screenshots/assistente-ia.png)
@@ -50,6 +54,8 @@ O Assistente IA tem uma área própria, com conversa e atalhos para obter ajuda 
 | Criar e editar documentos, formatar texto, listas, tabelas, ligações e imagens. | Trabalhar com células, fórmulas, formatos numéricos, ordenação e copiar/colar. | Criar apresentações com temas, esquemas, texto, imagens, formas e notas do orador. |
 | `.modoc` · DOCX · HTML · TXT | `.mosheet` · XLSX · CSV | `.moslides` · PPTX |
 
+**MyOffice Desenho** cria fluxogramas, mapas mentais e organogramas editáveis. Guarda os projetos em `.modraw` e exporta desenhos vetoriais em SVG ou para impressão/PDF.
+
 ### Funcionalidades principais
 
 - **Novo espaço de trabalho MyOffice** — identidade visual própria, navegação lateral, acesso direto às ferramentas, modelos editáveis e pesquisa de ficheiros recentes.
@@ -57,12 +63,13 @@ O Assistente IA tem uma área própria, com conversa e atalhos para obter ajuda 
 - **Gráficos em Folhas** — pré-visualização de gráficos de colunas e linhas a partir de dados selecionados, com exportação SVG.
 - **Análise estatística em Folhas** — fórmulas para mediana, moda, desvio padrão e variância, além de soma, média e contagem.
 - **Edição mais rápida de apresentações** — duplicar elementos com Ctrl+D e ajustar a posição com as setas; Shift+setas move em passos maiores.
-- **Sugestões visuais em Diapositivos** — cria ilustrações locais de gráficos, processos, equipas, objetivos e ideias; ao inserir, organiza o texto em colunas e inclui a imagem na exportação PowerPoint.
+- **Ideias de design em Diapositivos** — pré-visualiza composições de título, colunas e cartões com o conteúdo e o tema atuais; aplica a proposta com anulação disponível. As imagens e formas existentes são preservadas.
+- **MyOffice Desenho** — cria fluxogramas, mapas mentais e organogramas; acrescenta caixas, círculos, decisões e ligações, edita texto e cores e exporta em SVG.
 - **Imagens compatíveis com Office** — imagens WebP escolhidas em Texto ou Diapositivos são convertidas localmente para PNG para poderem ser exportadas em DOCX e PPTX.
 - **Acompanhamento da leitura em Texto** — contagem de palavras e caracteres na seleção e estimativa do tempo de leitura; revisão ortográfica em português quando suportada pelo sistema.
-- **Assistente MyOffice independente** — aplicação própria para responder a pedidos conhecidos sobre os três programas, analisar texto e tabelas, ajudar com fórmulas e estruturar apresentações. Usa regras e cálculos incluídos no projeto, sem modelos ou serviços externos.
+- **Assistente MyOffice independente** — aplicação própria para responder a pedidos conhecidos sobre os módulos, analisar texto e tabelas, ajudar com fórmulas e estruturar apresentações. Usa regras e cálculos incluídos no projeto, sem modelos ou serviços externos.
 - **Filtros rápidos em Folhas** — mostrar apenas as linhas que correspondem a um texto na coluna ativa; a ordenação ascendente e descendente também está disponível.
-- **Três módulos integrados** — alternar entre documentos, folhas de cálculo e apresentações.
+- **Quatro módulos integrados** — alternar entre documentos, folhas de cálculo, apresentações e desenhos.
 - **Abertura de ficheiros Office** — importar DOCX, XLSX e PPTX e exportar para esses formatos.
 - **Abertura direta** — abrir ficheiros DOCX e PPTX com o MyOffice através do sistema operativo; no Windows, existem também atalhos para iniciar diretamente Texto, Folhas ou Diapositivos.
 - **Temas e personalização** — 13 temas partilhados, variantes de cor para apresentações e modo claro/escuro.
@@ -89,11 +96,11 @@ O MyOffice é distribuído oficialmente para computadores Windows de 64 bits. O 
 
 **[Descarregar MyOffice 1.4.0 para Windows x64](https://github.com/cadorio/myoffice/releases/download/v1.4.0-independent.2/MyOffice-Setup-1.4.0.exe)**
 
-Esta pré-versão foi compilada a partir da branch `codex/independent-local-ai`. O instalador oficial da branch `main` será publicado separadamente após validação.
+Este instalador corresponde à versão publicada `v1.4.0-independent.2`. Para obter as novas funcionalidades descritas acima, é necessário compilar a versão atual do código fonte.
 
 > **Aviso de assinatura:** os instaladores atuais não estão assinados digitalmente. O Windows SmartScreen pode apresentar avisos na primeira execução. A assinatura requer certificados próprios, configurados como segredos no GitHub Actions.
 
-Depois da instalação, os formatos nativos `.modoc`, `.mosheet` e `.moslides` podem ser associados ao MyOffice. A configuração do instalador também regista DOCX e PPTX como formatos que podem ser abertos com a aplicação.
+Depois da instalação, os formatos nativos `.modoc`, `.mosheet` e `.moslides` podem ser associados ao MyOffice. As versões futuras acrescentarão também a associação do novo formato `.modraw`.
 
 ### Requisitos mínimos e desempenho
 
@@ -184,7 +191,7 @@ O MyOffice ainda não oferece todas as funcionalidades das suites comerciais. En
 
 ## Estado da versão Horizon
 
-A versão **1.4.0 — MyOffice Horizon** foi integrada na branch `main` através da PR [#11](https://github.com/cadorio/myoffice/pull/11). A pré-versão `v1.4.0-independent.2` acrescenta as alterações mais recentes da branch `codex/independent-local-ai`; o instalador está disponível em [Releases](https://github.com/cadorio/myoffice/releases/tag/v1.4.0-independent.2). A versão estável da branch `main` será publicada separadamente após validação.
+A versão publicada **1.4.0 — MyOffice Horizon** está disponível em [Releases](https://github.com/cadorio/myoffice/releases/tag/v1.4.0-independent.2). A branch `main` já inclui alterações posteriores, incluindo MyOffice Desenho e as novas ideias de design para diapositivos; essas alterações ainda requerem um novo instalador.
 
 ## Desenvolvimento
 

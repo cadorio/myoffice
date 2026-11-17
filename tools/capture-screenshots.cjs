@@ -78,6 +78,7 @@ const { pathToFileURL } = require('node:url');
     throw new Error('O assistente IA de Folhas não está disponível na faixa.');
   }
   await capture('slides', 'diapositivos.png');
+  await capture('draw', 'desenho.png');
   await capture('assistant', 'assistente-ia.png');
   if (!(await page.locator('#view-assistant textarea[aria-label="Mensagem para o Assistente"]').count())) {
     throw new Error('A aplicação Assistente IA não foi inicializada.');

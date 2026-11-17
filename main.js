@@ -8,7 +8,7 @@ const path = require('path');
 const fs = require('fs/promises');
 const fsSync = require('fs');
 
-const NATIVE_EXT = ['modoc', 'mosheet', 'moslides'];
+const NATIVE_EXT = ['modoc', 'mosheet', 'moslides', 'modraw'];
 // Formatos do Word, Excel e PowerPoint: são binários (ZIP) e convertidos na interface.
 const BINARY_EXT = ['docx', 'xlsx', 'pptx'];
 const OPEN_EXT = [...NATIVE_EXT, ...BINARY_EXT, 'html', 'htm', 'txt', 'csv'];
@@ -30,7 +30,7 @@ const recentFile = () => path.join(app.getPath('userData'), 'recent.json');
 
 function viewFromArgv(argv) {
   const args = new Set(argv);
-  for (const id of ['writer', 'sheets', 'slides']) {
+  for (const id of ['writer', 'sheets', 'slides', 'draw']) {
     if (args.has('--' + id)) return id;
   }
   return null;
@@ -105,7 +105,7 @@ async function openInRenderer(p) {
 }
 
 function openViewInRenderer(view) {
-  if (!['writer', 'sheets', 'slides'].includes(view)) return;
+  if (!['writer', 'sheets', 'slides', 'draw'].includes(view)) return;
   if (!win || !rendererReady) {
     pendingView = view;
     return;
@@ -251,7 +251,7 @@ function fromOurWindow(event) {
 
 // ---------- Recuperação automática ----------
 // A interface envia de 30 em 30 segundos uma cópia dos documentos com alterações por guardar.
-const DRAFT_MODULES = ['writer', 'sheets', 'slides'];
+const DRAFT_MODULES = ['writer', 'sheets', 'slides', 'draw'];
 const draftFile = (id) => path.join(app.getPath('userData'), 'drafts', id + '.json');
 
 async function saveDraft(draft) {

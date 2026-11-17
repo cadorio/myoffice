@@ -2,7 +2,7 @@
   "name": "myoffice",
   "version": "1.4.0",
   "private": true,
-  "description": "Suite de escritório leve para Windows com assistente inteligente próprio: texto, folhas de cálculo e apresentações.",
+  "description": "Suite de escritório local com texto, folhas de cálculo, apresentações, desenho vetorial e assistente independente.",
   "main": "main.js",
   "author": {
     "name": "cadorio",
@@ -54,6 +54,12 @@
         "ext": "moslides",
         "name": "Apresentação MyOffice",
         "description": "Apresentação MyOffice",
+        "role": "Editor"
+      },
+      {
+        "ext": "modraw",
+        "name": "Desenho MyOffice",
+        "description": "Diagrama vetorial MyOffice",
         "role": "Editor"
       },
       {

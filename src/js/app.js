@@ -8,10 +8,10 @@
   // funciona num browser com transferências e o seletor de ficheiros normal.
   const api = window.api || null;
 
-  const ORDER = ['writer', 'sheets', 'slides'];
-  const EXT_MODULE = { modoc: 'writer', html: 'writer', htm: 'writer', txt: 'writer', mosheet: 'sheets', csv: 'sheets', moslides: 'slides', docx: 'writer', xlsx: 'sheets', pptx: 'slides' };
+  const ORDER = ['writer', 'sheets', 'slides', 'draw'];
+  const EXT_MODULE = { modoc: 'writer', html: 'writer', htm: 'writer', txt: 'writer', mosheet: 'sheets', csv: 'sheets', moslides: 'slides', modraw: 'draw', docx: 'writer', xlsx: 'sheets', pptx: 'slides' };
   const BINARY_EXT = ['docx', 'xlsx', 'pptx'];
-  const APP_ICON = { writer: 'icon-text.svg', sheets: 'icon-sheets.svg', slides: 'icon-slides.svg', assistant: 'icon-assistant.svg' };
+  const APP_ICON = { writer: 'icon-text.svg', sheets: 'icon-sheets.svg', slides: 'icon-slides.svg', draw: 'icon-draw.svg', assistant: 'icon-assistant.svg' };
   const docs = {};
   let current = 'home';
 
@@ -476,7 +476,7 @@
       api.onMenu(run);
       api.onOpenFile(loadFile);
       api.onOpenView((view) => {
-        if (view === 'writer' || view === 'sheets' || view === 'slides') show(view);
+        if (ORDER.includes(view)) show(view);
       });
       api.ready();
       initLicense();
@@ -494,7 +494,8 @@
       });
     }
 
-    show('home');
+    const requestedView = new URLSearchParams(location.search).get('view');
+    show(ORDER.includes(requestedView) || requestedView === 'assistant' ? requestedView : 'home');
   }
 
   init();

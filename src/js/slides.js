@@ -632,6 +632,98 @@
       h('button', { type: 'button', class: 'btn primary', onclick: () => applySuggestion(target, sug) }, 'Aplicar')
     );
 
+  function designSlide(target, kind, input) {
+    const original = slideParts(target);
+    const originalTitleId = original.title && original.title.id;
+    const title = input.title || 'Título do diapositivo';
+    const bullets = input.bullets || [];
+    const hasArtwork = target.els.some((el) => el.type !== 'text');
+    const out = { ...target, els: [] };
+    const titleColor = original.title && original.title.color || theme.title;
+    const bodyColor = original.body && original.body.color || theme.text;
+    const addText = (x, y, w, hh, text, extra = {}) => out.els.push(textEl(x, y, w, hh, MO.escapeHTML(text), { color: bodyColor, ...extra }));
+    const addHTML = (x, y, w, hh, html, extra = {}) => out.els.push(textEl(x, y, w, hh, html, { color: bodyColor, ...extra }));
+    const addShape = (x, y, w, hh, fill) => out.els.push({ id: uid(), type: 'rect', x, y, w, h: hh, fill });
+
+    if (hasArtwork || kind === 'balanced') {
+      // Complex slides keep every illustration and shape. Adjust only type scale and title contrast.
+      out.els = target.els.map((el) => ({ ...el }));
+      for (const el of out.els) if (el.type === 'text') {
+        if (el.id === originalTitleId || el.role === 'title') { el.fs = Math.min(46, Math.max(34, el.fs)); el.bold = true; el.color = titleColor; }
+        else el.fs = Math.min(28, Math.max(20, el.fs));
+      }
+      out.accent = target.accent || theme.accent;
+      return out;
+    }
+
+    if (kind === 'split') {
+      addText(60, 40, 840, 80, title, { fs: 40, bold: true, role: 'title', color: titleColor });
+      const middle = Math.ceil(bullets.length / 2);
+      const left = bullets.slice(0, middle); const right = bullets.slice(middle);
+      addHTML(60, 150, 400, 340, left.length ? bulletsHTML(left) : '', { fs: bullets.length > 5 ? 22 : 26, role: 'body' });
+      addHTML(500, 150, 400, 340, right.length ? bulletsHTML(right) : '', { fs: bullets.length > 5 ? 22 : 26, role: 'body' });
+      out.deco = 'barra';
+    } else if (kind === 'cards') {
+      addText(60, 40, 840, 80, title, { fs: 40, bold: true, role: 'title', color: titleColor });
+      const items = bullets;
+      items.slice(0, 8).forEach((text, i) => {
+        const x = i % 2 ? 500 : 60; const y = 150 + Math.floor(i / 2) * 86;
+        addShape(x, y, 400, 72, i % 2 ? '#edf2eb' : '#f4f0e6');
+        addText(x + 18, y + 10, 364, 52, text, { fs: 22, bold: true });
+      });
+      out.deco = 'linha';
+    } else {
+      addShape(58, 56, 12, 430, target.accent || theme.accent);
+      addText(100, 64, 790, 98, title, { fs: 44, bold: true, role: 'title', color: titleColor });
+      addHTML(100, 190, 790, 290, bullets.length ? bulletsHTML(bullets) : '', { fs: 28, role: 'body' });
+      out.deco = 'barra';
+    }
+    out.accent = target.accent || theme.accent;
+    out.bg = target.bg || theme.bg;
+    out.font = target.font || theme.font;
+    out.headFont = target.headFont || theme.headFont;
+    return out;
+  }
+
+  function applyDesign(target, proposed) {
+    if (!slides.includes(target)) return MO.toast('Esse diapositivo já não existe.');
+    commitTextEdit();
+    change(() => {
+      idx = slides.indexOf(target);
+      const notes = target.notes;
+      target.els = copySlides([{ ...proposed, notes, els: proposed.els }])[0].els;
+      target.bg = proposed.bg; target.accent = proposed.accent; target.font = proposed.font;
+      target.headFont = proposed.headFont; target.deco = proposed.deco;
+      selId = null;
+    });
+    root.focus({ preventScroll: true });
+    MO.toast('Ideia de design aplicada. Pode anular com Ctrl+Z.');
+  }
+
+  function designCard(target, proposal) {
+    const preview = h('div', { class: 'ai-layout-preview', 'aria-label': `Pré-visualização: ${proposal.label}` }, renderSlide(proposal.slide, false));
+    return h('article', { class: 'ai-card ai-layout-card' },
+      h('div', { class: 'ai-label' }, proposal.label), preview,
+      h('p', { class: 'ai-reason' }, proposal.reason),
+      h('button', { type: 'button', class: 'btn primary', onclick: () => applyDesign(target, proposal.slide) }, 'Aplicar este design')
+    );
+  }
+
+  function designIdeas(target, input) {
+    if (!input.title && !input.bullets.length) return { error: 'Adicione texto ao diapositivo para receber ideias de design.' };
+    const complex = target.els.some((el) => el.type !== 'text');
+    const specs = complex
+      ? [['balanced', 'Melhorar a hierarquia', 'Ajusta o tamanho e o destaque do texto e mantém as imagens e formas.']]
+      : [
+          ['editorial', 'Título em destaque', 'Organiza o título e os tópicos numa composição clara com destaque lateral.'],
+          ...(input.bullets.length >= 2 && input.bullets.length <= 8 ? [
+            ['split', 'Duas colunas', 'Distribui os tópicos em duas colunas para facilitar a leitura.'],
+            ['cards', 'Cartões organizados', 'Apresenta cada tópico num cartão, usando apenas o conteúdo do diapositivo.']
+          ] : [])
+        ];
+    return { proposals: specs.map(([kind, label, reason]) => ({ label, reason, slide: designSlide(target, kind, input) })) };
+  }
+
   function makeVisualPNG(kind) {
     const canvas = h('canvas');
     canvas.width = 960;
@@ -778,14 +870,15 @@
     };
     const out = MO.Assistant.suggest(input);
     if (out.error) return MO.toast(out.error);
-    const visualIdeas = MO.Assistant.suggestVisuals(input);
+    const designs = designIdeas(target, input);
     const n = slides.indexOf(target) + 1;
     const cards = [
       h('p', { class: 'ai-hint' }, `Diapositivo ${n}. O motor próprio usa regras de escrita; reveja as sugestões antes de aplicar.`),
       out.tips.length ? h('article', { class: 'ai-card ai-tips' }, h('div', { class: 'ai-label' }, 'Dicas'), h('ul', null, out.tips.map((t) => h('li', null, t)))) : null,
       out.suggestions.length ? out.suggestions.map((sug) => suggestionCard(target, sug)) : h('p', { class: 'ai-ok' }, 'As regras de escrita não têm alterações a propor para este diapositivo.'),
-      h('h3', { class: 'ai-visual-heading' }, 'Sugestões de imagem'),
-      visualIdeas.error ? h('p', { class: 'ai-hint' }, visualIdeas.error) : visualIdeas.visuals.map((visual) => visualSuggestionCard(target, visual))
+      h('h3', { class: 'ai-visual-heading' }, 'Ideias de design'),
+      designs.error ? h('p', { class: 'ai-hint' }, designs.error) : designs.proposals.map((proposal) => designCard(target, proposal)),
+      h('details', { class: 'ai-more-visuals' }, h('summary', null, 'Ilustrações para inserir'), MO.Assistant.suggestVisuals(input).visuals.map((visual) => visualSuggestionCard(target, visual)))
     ];
     showAI(cards);
   }
