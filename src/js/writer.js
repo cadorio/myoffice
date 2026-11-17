@@ -173,6 +173,19 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
     }
   }
 
+  // Gráfico: escolher o tipo e escrever ou colar os dados; entra no documento como imagem.
+  async function insertChart() {
+    rememberSelection();
+    const spec = await MO.Charts.dialog({ title: 'Inserir gráfico', okLabel: 'Inserir', editableData: true, spec: { type: 'column', title: 'Vendas por trimestre', categories: ['T1', 'T2', 'T3', 'T4'], series: [{ name: '2025', values: [120, 150, 170, 160] }, { name: '2026', values: [140, 165, 190, 210] }] } });
+    if (!spec) return;
+    try {
+      const png = await MO.Charts.toPng(MO.Charts.render(spec, { width: 640, height: 380 }));
+      insertHTML(`<img src="${png}" alt="${MO.escapeHTML(spec.title || 'Gráfico')}" style="width: 640px">`);
+    } catch {
+      MO.toast('Não foi possível criar o gráfico.');
+    }
+  }
+
   async function insertTable() {
     rememberSelection();
     const res = await MO.dialog({
@@ -323,7 +336,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
           label: 'Inserir',
           groups: [
             { label: 'Tabelas', rows: [[bigButton('table', 'Tabela', 'Inserir tabela', insertTable)]] },
-            { label: 'Ilustrações', rows: [[bigButton('image', 'Imagem', 'Inserir imagem', insertImage)]] },
+            { label: 'Ilustrações', rows: [[bigButton('image', 'Imagem', 'Inserir imagem', insertImage)], [bigButton('chart', 'Gráfico', 'Inserir um gráfico (colunas, barras, linhas, circular…)', insertChart)]] },
             { label: 'Ligações', rows: [[bigButton('link', 'Ligação', 'Inserir ligação', insertLink)]] },
             {
               label: 'Referências',

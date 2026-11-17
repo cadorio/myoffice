@@ -56,6 +56,7 @@ O ecrã inicial tem seis **modelos prontos a usar** (relatório, ata de reunião
 - Cabeçalhos e rodapés com número da página e total de páginas, também no PDF e no DOCX.
 - Localizar e substituir, quebras de página e contagem de palavras com tempo de leitura.
 - Revisão ortográfica em português, quando o Windows a disponibiliza.
+- **Gráficos** (Inserir › Gráfico): escolha o tipo e escreva ou cole os dados.
 - **Rever**: comentários, controlo de alterações (aceitar ou rejeitar), notas de rodapé e índice automático.
 - **Configurar página**: tamanho (A4, Carta, A5), orientação e margens.
 
@@ -65,7 +66,7 @@ O ecrã inicial tem seis **modelos prontos a usar** (relatório, ata de reunião
 
 - Até 100 000 linhas × 256 colunas por folha e até 100 folhas por livro, com separadores que se podem renomear.
 - Mais de 30 funções, em português e em inglês (ver [Fórmulas](#fórmulas)).
-- **Gráficos** de colunas e de linhas: selecione as categorias e os valores, abra **Dados › Gráfico** e guarde-o no livro. Os gráficos acompanham o ficheiro (também em XLSX) e podem ser exportados em SVG. Abrem na janela de gráficos; não ficam desenhados por cima das células.
+- **Gráficos** de 8 tipos (colunas, colunas empilhadas, barras, linhas, área, circular, anel e dispersão), com várias séries, título, legenda, valores e paletas de cores. Selecione a tabela, abra **Dados › Gráfico** e o gráfico fica **sobre a folha**: arraste para mover, mude o tamanho pelo canto e faça duplo clique para editar. Acompanha as alterações aos dados e vai para o Excel como gráfico nativo.
 - **Resumo dinâmico**: agrupa categorias e calcula soma, contagem e média com fórmulas que se atualizam com os dados. É uma alternativa às tabelas dinâmicas do Excel, não uma tabela dinâmica compatível.
 - Bordas, unir e centrar células, fixar linhas e colunas, larguras de coluna (arrastar ou duplo clique para ajustar).
 - **Preenchimento automático**: arraste o canto da célula para continuar números, meses, dias da semana e fórmulas.
@@ -80,7 +81,7 @@ O ecrã inicial tem seis **modelos prontos a usar** (relatório, ata de reunião
 - **Ideias de design**: propostas de composição com o conteúdo atual, que se aplicam com um clique e se podem anular.
 - Transições (desvanecer, deslizar, revelar) e efeitos simples de entrada por elemento, também em PPTX.
 - Notas do orador, modo de apresentação em ecrã inteiro e **vista do apresentador** (diapositivo seguinte, notas e cronómetro; tecla P).
-- **Tabelas**, organizador de diapositivos com arrastar e largar, e alinhar, distribuir e agrupar vários objetos (Shift+clique).
+- **Gráficos** (Inserir › Gráfico) e **tabelas**, organizador de diapositivos com arrastar e largar, e alinhar, distribuir e agrupar vários objetos (Shift+clique).
 - Atalhos: Ctrl+D duplica um elemento, as setas movem-no e Shift+setas move-o em passos maiores.
 
 ### PDF
@@ -145,7 +146,7 @@ A conversão cobre o conteúdo e a formatação mais comuns, mas **não substitu
 | Formato | É convertido | Perde-se |
 | --- | --- | --- |
 | **DOCX** | Títulos, parágrafos e alinhamento, formatação de caracteres, listas, tabelas com células unidas, ligações, imagens, quebras de página, cabeçalho, rodapé, campos de página, **comentários, notas de rodapé, alterações controladas e configuração da página** (nos dois sentidos) | Colunas, caixas de texto, formas; cabeçalhos e rodapés complexos; a formatação dos comentários e das notas (fica só o texto) |
-| **XLSX** | Até 100 folhas: valores, fórmulas (incluindo **referências a outras folhas**, como `Dados!A1`), estilos básicos, alinhamento, formatos de número e moeda, gráficos simples de colunas e linhas, bordas, células unidas, larguras de coluna, painéis fixos e **formatação condicional** (maior/menor que, entre, igual, contém texto, escala de cores) | Tabelas dinâmicas, gráficos avançados, alguns estilos, regras condicionais com fórmulas; funções não suportadas mostram `#NOME?` |
+| **XLSX** | Até 100 folhas: valores, fórmulas (incluindo **referências a outras folhas**, como `Dados!A1`), estilos básicos, alinhamento, formatos de número e moeda, gráficos de colunas, barras, linhas, área, circular, anel e dispersão (com várias séries), bordas, células unidas, larguras de coluna, painéis fixos e **formatação condicional** (maior/menor que, entre, igual, contém texto, escala de cores) | Tabelas dinâmicas, gráficos avançados, alguns estilos, regras condicionais com fórmulas; funções não suportadas mostram `#NOME?` |
 | **PPTX** | Texto e posição das caixas, listas, imagens, retângulos e elipses, **tabelas**, **cores do tema** do PowerPoint, fundo de cor ou **imagem**, notas do orador, transições e efeitos de entrada simples | Animações complexas, gráficos, SmartArt, células unidas e formatação dentro das tabelas |
 
 As imagens WebP são convertidas para PNG, para poderem seguir em DOCX e PPTX. Os ficheiros exportados foram verificados com o LibreOffice e com as bibliotecas python-docx, openpyxl e python-pptx; **ainda não foram testados no Microsoft Office**.

@@ -54,27 +54,20 @@ const { pathToFileURL } = require('node:url');
   }
 
   await capture('writer', 'texto.png');
+  // Folhas com um gráfico do orçamento, criado como um utilizador o faria.
   await capture('sheets', 'folhas.png');
-
-  // Testa a criação de um gráfico com dados reais introduzidos na grelha.
-  const enterCell = async (row, col, value) => {
-    await page.locator('#view-sheets td[data-r="' + row + '"][data-c="' + col + '"]').click();
-    await page.keyboard.type(value);
-    await page.keyboard.press('Enter');
-  };
-  await enterCell(0, 0, 'Mês');
-  await enterCell(0, 1, 'Vendas');
-  await enterCell(1, 0, 'Janeiro');
-  await enterCell(1, 1, '120');
-  await enterCell(2, 0, 'Fevereiro');
-  await enterCell(2, 1, '150');
   await page.locator('#view-sheets td[data-r="0"][data-c="0"]').click();
-  await page.locator('#view-sheets td[data-r="2"][data-c="1"]').click({ modifiers: ['Shift'] });
+  await page.locator('#view-sheets td[data-r="6"][data-c="2"]').click({ modifiers: ['Shift'] });
   await page.locator('#view-sheets .ribbon-tabs .ribbon-tab').filter({ hasText: 'Dados' }).click();
   await page.locator('#view-sheets button[aria-label*="Criar gráfico"]').click();
-  await page.locator('.mo-chart-dialog').waitFor({ state: 'visible' });
-  await page.locator('.mo-chart-preview svg').waitFor({ state: 'visible' });
-  await page.locator('.mo-chart-close').click();
+  await page.locator('.chart-dialog .chart-preview svg').waitFor({ state: 'visible' });
+  await page.locator('.chart-dialog input[type=text]').fill('Orçamento e gasto real');
+  await page.locator('.chart-dialog button[type=submit]').click();
+  await page.locator('#view-sheets .sheet-chart svg').waitFor({ state: 'visible' });
+  await page.waitForTimeout(600);
+  await page.evaluate(() => { const t = document.getElementById('toast'); if (t) t.style.visibility = 'hidden'; });
+  await page.screenshot({ path: path.join(out, 'folhas.png'), fullPage: false });
+  await page.evaluate(() => { const t = document.getElementById('toast'); if (t) t.style.visibility = ''; });
   if (!(await page.locator('#view-sheets button').filter({ hasText: 'Analisar com IA' }).count())) {
     throw new Error('O assistente IA de Folhas não está disponível na faixa.');
   }
