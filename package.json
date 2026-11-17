@@ -104,18 +104,11 @@
           "arch": [
             "x64"
           ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "x64"
-          ]
         }
       ],
       "legalTrademarks": "MyOffice",
       "requestedExecutionLevel": "asInvoker",
-      "signAndEditExecutable": true,
-      "artifactName": "MyOffice-${version}-${arch}-portatil.${ext}"
+      "signAndEditExecutable": true
     },
     "nsis": {
       "oneClick": false,

@@ -108,6 +108,11 @@ jobs:
             args+=("-c.win.azureSignOptions.publisherName=$AZURE_SIGN_PUBLISHER")
           fi
           npx electron-builder --win --x64 --publish never "${args[@]}"
+      - name: ZIP portátil
+        shell: pwsh
+        run: |
+          $v = (Get-Content package.json | ConvertFrom-Json).version
+          Compress-Archive -Path dist/win-unpacked/* -DestinationPath "dist/MyOffice-$v-x64-portatil.zip"
       - name: Somas SHA-256
         shell: bash
         run: |
