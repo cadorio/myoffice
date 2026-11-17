@@ -754,6 +754,90 @@ const cellText = (page, a) =>
     assert.match(el.src, /^data:image\/png/);
   });
 
+  await test('Bases de dados: modelo, editar registos, estrutura e formulário', page, async () => {
+    await page.click('#rail [data-view="db"]');
+    await page.evaluate(() => MO.modules.db.newDoc('encomendas'));
+    await page.click('.db-nav-item:has-text("Clientes")');
+    assert.equal(await page.locator('.db-grid tbody tr[data-id]').count(), 3);
+    // Editar uma célula
+    const cidade = page.locator('.db-grid tbody tr[data-id="1"] td.db-text input').nth(3);
+    await cidade.fill('Coimbra');
+    await cidade.press('Enter');
+    const sql = (s) => page.evaluate((q) => MO.modules.db._debug.sql(q), s);
+    assert.equal((await sql('SELECT "Cidade" FROM "Clientes" WHERE rowid = 1'))[0].Cidade, 'Coimbra');
+    // Novo registo
+    await page.click('.db-newrow button');
+    assert.equal((await sql('SELECT COUNT(*) AS n FROM "Clientes"'))[0].n, 4);
+    // Anular repõe
+    await page.keyboard.press('Escape');
+    await page.click('#view-db .db-content', { position: { x: 5, y: 400 } });
+    await page.keyboard.press('Control+z');
+    assert.equal((await sql('SELECT COUNT(*) AS n FROM "Clientes"'))[0].n, 3);
+    // Estrutura: mudar o tipo de um campo
+    await page.click('#view-db .db-mode[data-mode="design"]');
+    await page.selectOption('.db-design-table select[aria-label="Tipo de Cidade"]', 'choice');
+    const f = await page.evaluate(() => MO.modules.db._debug.fields('Clientes').find((x) => x.name === 'Cidade'));
+    assert.equal(f.type, 'choice');
+    assert.ok(f.opts.choices.includes('Coimbra'), 'as opções vêm dos valores existentes');
+    // Formulário
+    await page.click('#view-db .db-mode[data-mode="form"]');
+    assert.match(await page.textContent('.db-form-nav'), /Registo 1 de 3/);
+    await page.click('.db-form-nav button:has-text("Seguinte")');
+    assert.match(await page.textContent('.db-form-nav'), /Registo 2 de 3/);
+  });
+
+  await test('Bases de dados: consultas, segurança do SQL, guardar e voltar a abrir', page, async () => {
+    page.on('dialog', (d) => d.accept());
+    await page.click('#view-db .ribbon-tab:has-text("Criar")');
+    await page.click('#view-db .db-mode[data-mode="query"]');
+    await page.selectOption('.db-builder select[aria-label="Tabela"]', 'Produtos');
+    await page.selectOption('.db-builder select[aria-label="Campo"]', 'Preço');
+    await page.selectOption('.db-builder select[aria-label="Condição"]', '>');
+    await page.fill('.db-builder input[aria-label="Valor"]', '200');
+    await page.click('.db-builder button:has-text("Criar consulta")');
+    assert.equal(await page.locator('.db-results tbody tr').count(), 2);
+    // Instrução que altera dados: pede confirmação e diz quantos registos mudaram
+    await page.fill('.db-sql', 'UPDATE "Produtos" SET "Stock" = 0 WHERE "Código" = \'P01\'');
+    await page.click('.db-query-actions button:has-text("Executar")');
+    const sql = (s) => page.evaluate((q) => MO.modules.db._debug.sql(q), s);
+    assert.equal((await sql('SELECT "Stock" FROM "Produtos" WHERE "Código" = \'P01\''))[0].Stock, 0);
+    await page.fill('.db-sql', 'ATTACH DATABASE \'x.db\' AS x');
+    await page.click('.db-query-actions button:has-text("Executar")');
+    assert.match(await page.textContent('.db-results'), /não são permitidos/);
+    // Guardar e voltar a abrir (ficheiro SQLite)
+    const bytes = await page.evaluate(() => Array.from(MO.modules.db.serialize()));
+    assert.equal(String.fromCharCode(...bytes.slice(0, 15)), 'SQLite format 3');
+    await page.evaluate(() => MO.modules.db.newDoc('blank'));
+    assert.deepEqual(await page.evaluate(() => MO.modules.db._debug.tables()), []);
+    await page.evaluate((arr) => MO.modules.db.load(new Uint8Array(arr), 'modb'), bytes);
+    assert.deepEqual(await page.evaluate(() => MO.modules.db._debug.tables()), ['Clientes', 'Encomendas', 'Produtos']);
+    assert.equal((await sql('SELECT COUNT(*) AS n FROM _mo_queries'))[0].n, 1);
+    await assert.rejects(page.evaluate(() => MO.modules.db.load(new Uint8Array([1, 2, 3]), 'modb')));
+  });
+
+  await test('Bases de dados: importar CSV e Excel, exportar para Excel', page, async () => {
+    await page.evaluate(() => MO.modules.db.newDoc('blank'));
+    await page.click('#view-db .ribbon-tab:has-text("Dados externos")');
+    let chooser = page.waitForEvent('filechooser');
+    await page.click('#view-db button[title="Importar um ficheiro CSV como tabela"]');
+    await (await chooser).setFiles({ name: 'vendas.csv', mimeType: 'text/csv', buffer: Buffer.from('Mês;Valor;Pago\nJaneiro;1200,50;sim\nFevereiro;980;não\n') });
+    await page.waitForFunction(() => MO.modules.db._debug.tables().includes('vendas'));
+    const f = await page.evaluate(() => MO.modules.db._debug.fields('vendas').map((x) => x.type));
+    assert.deepEqual(f, ['text', 'number', 'bool']);
+    const v = await page.evaluate(() => MO.modules.db._debug.sql('SELECT * FROM "vendas"'));
+    assert.equal(v[0].Valor, 1200.5);
+    assert.equal(v[1].Pago, 0);
+    // Excel: exportar a tabela e voltar a importá-la
+    const xlsx = await page.evaluate(() => Array.from(MO.modules.db.exports[0].get()));
+    chooser = page.waitForEvent('filechooser');
+    await page.click('#view-db button[title^="Importar as folhas de um livro do Excel"]');
+    await (await chooser).setFiles({ name: 'livro.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from(xlsx) });
+    await page.waitForFunction(() => MO.modules.db._debug.tables().length === 2);
+    const t = await page.evaluate(() => MO.modules.db._debug.tables());
+    assert.deepEqual(t, ['livro', 'vendas']);
+    assert.equal((await page.evaluate(() => MO.modules.db._debug.sql('SELECT SUM("Valor") AS s FROM "livro"')))[0].s, 2180.5);
+  });
+
   await test('Sem erros na consola da página', page, async () => {
     assert.deepEqual(errors, []);
   });

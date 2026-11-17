@@ -96,6 +96,9 @@ const { pathToFileURL } = require('node:url');
     MO.modules.pdf._debug.setPages(st);
   });
   await capture('pdf', 'pdf.png');
+  // Bases de dados: o modelo de encomendas, com tabelas ligadas.
+  await page.evaluate(() => MO.modules.db.newDoc('encomendas'));
+  await capture('db', 'bases-de-dados.png');
   await capture('assistant', 'assistente-ia.png');
   if (!(await page.locator('#view-assistant textarea[aria-label="Mensagem para o Assistente"]').count())) {
     throw new Error('A aplicação Assistente IA não foi inicializada.');

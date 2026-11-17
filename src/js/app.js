@@ -10,14 +10,14 @@
   // Na aplicação instalada, cada programa tem a sua janela: ?app=sheets mostra só as Folhas.
   const SOLO = (() => {
     const id = api ? new URLSearchParams(location.search).get('app') : null;
-    return ['home', 'writer', 'sheets', 'slides', 'draw', 'pdf', 'assistant'].includes(id) ? id : null;
+    return ['home', 'writer', 'sheets', 'slides', 'draw', 'pdf', 'db', 'assistant'].includes(id) ? id : null;
   })();
   MO.solo = SOLO;
 
-  const ORDER = ['writer', 'sheets', 'slides', 'draw', 'pdf'];
-  const EXT_MODULE = { modoc: 'writer', html: 'writer', htm: 'writer', txt: 'writer', mosheet: 'sheets', csv: 'sheets', moslides: 'slides', modraw: 'draw', pdf: 'pdf', docx: 'writer', xlsx: 'sheets', pptx: 'slides' };
-  const BINARY_EXT = ['docx', 'xlsx', 'pptx', 'pdf'];
-  const APP_ICON = { writer: 'icon-text.svg', sheets: 'icon-sheets.svg', slides: 'icon-slides.svg', draw: 'icon-draw.svg', pdf: 'icon-pdf.svg', assistant: 'icon-assistant.svg' };
+  const ORDER = ['writer', 'sheets', 'slides', 'draw', 'pdf', 'db'];
+  const EXT_MODULE = { modoc: 'writer', html: 'writer', htm: 'writer', txt: 'writer', mosheet: 'sheets', csv: 'sheets', moslides: 'slides', modraw: 'draw', pdf: 'pdf', modb: 'db', accdb: 'db', mdb: 'db', docx: 'writer', xlsx: 'sheets', pptx: 'slides' };
+  const BINARY_EXT = ['docx', 'xlsx', 'pptx', 'pdf', 'modb', 'accdb', 'mdb'];
+  const APP_ICON = { writer: 'icon-text.svg', sheets: 'icon-sheets.svg', slides: 'icon-slides.svg', draw: 'icon-draw.svg', pdf: 'icon-pdf.svg', db: 'icon-db.svg', assistant: 'icon-assistant.svg' };
   const docs = {};
   let current = 'home';
 
@@ -105,6 +105,8 @@
     const importNotices = {
       docx: 'O Texto importa o conteúdo e a formatação mais comuns. Comentários, alterações controladas e alguns elementos avançados podem não ser transferidos. O original não será alterado; o documento convertido será guardado como .modoc.',
       xlsx: 'Folhas importa valores, fórmulas, formatação básica e gráficos simples de colunas/linhas. Tabelas dinâmicas Excel, gráficos avançados e fórmulas não suportadas podem não ser transferidos. O original não será alterado; o livro convertido será guardado como .mosheet.',
+      accdb: 'As tabelas e os dados do Access são importados para uma base de dados MyOffice. Consultas, formulários, relatórios e macros do Access não são convertidos. O original não será alterado.',
+      mdb: 'As tabelas e os dados do Access são importados para uma base de dados MyOffice. Consultas, formulários, relatórios e macros do Access não são convertidos. O original não será alterado.',
       pptx: 'Diapositivos importa texto, formas, imagens, transições simples e animações básicas por elemento. SmartArt e alguns elementos avançados podem não ser transferidos. O original não será alterado; a apresentação convertida será guardada como .moslides.'
     };
     if (importNotices[ext]) {
@@ -299,10 +301,11 @@
   // e o Excel. Só existe na aplicação instalada, onde cada programa tem a sua janela.
 
   const START_TEMPLATES = {
+    db: [['clientes', 'Clientes', 'Contactos e cidades'], ['inventario', 'Inventário', 'Produtos, preços e stock'], ['encomendas', 'Encomendas', 'Clientes, produtos e encomendas ligados']],
     draw: [['flow', 'Fluxograma', 'Etapas e decisões'], ['mind', 'Mapa mental', 'Ideias à volta de um tema'], ['org', 'Organograma', 'Equipas e funções'], ['timeline', 'Linha temporal', 'Etapas ao longo do tempo'], ['swot', 'SWOT', 'Forças, fraquezas, oportunidades e ameaças']]
   };
-  const START_TITLE = { writer: 'Texto', sheets: 'Folhas', slides: 'Diapositivos', draw: 'Desenho', pdf: 'PDF' };
-  const START_BLANK = { writer: 'Documento em branco', sheets: 'Livro em branco', slides: 'Apresentação em branco', draw: 'Desenho em branco', pdf: null };
+  const START_TITLE = { writer: 'Texto', sheets: 'Folhas', slides: 'Diapositivos', draw: 'Desenho', pdf: 'PDF', db: 'Bases de dados' };
+  const START_BLANK = { writer: 'Documento em branco', sheets: 'Livro em branco', slides: 'Apresentação em branco', draw: 'Desenho em branco', pdf: null, db: 'Base de dados em branco' };
   let startEl = null;
 
   function hideStart() {
@@ -326,7 +329,7 @@
     for (const [key, name, hint] of START_TEMPLATES[id] || []) {
       if (key === 'flow') continue; // o desenho em branco já abre o fluxograma
       cards.push(h('button', { type: 'button', class: 'start-card template-card', 'data-template-module': id, 'data-template': key },
-        h('span', { class: 'start-thumb' }, MO.icon('branch')), h('strong', null, name), h('small', null, hint)));
+        h('span', { class: 'start-thumb' }, MO.icon(id === 'db' ? 'table' : 'branch')), h('strong', null, name), h('small', null, hint)));
     }
     const recentList = h('ul', { class: 'start-recent' });
     const empty = h('p', { class: 'start-empty' }, 'Ainda não há ficheiros recentes deste programa.');

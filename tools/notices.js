@@ -22,6 +22,14 @@ const components = [
   },
   { name: 'pdf.js', version: version('pdfjs-dist'), url: 'https://github.com/mozilla/pdf.js', license: read('node_modules/pdfjs-dist/LICENSE'), note: 'Leitura e desenho de ficheiros PDF no programa PDF.' },
   { name: 'pdf-lib', version: version('pdf-lib'), url: 'https://github.com/Hopding/pdf-lib', license: read('node_modules/pdf-lib/LICENSE.md'), note: 'Gravação de ficheiros PDF com anotações, assinaturas e páginas reorganizadas.' },
+  { name: 'sql.js', version: version('sql.js'), url: 'https://github.com/sql-js/sql.js', license: read('node_modules/sql.js/LICENSE'), note: 'Motor SQLite (domínio público) compilado para WebAssembly, usado no programa Bases de dados.' },
+  { name: 'mdb-reader', version: version('mdb-reader'), url: 'https://github.com/andipaetzold/mdb-reader', license: read('node_modules/mdb-reader/LICENSE'), note: 'Leitura de ficheiros do Microsoft Access (.accdb, .mdb) para importação.' },
+  { name: 'pako', version: version('mdb-reader/node_modules/pako'), url: 'https://github.com/nodeca/pako', license: read('node_modules/mdb-reader/node_modules/pako/LICENSE'), note: 'Descompressão usada pelo leitor de ficheiros do Access.' },
+  { name: 'fast-xml-parser', version: version('fast-xml-parser'), url: 'https://github.com/NaturalIntelligence/fast-xml-parser', license: read('node_modules/fast-xml-parser/LICENSE'), note: 'Leitura de XML usada pelo leitor de ficheiros do Access.' },
+  { name: 'buffer', version: version('buffer'), url: 'https://github.com/feross/buffer', license: read('node_modules/buffer/LICENSE'), note: 'Suporte de dados binários usado pelo leitor de ficheiros do Access.' },
+  { name: 'base64-js', version: version('base64-js'), url: 'https://github.com/beatgammit/base64-js', license: read('node_modules/base64-js/LICENSE'), note: 'Dependência do pacote buffer.' },
+  { name: 'ieee754', version: version('ieee754'), url: 'https://github.com/feross/ieee754', license: read('node_modules/ieee754/LICENSE'), note: 'Dependência do pacote buffer.' },
+  { name: 'strnum', version: version('strnum'), url: 'https://github.com/NaturalIntelligence/strnum', license: read('node_modules/strnum/LICENSE'), note: 'Dependência do fast-xml-parser.' },
   { name: 'fflate', version: version('fflate'), url: 'https://github.com/101arrowz/fflate', license: read('node_modules/fflate/LICENSE'), note: 'Compressão ZIP, usada para ler e escrever ficheiros .docx, .xlsx e .pptx.' }
 ];
 

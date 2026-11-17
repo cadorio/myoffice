@@ -1,0 +1,870 @@
+'use strict';
+
+// MyOffice Bases de dados: tabelas, formulários, consultas e relatórios num único ficheiro local
+// (SQLite, através do sql.js). Importa Excel, CSV e Access; exporta Excel e CSV.
+(function () {
+  const MO = window.MO;
+  const { h } = MO;
+
+  const TYPES = { text: 'Texto', number: 'Número', money: 'Moeda (€)', date: 'Data', bool: 'Sim/Não', choice: 'Lista de opções', link: 'Ligação a outra tabela' };
+  const SQL_TYPE = { text: 'TEXT', number: 'REAL', money: 'REAL', date: 'TEXT', bool: 'INTEGER', choice: 'TEXT', link: 'INTEGER' };
+  const PAGE = 300;
+  const MAX_UNDO_BYTES = 40 * 1024 * 1024;
+
+  let SQL = null;
+  let db = null;
+  let ctx;
+  let ready = null;
+  let navBox, contentBox, statusEl, searchInput;
+  let current = { kind: 'table', name: null }; // kind: table | query
+  let mode = 'sheet'; // sheet | form | design | query
+  let sort = null; // { field, dir }
+  let limit = PAGE;
+  let formIndex = 0;
+  let queryText = '';
+  let undoStack = [];
+  let redoStack = [];
+
+  const q = (name) => '"' + String(name).replace(/"/g, '""') + '"';
+  const isActive = () => document.body.dataset.current === 'db';
+  const validName = (name) => /^[\p{L}\p{N}_][\p{L}\p{N}_ \-]{0,59}$/u.test(name) && !/^_mo_/i.test(name) && !/^sqlite_/i.test(name);
+
+  // ---------- Motor ----------
+
+  function boot() {
+    if (!ready) {
+      ready = (window.initSqlJs ? window.initSqlJs() : Promise.reject(new Error('Motor de base de dados indisponível'))).then((lib) => {
+        SQL = lib;
+      });
+    }
+    return ready;
+  }
+
+  function rows(sql, params = []) {
+    const st = db.prepare(sql);
+    try {
+      st.bind(params);
+      const out = [];
+      while (st.step()) out.push(st.getAsObject());
+      return out;
+    } finally {
+      st.free();
+    }
+  }
+  const run = (sql, params = []) => db.run(sql, params);
+
+  function ensureMeta() {
+    run('CREATE TABLE IF NOT EXISTS _mo_fields (tbl TEXT NOT NULL, name TEXT NOT NULL, type TEXT NOT NULL, opts TEXT, pos INTEGER, PRIMARY KEY (tbl, name))');
+    run('CREATE TABLE IF NOT EXISTS _mo_queries (name TEXT PRIMARY KEY, sql TEXT NOT NULL)');
+  }
+
+  function tables() {
+    return rows("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE '_mo_%' AND name NOT LIKE 'sqlite_%' ORDER BY name COLLATE NOCASE").map((r) => r.name);
+  }
+
+  function queries() {
+    return rows('SELECT name, sql FROM _mo_queries ORDER BY name COLLATE NOCASE');
+  }
+
+  // Campos de uma tabela, com o tipo do MyOffice (ou deduzido do SQLite, para bases importadas).
+  function fields(table) {
+    const info = rows(`PRAGMA table_info(${q(table)})`);
+    const meta = new Map(rows('SELECT name, type, opts, pos FROM _mo_fields WHERE tbl = ?', [table]).map((r) => [r.name, r]));
+    return info.map((c, i) => {
+      const m = meta.get(c.name);
+      let type = m && Object.hasOwn(TYPES, m.type) ? m.type : /INT/i.test(c.type) ? 'number' : /REAL|FLOA|DOUB|NUM|DEC/i.test(c.type) ? 'number' : 'text';
+      let opts = {};
+      try { opts = m && m.opts ? JSON.parse(m.opts) : {}; } catch { opts = {}; }
+      return { name: c.name, type, opts, pos: m && Number.isFinite(m.pos) ? m.pos : i };
+    }).sort((a, b) => a.pos - b.pos);
+  }
+
+  function setFieldMeta(table, f, pos) {
+    run('INSERT OR REPLACE INTO _mo_fields (tbl, name, type, opts, pos) VALUES (?, ?, ?, ?, ?)', [table, f.name, f.type, JSON.stringify(f.opts || {}), pos]);
+  }
+
+  function createTable(name, list) {
+    run(`CREATE TABLE ${q(name)} (${list.map((f) => `${q(f.name)} ${SQL_TYPE[f.type] || 'TEXT'}`).join(', ')})`);
+    list.forEach((f, i) => setFieldMeta(name, f, i));
+  }
+
+  // Converte um valor escrito pelo utilizador para o tipo do campo.
+  function toStored(f, value) {
+    if (value === '' || value == null) return null;
+    if (f.type === 'number' || f.type === 'money') {
+      const n = typeof value === 'number' ? value : Number(String(value).trim().replace(/\s|€/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.'));
+      return Number.isFinite(n) ? n : null;
+    }
+    if (f.type === 'bool') return value === true || value === 1 || /^(1|sim|s|true|verdadeiro|yes)$/i.test(String(value)) ? 1 : 0;
+    if (f.type === 'link') { const n = Number(value); return Number.isInteger(n) && n > 0 ? n : null; }
+    if (f.type === 'date') {
+      const t = String(value).trim();
+      const pt = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(t);
+      if (pt) return `${pt[3]}-${pt[2].padStart(2, '0')}-${pt[1].padStart(2, '0')}`;
+      return /^\d{4}-\d{2}-\d{2}/.test(t) ? t.slice(0, 10) : t;
+    }
+    return String(value).slice(0, 10000);
+  }
+
+  const money = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
+  const number = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 6 });
+  function shown(f, value, linkNames) {
+    if (value == null || value === '') return '';
+    if (f.type === 'money') return money.format(Number(value));
+    if (f.type === 'number') return typeof value === 'number' ? number.format(value) : String(value);
+    if (f.type === 'bool') return value ? 'Sim' : 'Não';
+    if (f.type === 'date') { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value)); return m ? `${m[3]}/${m[2]}/${m[1]}` : String(value); }
+    if (f.type === 'link') return (linkNames && linkNames.get(Number(value))) || `#${value}`;
+    return String(value);
+  }
+
+  // Nome legível dos registos de uma tabela (o primeiro campo de texto), para as ligações.
+  function recordNames(table) {
+    if (!tables().includes(table)) return new Map();
+    const fs = fields(table);
+    const label = fs.find((f) => f.type === 'text' && /nome|produto|descri|t[ií]tulo|designa/i.test(f.name)) || fs.find((f) => f.type === 'text') || fs[0];
+    if (!label) return new Map();
+    return new Map(rows(`SELECT rowid AS _id, ${q(label.name)} AS _label FROM ${q(table)} LIMIT 5000`).map((r) => [r._id, String(r._label ?? `#${r._id}`)]));
+  }
+
+  // ---------- Histórico ----------
+
+  function snapshot() {
+    const bytes = db.export();
+    undoStack.push(bytes);
+    let total = undoStack.reduce((t, b) => t + b.length, 0);
+    while (undoStack.length > 1 && (undoStack.length > 30 || total > MAX_UNDO_BYTES)) total -= undoStack.shift().length;
+    redoStack = [];
+  }
+  function swap(from, to) {
+    if (!from.length) return;
+    to.push(db.export());
+    db.close();
+    db = new SQL.Database(from.pop());
+    if (current.name && current.kind === 'table' && !tables().includes(current.name)) current = { kind: 'table', name: tables()[0] || null };
+    renderAll();
+    ctx.dirty();
+  }
+  const undo = () => swap(undoStack, redoStack);
+  const redo = () => swap(redoStack, undoStack);
+  // Aplica uma alteração com possibilidade de anular.
+  function change(fn) {
+    snapshot();
+    try {
+      fn();
+    } catch (e) {
+      const bytes = undoStack.pop();
+      if (bytes) { db.close(); db = new SQL.Database(bytes); }
+      MO.toast(friendly(e));
+      renderAll();
+      return false;
+    }
+    ctx.dirty();
+    renderAll();
+    return true;
+  }
+  function friendly(e) {
+    const msg = String((e && e.message) || e);
+    if (/UNIQUE/i.test(msg)) return 'Já existe um registo com esse valor.';
+    if (/no such table/i.test(msg)) return 'A tabela não existe.';
+    if (/no such column/i.test(msg)) return 'O campo não existe: ' + msg.split(':').pop().trim();
+    if (/syntax error/i.test(msg)) return 'Erro na consulta SQL: ' + msg;
+    return msg.slice(0, 200);
+  }
+
+  // ---------- Modelos ----------
+
+  function template(name) {
+    ensureMeta();
+    const F = (n, type, opts) => ({ name: n, type, opts: opts || {} });
+    if (name === 'clientes' || name === 'encomendas') {
+      createTable('Clientes', [F('Nome', 'text'), F('Email', 'text'), F('Telefone', 'text'), F('Cidade', 'text'), F('Cliente desde', 'date'), F('Ativo', 'bool')]);
+      for (const r of [['Ana Sousa', 'ana@exemplo.pt', '912 345 678', 'Lisboa', '2024-03-01', 1], ['Rui Pinto', 'rui@exemplo.pt', '934 567 123', 'Porto', '2025-07-15', 1], ['Inês Lopes', 'ines@exemplo.pt', '966 111 222', 'Braga', '2026-01-09', 0]]) run('INSERT INTO "Clientes" VALUES (?, ?, ?, ?, ?, ?)', r);
+    }
+    if (name === 'inventario' || name === 'encomendas') {
+      createTable('Produtos', [F('Código', 'text'), F('Produto', 'text'), F('Categoria', 'choice', { choices: ['Mobiliário', 'Escritório', 'Eletrónica', 'Outros'] }), F('Preço', 'money'), F('Stock', 'number')]);
+      for (const r of [['P01', 'Cadeira ergonómica', 'Mobiliário', 189.9, 12], ['P02', 'Secretária', 'Mobiliário', 249, 4], ['P03', 'Monitor 27"', 'Eletrónica', 229.5, 9], ['P04', 'Resma de papel A4', 'Escritório', 4.75, 120]]) run('INSERT INTO "Produtos" VALUES (?, ?, ?, ?, ?)', r);
+    }
+    if (name === 'encomendas') {
+      createTable('Encomendas', [F('Data', 'date'), F('Cliente', 'link', { table: 'Clientes' }), F('Produto', 'link', { table: 'Produtos' }), F('Quantidade', 'number'), F('Estado', 'choice', { choices: ['Nova', 'Em preparação', 'Enviada', 'Entregue'] })]);
+      for (const r of [['2026-11-02', 1, 1, 2, 'Entregue'], ['2026-11-10', 2, 3, 1, 'Enviada'], ['2026-11-15', 1, 4, 10, 'Nova']]) run('INSERT INTO "Encomendas" VALUES (?, ?, ?, ?, ?)', r);
+      run('INSERT INTO _mo_queries (name, sql) VALUES (?, ?)', ['Total por cliente', 'SELECT c."Nome" AS "Cliente", COUNT(*) AS "Encomendas", SUM(e."Quantidade" * p."Preço") AS "Valor (€)"\nFROM "Encomendas" e\nJOIN "Clientes" c ON c.rowid = e."Cliente"\nJOIN "Produtos" p ON p.rowid = e."Produto"\nGROUP BY c."Nome"\nORDER BY 3 DESC']);
+    }
+  }
+
+  // ---------- Navegação ----------
+
+  function renderNav() {
+    const ts = tables();
+    const qs = queries();
+    const item = (kind, name, icon) => h('button', { type: 'button', class: 'db-nav-item' + (current.kind === kind && current.name === name ? ' on' : ''), title: name, onclick: () => open(kind, name) }, MO.icon(icon), h('span', null, name));
+    navBox.replaceChildren(
+      h('div', { class: 'db-nav-head' }, h('span', null, 'Tabelas'), h('button', { type: 'button', class: 'db-nav-add', title: 'Nova tabela', 'aria-label': 'Nova tabela', onclick: newTable }, '＋')),
+      ...(ts.length ? ts.map((t) => item('table', t, 'table')) : [h('p', { class: 'db-nav-empty' }, 'Ainda não há tabelas.')]),
+      h('div', { class: 'db-nav-head' }, h('span', null, 'Consultas'), h('button', { type: 'button', class: 'db-nav-add', title: 'Nova consulta', 'aria-label': 'Nova consulta', onclick: () => open('query', null) }, '＋')),
+      ...(qs.length ? qs.map((r) => item('query', r.name, 'search')) : [h('p', { class: 'db-nav-empty' }, 'Sem consultas guardadas.')])
+    );
+  }
+
+  function open(kind, name) {
+    current = { kind, name };
+    sort = null;
+    limit = PAGE;
+    formIndex = 0;
+    if (kind === 'query') {
+      mode = 'query';
+      queryText = name ? (queries().find((r) => r.name === name) || {}).sql || '' : (current.name ? '' : defaultQuery());
+    } else if (mode === 'query') mode = 'sheet';
+    renderAll();
+  }
+
+  function defaultQuery() {
+    const t = tables()[0];
+    return t ? `SELECT * FROM ${q(t)}\nLIMIT 100` : '';
+  }
+
+  function renderAll() {
+    if (!navBox || !db) return;
+    renderNav();
+    if (current.kind === 'table' && (!current.name || !tables().includes(current.name))) current = { kind: 'table', name: tables()[0] || null };
+    contentBox.replaceChildren();
+    if (mode === 'query') renderQuery();
+    else if (!current.name) renderEmpty();
+    else if (mode === 'form') renderForm();
+    else if (mode === 'design') renderDesign();
+    else renderSheet();
+    document.querySelectorAll('#view-db .db-mode').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
+  }
+
+  function renderEmpty() {
+    contentBox.append(h('div', { class: 'db-empty' },
+      h('h2', null, 'Base de dados vazia'),
+      h('p', null, 'Crie uma tabela, comece por um modelo ou importe dados do Excel, de um CSV ou do Access.'),
+      h('div', { class: 'db-empty-actions' },
+        h('button', { type: 'button', class: 'btn primary', onclick: newTable }, 'Nova tabela'),
+        h('button', { type: 'button', class: 'btn', onclick: () => importFile('xlsx') }, 'Importar Excel'),
+        h('button', { type: 'button', class: 'btn', onclick: () => importFile('accdb') }, 'Importar Access'))));
+    status('Sem tabelas');
+  }
+
+  function status(text) { if (statusEl) statusEl.textContent = text; }
+
+  // ---------- Folha de dados ----------
+
+  function whereSearch(fs) {
+    const term = searchInput && searchInput.value.trim();
+    if (!term) return { sql: '', params: [] };
+    return { sql: ' WHERE ' + fs.map((f) => `CAST(${q(f.name)} AS TEXT) LIKE ?`).join(' OR '), params: fs.map(() => `%${term}%`) };
+  }
+
+  function linkMaps(fs) {
+    const maps = new Map();
+    for (const f of fs) if (f.type === 'link' && f.opts.table) maps.set(f.name, recordNames(f.opts.table));
+    return maps;
+  }
+
+  function renderSheet() {
+    const table = current.name;
+    const fs = fields(table);
+    const w = whereSearch(fs);
+    const order = sort ? ` ORDER BY ${q(sort.field)} ${sort.dir === 'desc' ? 'DESC' : 'ASC'}` : ' ORDER BY rowid';
+    const total = rows(`SELECT COUNT(*) AS n FROM ${q(table)}${w.sql}`, w.params)[0].n;
+    const data = rows(`SELECT rowid AS _id, * FROM ${q(table)}${w.sql}${order} LIMIT ${limit}`, w.params);
+    const links = linkMaps(fs);
+    const head = h('tr', null, h('th', { class: 'db-rownum' }, '#'), fs.map((f) => {
+      const arrow = sort && sort.field === f.name ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : '';
+      return h('th', { title: `${TYPES[f.type]} · clique para ordenar`, onclick: () => { sort = sort && sort.field === f.name && sort.dir === 'asc' ? { field: f.name, dir: 'desc' } : { field: f.name, dir: 'asc' }; renderAll(); } },
+        h('span', { class: 'db-type db-type-' + f.type }), f.name + arrow);
+    }));
+    const body = data.map((r) => h('tr', { 'data-id': r._id },
+      h('td', { class: 'db-rownum' }, h('button', { type: 'button', class: 'db-row-del', title: 'Eliminar registo', 'aria-label': 'Eliminar registo', onclick: () => deleteRecord(r._id) }, '×')),
+      fs.map((f) => cell(table, f, r, links.get(f.name)))));
+    const add = h('tr', { class: 'db-newrow' }, h('td', { colspan: fs.length + 1 }, h('button', { type: 'button', class: 'btn', onclick: () => newRecord() }, '＋ Novo registo')));
+    const grid = h('table', { class: 'db-grid' }, h('thead', null, head), h('tbody', null, body, add));
+    const more = data.length < total ? h('button', { type: 'button', class: 'btn db-more', onclick: () => { limit += PAGE; renderAll(); } }, `Mostrar mais (${total - data.length} restantes)`) : null;
+    contentBox.append(h('div', { class: 'db-grid-wrap' }, grid, more));
+    status(`${table} · ${total} registo(s)${searchInput.value.trim() ? ' encontrados' : ''} · ${fs.length} campo(s)`);
+  }
+
+  // Célula editável: o valor só é gravado quando muda.
+  function cell(table, f, r, names) {
+    const value = r[f.name];
+    const td = h('td', { class: 'db-cell db-' + f.type });
+    const save = (v) => {
+      const stored = toStored(f, v);
+      if (stored === value || (stored == null && value == null)) return;
+      change(() => run(`UPDATE ${q(table)} SET ${q(f.name)} = ? WHERE rowid = ?`, [stored, r._id]));
+    };
+    if (f.type === 'bool') {
+      const box = h('input', { type: 'checkbox', checked: Boolean(value), 'aria-label': f.name });
+      box.addEventListener('change', () => save(box.checked));
+      td.append(box);
+    } else if (f.type === 'choice' || f.type === 'link') {
+      const options = f.type === 'choice' ? (f.opts.choices || []).map((c) => [c, c]) : [...(names || new Map()).entries()].map(([id, label]) => [String(id), label]);
+      const sel = h('select', { 'aria-label': f.name }, h('option', { value: '' }, ''), options.map(([v, label]) => h('option', { value: v, selected: String(value ?? '') === v }, label)));
+      if (value != null && !options.some(([v]) => v === String(value))) sel.append(h('option', { value: String(value), selected: true }, shown(f, value, names)));
+      sel.addEventListener('change', () => save(sel.value));
+      td.append(sel);
+    } else {
+      const input = h('input', { type: f.type === 'date' ? 'date' : 'text', value: f.type === 'date' ? String(value ?? '').slice(0, 10) : f.type === 'text' ? String(value ?? '') : value == null ? '' : String(value).replace('.', ','), 'aria-label': f.name, inputmode: f.type === 'number' || f.type === 'money' ? 'decimal' : null });
+      if (f.type === 'money' || f.type === 'number') input.placeholder = '';
+      if (f.type === 'money' && value != null) input.title = shown(f, value);
+      input.addEventListener('change', () => save(input.value));
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+      td.append(input);
+    }
+    return td;
+  }
+
+  function newRecord() {
+    if (!current.name) return;
+    const fs = fields(current.name);
+    if (!fs.length) return MO.toast('Acrescente primeiro um campo à tabela (vista Estrutura).');
+    change(() => run(`INSERT INTO ${q(current.name)} DEFAULT VALUES`));
+    if (mode === 'form') { formIndex = rows(`SELECT COUNT(*) AS n FROM ${q(current.name)}`)[0].n - 1; renderAll(); }
+    else {
+      const last = contentBox.querySelector('.db-grid tbody tr:nth-last-child(2) input, .db-grid tbody tr:nth-last-child(2) select');
+      if (last) last.focus();
+    }
+  }
+
+  function deleteRecord(id) {
+    if (!window.confirm('Eliminar este registo?')) return;
+    change(() => run(`DELETE FROM ${q(current.name)} WHERE rowid = ?`, [id]));
+  }
+
+  // ---------- Formulário ----------
+
+  function renderForm() {
+    const table = current.name;
+    const fs = fields(table);
+    const total = rows(`SELECT COUNT(*) AS n FROM ${q(table)}`)[0].n;
+    formIndex = Math.max(0, Math.min(formIndex, total - 1));
+    const r = total ? rows(`SELECT rowid AS _id, * FROM ${q(table)} ORDER BY rowid LIMIT 1 OFFSET ?`, [formIndex])[0] : null;
+    const links = linkMaps(fs);
+    const nav = h('div', { class: 'db-form-nav' },
+      h('button', { type: 'button', class: 'btn', disabled: formIndex <= 0, onclick: () => { formIndex = 0; renderAll(); } }, '⏮'),
+      h('button', { type: 'button', class: 'btn', disabled: formIndex <= 0, onclick: () => { formIndex--; renderAll(); } }, '◀ Anterior'),
+      h('span', null, total ? `Registo ${formIndex + 1} de ${total}` : 'Sem registos'),
+      h('button', { type: 'button', class: 'btn', disabled: formIndex >= total - 1, onclick: () => { formIndex++; renderAll(); } }, 'Seguinte ▶'),
+      h('button', { type: 'button', class: 'btn', disabled: formIndex >= total - 1, onclick: () => { formIndex = total - 1; renderAll(); } }, '⏭'),
+      h('button', { type: 'button', class: 'btn primary', onclick: newRecord }, '＋ Novo'),
+      r ? h('button', { type: 'button', class: 'btn danger', onclick: () => deleteRecord(r._id) }, 'Eliminar') : null);
+    const card = h('div', { class: 'db-form-card' }, h('h2', null, table), r ? fs.map((f) => h('label', { class: 'db-form-field' }, h('span', null, f.name, h('small', null, TYPES[f.type])), cell(table, f, r, links.get(f.name)).firstChild)) : h('p', null, 'Esta tabela ainda não tem registos.'));
+    contentBox.append(h('div', { class: 'db-form' }, nav, card));
+    status(`${table} · formulário`);
+  }
+
+  // ---------- Estrutura ----------
+
+  function renderDesign() {
+    const table = current.name;
+    const fs = fields(table);
+    const others = tables().filter((t) => t !== table);
+    const rowsEl = fs.map((f, i) => {
+      const type = h('select', { 'aria-label': `Tipo de ${f.name}` }, Object.entries(TYPES).map(([k, label]) => h('option', { value: k, selected: k === f.type }, label)));
+      type.addEventListener('change', () => setType(table, f, type.value));
+      let extra = null;
+      if (f.type === 'choice') {
+        const choices = h('input', { type: 'text', value: (f.opts.choices || []).join('; '), placeholder: 'Opção 1; Opção 2; …', 'aria-label': `Opções de ${f.name}` });
+        choices.addEventListener('change', () => change(() => setFieldMeta(table, { ...f, opts: { choices: choices.value.split(';').map((c) => c.trim()).filter(Boolean).slice(0, 100) } }, i)));
+        extra = choices;
+      } else if (f.type === 'link') {
+        const target = h('select', { 'aria-label': `Tabela ligada a ${f.name}` }, h('option', { value: '' }, 'Escolha a tabela…'), others.map((t) => h('option', { value: t, selected: f.opts.table === t }, t)));
+        target.addEventListener('change', () => change(() => setFieldMeta(table, { ...f, opts: { table: target.value } }, i)));
+        extra = target;
+      }
+      return h('tr', null,
+        h('td', null, h('button', { type: 'button', class: 'db-link', title: 'Mudar o nome do campo', onclick: () => renameField(table, f) }, f.name)),
+        h('td', null, type),
+        h('td', null, extra),
+        h('td', null, h('button', { type: 'button', class: 'db-row-del', title: 'Eliminar campo', 'aria-label': `Eliminar o campo ${f.name}`, onclick: () => dropField(table, f) }, '×')));
+    });
+    contentBox.append(h('div', { class: 'db-design' },
+      h('h2', null, `Estrutura de ${table}`),
+      h('table', { class: 'db-design-table' }, h('thead', null, h('tr', null, h('th', null, 'Campo'), h('th', null, 'Tipo'), h('th', null, 'Opções'), h('th'))), h('tbody', null, rowsEl)),
+      h('div', { class: 'db-design-actions' },
+        h('button', { type: 'button', class: 'btn primary', onclick: () => addField(table) }, '＋ Adicionar campo'),
+        h('button', { type: 'button', class: 'btn', onclick: () => renameTable(table) }, 'Mudar o nome da tabela'),
+        h('button', { type: 'button', class: 'btn danger', onclick: () => dropTable(table) }, 'Eliminar tabela'))));
+    status(`${table} · estrutura · ${fs.length} campo(s)`);
+  }
+
+  async function askName(title, label, value = '') {
+    const res = await MO.dialog({ title, fields: [{ name: 'name', label, value }], okLabel: 'OK' });
+    if (!res) return null;
+    const name = res.name.trim();
+    if (!validName(name)) { MO.toast('Use letras, números, espaços, _ ou - (até 60 carateres).'); return null; }
+    return name;
+  }
+
+  async function newTable() {
+    if (!db) return;
+    const name = await askName('Nova tabela', 'Nome da tabela', 'Tabela ' + (tables().length + 1));
+    if (!name) return;
+    if (tables().some((t) => t.toLowerCase() === name.toLowerCase())) return MO.toast('Já existe uma tabela com esse nome.');
+    if (change(() => { ensureMeta(); createTable(name, [{ name: 'Nome', type: 'text' }, { name: 'Notas', type: 'text' }]); })) {
+      current = { kind: 'table', name };
+      mode = 'design';
+      renderAll();
+    }
+  }
+
+  async function addField(table) {
+    const name = await askName('Adicionar campo', 'Nome do campo');
+    if (!name) return;
+    if (fields(table).some((f) => f.name.toLowerCase() === name.toLowerCase())) return MO.toast('Já existe um campo com esse nome.');
+    change(() => { run(`ALTER TABLE ${q(table)} ADD COLUMN ${q(name)} TEXT`); setFieldMeta(table, { name, type: 'text', opts: {} }, fields(table).length); });
+  }
+
+  async function renameField(table, f) {
+    const name = await askName('Mudar o nome do campo', 'Novo nome', f.name);
+    if (!name || name === f.name) return;
+    change(() => {
+      run(`ALTER TABLE ${q(table)} RENAME COLUMN ${q(f.name)} TO ${q(name)}`);
+      run('UPDATE _mo_fields SET name = ? WHERE tbl = ? AND name = ?', [name, table, f.name]);
+    });
+  }
+
+  function dropField(table, f) {
+    if (fields(table).length <= 1) return MO.toast('Uma tabela tem de ter pelo menos um campo.');
+    if (!window.confirm(`Eliminar o campo "${f.name}" e todos os seus valores?`)) return;
+    change(() => {
+      run(`ALTER TABLE ${q(table)} DROP COLUMN ${q(f.name)}`);
+      run('DELETE FROM _mo_fields WHERE tbl = ? AND name = ?', [table, f.name]);
+    });
+  }
+
+  // Mudar o tipo converte os valores existentes (o que não for convertível fica vazio).
+  function setType(table, f, type) {
+    const fs = fields(table);
+    const pos = fs.findIndex((x) => x.name === f.name);
+    change(() => {
+      const data = rows(`SELECT rowid AS _id, ${q(f.name)} AS v FROM ${q(table)}`);
+      const nf = { name: f.name, type, opts: type === 'choice' ? { choices: [...new Set(data.map((r) => r.v).filter((v) => v != null && v !== '').map(String))].slice(0, 50) } : type === 'link' ? { table: '' } : {} };
+      for (const r of data) run(`UPDATE ${q(table)} SET ${q(f.name)} = ? WHERE rowid = ?`, [toStored(nf, r.v), r._id]);
+      setFieldMeta(table, nf, pos);
+    });
+  }
+
+  async function renameTable(table) {
+    const name = await askName('Mudar o nome da tabela', 'Novo nome', table);
+    if (!name || name === table) return;
+    if (change(() => {
+      run(`ALTER TABLE ${q(table)} RENAME TO ${q(name)}`);
+      run('UPDATE _mo_fields SET tbl = ? WHERE tbl = ?', [name, table]);
+      // Ligações de outras tabelas passam a apontar para o novo nome.
+      for (const r of rows('SELECT tbl, name, opts FROM _mo_fields WHERE type = ?', ['link'])) {
+        try { const o = JSON.parse(r.opts || '{}'); if (o.table === table) run('UPDATE _mo_fields SET opts = ? WHERE tbl = ? AND name = ?', [JSON.stringify({ table: name }), r.tbl, r.name]); } catch { /* opções inválidas ficam como estão */ }
+      }
+    })) { current = { kind: 'table', name }; renderAll(); }
+  }
+
+  function dropTable(table) {
+    if (!window.confirm(`Eliminar a tabela "${table}" com todos os registos? Pode anular com Ctrl+Z.`)) return;
+    change(() => { run(`DROP TABLE ${q(table)}`); run('DELETE FROM _mo_fields WHERE tbl = ?', [table]); });
+    current = { kind: 'table', name: tables()[0] || null };
+    mode = 'sheet';
+    renderAll();
+  }
+
+  // ---------- Consultas ----------
+
+  function renderQuery() {
+    const ts = tables();
+    const editor = h('textarea', { class: 'db-sql', spellcheck: 'false', rows: 7, 'aria-label': 'Consulta SQL', placeholder: 'SELECT * FROM "Clientes" WHERE "Cidade" = \'Lisboa\'' });
+    editor.value = queryText;
+    editor.addEventListener('input', () => { queryText = editor.value; });
+    editor.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); execute(); } });
+    const results = h('div', { class: 'db-results' });
+
+    // Construtor simples: tabela, condição e ordenação sem escrever SQL.
+    const tableSel = h('select', { 'aria-label': 'Tabela' }, ts.map((t) => h('option', { value: t }, t)));
+    const fieldSel = h('select', { 'aria-label': 'Campo' });
+    const opSel = h('select', { 'aria-label': 'Condição' }, [['', 'todos os registos'], ['=', 'é igual a'], ['<>', 'é diferente de'], ['>', 'é maior que'], ['<', 'é menor que'], ['LIKE', 'contém']].map(([v, l]) => h('option', { value: v }, l)));
+    const valueIn = h('input', { type: 'text', placeholder: 'valor', 'aria-label': 'Valor' });
+    const sortSel = h('select', { 'aria-label': 'Ordenar por' });
+    const fillFields = () => {
+      const fs = tableSel.value ? fields(tableSel.value) : [];
+      fieldSel.replaceChildren(...fs.map((f) => h('option', { value: f.name }, f.name)));
+      sortSel.replaceChildren(h('option', { value: '' }, 'sem ordenação'), ...fs.flatMap((f) => [h('option', { value: f.name + '|ASC' }, `${f.name} ↑`), h('option', { value: f.name + '|DESC' }, `${f.name} ↓`)]));
+    };
+    tableSel.addEventListener('change', fillFields);
+    fillFields();
+    const build = () => {
+      if (!tableSel.value) return;
+      let sql = `SELECT * FROM ${q(tableSel.value)}`;
+      if (opSel.value) {
+        const raw = valueIn.value.trim();
+        const val = opSel.value === 'LIKE' ? `'%${raw.replace(/'/g, "''")}%'` : raw !== '' && Number.isFinite(Number(raw.replace(',', '.'))) ? String(Number(raw.replace(',', '.'))) : `'${raw.replace(/'/g, "''")}'`;
+        sql += `\nWHERE ${q(fieldSel.value)} ${opSel.value} ${val}`;
+      }
+      if (sortSel.value) { const [f, d] = sortSel.value.split('|'); sql += `\nORDER BY ${q(f)} ${d}`; }
+      queryText = sql;
+      editor.value = sql;
+      execute();
+    };
+
+    const execute = () => {
+      results.replaceChildren();
+      const sql = editor.value.trim();
+      if (!sql) return;
+      const writes = isWrite(sql);
+      if (/\b(attach|detach)\b/i.test(sql)) return results.append(h('p', { class: 'db-error' }, 'ATTACH e DETACH não são permitidos.'));
+      if (writes) {
+        const risky = /^\s*(delete|update)\b(?![\s\S]*\bwhere\b)/im.test(sql) || /^\s*drop\b/im.test(sql);
+        if (!window.confirm(risky ? 'Atenção: esta instrução altera ou apaga dados SEM condição (WHERE) ou elimina uma tabela. Continuar? Pode anular com Ctrl+Z.' : 'Esta instrução altera a base de dados. Continuar? Pode anular com Ctrl+Z.')) return;
+        let changed = 0;
+        const ok = change(() => { run(sql); changed = db.getRowsModified(); });
+        if (ok) MO.toast(`Instrução executada. ${changed} registo(s) afetado(s).`);
+        return;
+      }
+      try {
+        const res = db.exec(sql);
+        if (!res.length) { results.append(h('p', null, 'A consulta não devolveu resultados.')); status('0 resultados'); return; }
+        const { columns, values } = res[res.length - 1];
+        const shownRows = values.slice(0, 2000);
+        results.append(h('table', { class: 'db-grid readonly' },
+          h('thead', null, h('tr', null, columns.map((c) => h('th', null, c)))),
+          h('tbody', null, shownRows.map((r) => h('tr', null, r.map((v) => h('td', { class: typeof v === 'number' ? 'num' : null }, v == null ? '' : typeof v === 'number' ? number.format(v) : v instanceof Uint8Array ? '(binário)' : String(v))))))));
+        if (values.length > shownRows.length) results.append(h('p', null, `A mostrar 2000 de ${values.length} resultados.`));
+        lastResult = { columns, values };
+        status(`${values.length} resultado(s)`);
+      } catch (e) {
+        results.append(h('p', { class: 'db-error' }, friendly(e)));
+      }
+    };
+
+    const saveQuery = async () => {
+      const sql = editor.value.trim();
+      if (!sql) return;
+      const name = await askName('Guardar consulta', 'Nome da consulta', current.name || 'Consulta ' + (queries().length + 1));
+      if (!name) return;
+      if (change(() => { ensureMeta(); run('INSERT OR REPLACE INTO _mo_queries (name, sql) VALUES (?, ?)', [name, sql]); })) { current = { kind: 'query', name }; queryText = sql; renderAll(); }
+    };
+    const deleteQuery = () => {
+      if (!current.name || !window.confirm(`Eliminar a consulta "${current.name}"?`)) return;
+      change(() => run('DELETE FROM _mo_queries WHERE name = ?', [current.name]));
+      current = { kind: 'query', name: null };
+      renderAll();
+    };
+
+    contentBox.append(h('div', { class: 'db-query' },
+      h('h2', null, current.name ? `Consulta: ${current.name}` : 'Nova consulta'),
+      h('div', { class: 'db-builder' }, h('span', null, 'Mostrar'), tableSel, h('span', null, 'onde'), fieldSel, opSel, valueIn, h('span', null, 'ordenado por'), sortSel, h('button', { type: 'button', class: 'btn', onclick: build }, 'Criar consulta')),
+      editor,
+      h('div', { class: 'db-query-actions' },
+        h('button', { type: 'button', class: 'btn primary', onclick: execute, title: 'Executar (Ctrl+Enter)' }, '▶ Executar'),
+        h('button', { type: 'button', class: 'btn', onclick: saveQuery }, 'Guardar consulta'),
+        current.name ? h('button', { type: 'button', class: 'btn danger', onclick: deleteQuery }, 'Eliminar consulta') : null,
+        h('span', { class: 'db-hint' }, 'Os nomes com espaços ou acentos vão entre aspas: "Data de nascimento".')),
+      results));
+    status('Consulta');
+    // Só as consultas de leitura voltam a correr sozinhas; instruções que alteram dados nunca.
+    if (editor.value.trim() && !isWrite(editor.value)) execute();
+  }
+  let lastResult = null;
+  const isWrite = (sql) => /^\s*(insert|update|delete|drop|alter|create|replace|vacuum|attach|detach|pragma|begin|commit|rollback|savepoint|release)\b/im.test(String(sql).replace(/--.*$/gm, ''));
+
+  // ---------- Importar e exportar ----------
+
+  function inferType(values) {
+    const filled = values.filter((v) => v != null && String(v).trim() !== '');
+    if (!filled.length) return 'text';
+    if (filled.every((v) => typeof v === 'number' || /^-?\d+([.,]\d+)?$/.test(String(v).trim()))) return 'number';
+    if (filled.every((v) => /^(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})/.test(String(v)))) return 'date';
+    if (filled.every((v) => /^(verdadeiro|falso|true|false|sim|não|nao)$/i.test(String(v)))) return 'bool';
+    return 'text';
+  }
+
+  function uniqueTable(name) {
+    let base = String(name || 'Importação').replace(/[^\p{L}\p{N}_ \-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 50) || 'Importação';
+    if (!/^[\p{L}\p{N}_]/u.test(base) || /^_mo_|^sqlite_/i.test(base)) base = 'T ' + base;
+    const existing = new Set(tables().map((t) => t.toLowerCase()));
+    let n = base; let i = 2;
+    while (existing.has(n.toLowerCase())) n = `${base} (${i++})`;
+    return n;
+  }
+
+  // header: nomes dos campos; data: linhas de valores. Devolve o nome da tabela criada.
+  function importRows(name, header, data, types) {
+    const seen = new Set();
+    const cols = header.map((hd, i) => {
+      let n = String(hd ?? '').replace(/[^\p{L}\p{N}_ \-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || `Campo ${i + 1}`;
+      if (!/^[\p{L}\p{N}_]/u.test(n)) n = 'C ' + n;
+      let u = n; let k = 2;
+      while (seen.has(u.toLowerCase())) u = `${n} ${k++}`;
+      seen.add(u.toLowerCase());
+      return { name: u, type: (types && types[i]) || inferType(data.map((r) => r[i])), opts: {} };
+    });
+    const table = uniqueTable(name);
+    ensureMeta();
+    createTable(table, cols);
+    const st = db.prepare(`INSERT INTO ${q(table)} VALUES (${cols.map(() => '?').join(', ')})`);
+    try {
+      for (const r of data.slice(0, 200000)) st.run(cols.map((c, i) => toStored(c, r[i] instanceof Date ? r[i].toISOString().slice(0, 10) : r[i])));
+    } finally {
+      st.free();
+    }
+    return table;
+  }
+
+  function parseCSV(text) {
+    const first = text.split(/\r?\n/, 1)[0] || '';
+    const sep = (first.match(/;/g) || []).length >= (first.match(/,/g) || []).length ? ';' : ',';
+    const out = [];
+    let row = [], val = '', quoted = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (quoted) {
+        if (ch === '"' && text[i + 1] === '"') { val += '"'; i++; } else if (ch === '"') quoted = false; else val += ch;
+      } else if (ch === '"') quoted = true;
+      else if (ch === sep) { row.push(val); val = ''; }
+      else if (ch === '\n') { row.push(val.replace(/\r$/, '')); out.push(row); row = []; val = ''; }
+      else val += ch;
+    }
+    if (val || row.length) { row.push(val); out.push(row); }
+    return out.filter((r) => r.some((v) => v.trim() !== ''));
+  }
+
+  async function importFile(kind) {
+    await boot();
+    if (!db) newEmpty();
+    const accept = kind === 'csv' ? '.csv,text/csv' : kind === 'accdb' ? '.accdb,.mdb' : '.xlsx';
+    const picked = await MO.pickFile({ accept, binaryExt: ['xlsx', 'accdb', 'mdb'], maxBytes: 200 * 1024 * 1024 });
+    if (!picked) return;
+    const base = picked.name.replace(/\.[^.]+$/, '');
+    let created = [];
+    const ok = change(() => {
+      if (kind === 'csv') {
+        const data = parseCSV(String(picked.content));
+        if (data.length < 1) throw new Error('O ficheiro CSV está vazio.');
+        created.push(importRows(base, data[0], data.slice(1)));
+      } else if (kind === 'xlsx') {
+        const book = MO.OOXML.importXlsx(picked.content, 100000, 256);
+        for (const sheet of book.sheets) {
+          const values = MO.Formula.compute(sheet.cells, 100000, 256);
+          const grid = [];
+          for (const a of Object.keys(sheet.cells)) {
+            const p = MO.Formula.parseAddr(a);
+            if (!p) continue;
+            (grid[p.r] ||= [])[p.c] = values.get(a);
+          }
+          const rowsOk = grid.filter(Boolean).map((r) => Array.from(r, (v) => (v == null || typeof v === 'object' ? (v && v.code ? null : v) : v)));
+          if (rowsOk.length < 1) continue;
+          created.push(importRows(book.sheets.length > 1 ? sheet.name : base, rowsOk[0], rowsOk.slice(1)));
+        }
+        if (!created.length) throw new Error('O livro não tem dados.');
+      } else {
+        if (!window.MDBReaderLib) throw new Error('Leitor de Access indisponível.');
+        const { MDBReader, Buffer } = window.MDBReaderLib;
+        const reader = new MDBReader(Buffer.from(picked.content));
+        const MAP = { boolean: 'bool', byte: 'number', integer: 'number', long: 'number', float: 'number', double: 'number', numeric: 'number', bigint: 'number', currency: 'money', datetime: 'date', datetimeextended: 'date', text: 'text', memo: 'text', guid: 'text' };
+        for (const name of reader.getTableNames()) {
+          const t = reader.getTable(name);
+          const cols = t.getColumns().filter((c) => Object.hasOwn(MAP, c.type));
+          const data = t.getData().map((r) => cols.map((c) => { const v = r[c.name]; return v instanceof Date ? v.toISOString().slice(0, 10) : typeof v === 'bigint' ? Number(v) : v; }));
+          created.push(importRows(name, cols.map((c) => c.name), data, cols.map((c) => MAP[c.type])));
+        }
+        if (!created.length) throw new Error('O ficheiro Access não tem tabelas.');
+      }
+    });
+    if (ok && created.length) {
+      current = { kind: 'table', name: created[0] };
+      mode = 'sheet';
+      renderAll();
+      MO.toast(`Importado: ${created.join(', ')}.`);
+    }
+  }
+
+  // Dados da vista atual (tabela ou último resultado de uma consulta), para exportar e imprimir.
+  function currentData() {
+    if (mode === 'query') {
+      if (!lastResult) return null;
+      return { title: current.name || 'Consulta', columns: lastResult.columns, values: lastResult.values.map((r) => r.map((v) => (v instanceof Uint8Array ? '' : v))) };
+    }
+    if (!current.name) return null;
+    const fs = fields(current.name);
+    const links = linkMaps(fs);
+    const data = rows(`SELECT * FROM ${q(current.name)} ORDER BY rowid LIMIT 200000`);
+    return { title: current.name, columns: fs.map((f) => f.name), values: data.map((r) => fs.map((f) => (f.type === 'link' || f.type === 'bool' || f.type === 'date' ? shown(f, r[f.name], links.get(f.name)) : r[f.name]))) };
+  }
+
+  async function saveCopy(content, name, ext, filterName, mime) {
+    if (!window.api) return MO.download(name, content, mime);
+    const res = await window.api.save({ path: null, content, defaultName: name, filters: [{ name: filterName, extensions: [ext] }], remember: false });
+    if (res && res.error) MO.toast(res.error);
+    else if (res) MO.toast(`Exportado para ${res.name}.`);
+  }
+
+  function csvText() {
+    const d = currentData();
+    if (!d) throw new Error('Sem dados');
+    const cell = (v) => { const t = v == null ? '' : typeof v === 'number' ? String(v).replace('.', ',') : String(v); return /[;"\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+    return '\ufeff' + [d.columns, ...d.values].map((r) => r.map(cell).join(';')).join('\r\n');
+  }
+
+  function xlsxBytes() {
+    const d = currentData();
+    if (!d) throw new Error('Sem dados');
+    const F = MO.Formula;
+    const cells = {};
+    [d.columns, ...d.values].slice(0, 100000).forEach((r, i) => r.slice(0, 256).forEach((v, c) => {
+      if (v == null || v === '') return;
+      const text = typeof v === 'number' ? String(v) : String(v);
+      cells[F.addr(i, c)] = { v: typeof v === 'string' && (/^[=']/.test(v) || F.parseNumber(v) !== null) ? "'" + v : text, ...(i === 0 ? { s: { b: true } } : {}) };
+    }));
+    return MO.OOXML.exportXlsx([{ name: d.title.replace(/[\\/?*[\]:]/g, ' ').slice(0, 31) || 'Dados', cells, values: F.compute(cells, 100001, 256) }]);
+  }
+
+  const withData = (fn) => { if (!currentData()) return MO.toast('Abra uma tabela ou execute uma consulta.'); fn(currentData().title); };
+  const exportXlsx = () => withData((title) => saveCopy(xlsxBytes(), title + '.xlsx', 'xlsx', 'Livro do Excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'));
+  const exportCsv = () => withData((title) => saveCopy(csvText(), title + '.csv', 'csv', 'Valores separados por ;', 'text/csv'));
+
+  function report() {
+    if (!currentData()) return MO.toast('Abra uma tabela ou execute uma consulta.');
+    document.querySelector('[data-action="printPreview"]')?.click();
+  }
+
+  // ---------- Fita ----------
+
+  function buildRibbon() {
+    const B = MO.bigButton;
+    const I = MO.iconButton;
+    const modeBtn = (key, icon, label, title) => {
+      const b = B(icon, label, title, () => { if (key !== 'query' && !current.name) return MO.toast('Crie ou abra primeiro uma tabela.'); if (key === 'query') { open('query', null); return; } if (current.kind === 'query') current = { kind: 'table', name: tables()[0] || null }; mode = key; formIndex = 0; renderAll(); });
+      b.classList.add('db-mode');
+      b.dataset.mode = key;
+      return b;
+    };
+    searchInput = h('input', { type: 'search', class: 'db-search', placeholder: 'Procurar na tabela…', 'aria-label': 'Procurar na tabela' });
+    searchInput.addEventListener('input', () => { if (mode === 'sheet') { limit = PAGE; renderAll(); } });
+    const tpl = (key, label, title) => MO.toolButton(label, title, () => MO.modules.db.newDoc(key), 'wide');
+    return MO.ribbon([
+      {
+        label: 'Base',
+        groups: [
+          { label: 'Anular', rows: [[I('undo', 'Anular (Ctrl+Z)', undo), I('redo', 'Refazer (Ctrl+Y)', redo)]] },
+          { label: 'Vistas', rows: [[modeBtn('sheet', 'table', 'Folha de dados', 'Ver e editar os registos em tabela')], [modeBtn('form', 'textBox', 'Formulário', 'Ver e editar um registo de cada vez')], [modeBtn('design', 'pageSetup', 'Estrutura', 'Campos e tipos da tabela')]] },
+          { label: 'Registos', rows: [[B('rowAdd', 'Novo registo', 'Acrescentar um registo', newRecord)], [searchInput]] },
+          { label: 'Tabelas', rows: [[B('slideNew', 'Nova tabela', 'Criar uma tabela', newTable)]] }
+        ]
+      },
+      {
+        label: 'Criar',
+        groups: [
+          { label: 'Consultas e relatórios', rows: [[modeBtn('query', 'search', 'Consulta', 'Filtrar, ordenar e juntar dados (com ou sem SQL)')], [B('presenter', 'Relatório', 'Pré-visualizar e imprimir a tabela ou o resultado da consulta', report)]] },
+          { label: 'Modelos', rows: [[tpl('clientes', 'Clientes', 'Base de dados de clientes'), tpl('inventario', 'Inventário', 'Produtos, preços e stock')], [tpl('encomendas', 'Encomendas', 'Clientes, produtos e encomendas ligadas'), tpl('blank', 'Em branco', 'Base de dados vazia')]] }
+        ]
+      },
+      {
+        label: 'Dados externos',
+        groups: [
+          { label: 'Importar', rows: [[B('grid', 'Excel', 'Importar as folhas de um livro do Excel como tabelas', () => importFile('xlsx')), B('export', 'CSV', 'Importar um ficheiro CSV como tabela', () => importFile('csv'))], [B('folder', 'Access', 'Importar as tabelas de um ficheiro do Access (.accdb, .mdb)', () => importFile('accdb'))]] },
+          { label: 'Exportar', rows: [[B('grid', 'Para Excel', 'Exportar a tabela ou o resultado da consulta para Excel', exportXlsx), B('export', 'Para CSV', 'Exportar a tabela ou o resultado da consulta para CSV', exportCsv)]] }
+        ]
+      }
+    ], () => ctx.file());
+  }
+
+  function newEmpty() {
+    if (db) db.close();
+    db = new SQL.Database();
+    ensureMeta();
+  }
+
+  MO.modules.db = {
+    id: 'db',
+    label: 'Bases de dados',
+    ext: 'modb',
+    binary: true,
+    noDrafts: true,
+    filterName: 'Base de dados MyOffice',
+    defaultName: 'Base de dados',
+
+    init(container, context) {
+      ctx = context;
+      navBox = h('nav', { class: 'db-nav', 'aria-label': 'Objetos da base de dados' });
+      contentBox = h('div', { class: 'db-content' });
+      statusEl = h('span', { class: 'status-text' }, 'A preparar…');
+      container.append(buildRibbon(), h('div', { class: 'db-shell' }, navBox, contentBox), h('div', { class: 'statusbar' }, statusEl));
+      document.addEventListener('keydown', (e) => {
+        if (!isActive() || !db || ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+        const mod = e.ctrlKey || e.metaKey;
+        if (mod && !e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+        else if (mod && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) { e.preventDefault(); redo(); }
+      });
+      boot().then(() => { if (!db) { newEmpty(); renderAll(); } }).catch(() => status('O motor de base de dados não está disponível.'));
+    },
+
+    async newDoc(templateName) {
+      await boot();
+      newEmpty();
+      undoStack = [];
+      redoStack = [];
+      if (templateName && templateName !== 'blank') template(templateName);
+      current = { kind: 'table', name: tables()[0] || null };
+      mode = 'sheet';
+      if (searchInput) searchInput.value = '';
+      renderAll();
+    },
+
+    serialize() {
+      if (!db) throw new Error('Sem base de dados');
+      return db.export();
+    },
+
+    async load(content, ext) {
+      await boot();
+      const bytes = content instanceof Uint8Array ? content : new Uint8Array(content);
+      if (ext === 'accdb' || ext === 'mdb') {
+        newEmpty();
+        const { MDBReader, Buffer } = window.MDBReaderLib || {};
+        if (!MDBReader) throw new Error('Leitor de Access indisponível');
+        const reader = new MDBReader(Buffer.from(bytes));
+        const MAP = { boolean: 'bool', byte: 'number', integer: 'number', long: 'number', float: 'number', double: 'number', numeric: 'number', bigint: 'number', currency: 'money', datetime: 'date', datetimeextended: 'date', text: 'text', memo: 'text', guid: 'text' };
+        for (const name of reader.getTableNames()) {
+          const t = reader.getTable(name);
+          const cols = t.getColumns().filter((c) => Object.hasOwn(MAP, c.type));
+          importRows(name, cols.map((c) => c.name), t.getData().map((r) => cols.map((c) => { const v = r[c.name]; return v instanceof Date ? v.toISOString().slice(0, 10) : typeof v === 'bigint' ? Number(v) : v; })), cols.map((c) => MAP[c.type]));
+        }
+      } else {
+        // Ficheiro SQLite: começa por "SQLite format 3".
+        if (String.fromCharCode(...bytes.slice(0, 15)) !== 'SQLite format 3') throw new Error('Formato inválido');
+        const next = new SQL.Database(bytes);
+        next.exec('SELECT count(*) FROM sqlite_master');
+        if (db) db.close();
+        db = next;
+        ensureMeta();
+      }
+      undoStack = [];
+      redoStack = [];
+      current = { kind: 'table', name: tables()[0] || null };
+      mode = 'sheet';
+      if (searchInput) searchInput.value = '';
+      renderAll();
+    },
+
+    exports: [
+      { label: 'Tabela ou consulta atual para Excel (.xlsx)', ext: 'xlsx', filterName: 'Livro do Excel', mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', get: () => xlsxBytes() },
+      { label: 'Tabela ou consulta atual para CSV (.csv)', ext: 'csv', filterName: 'Valores separados por ;', mime: 'text/csv', get: () => csvText() }
+    ],
+
+    // Relatório: a tabela ou o resultado da consulta, pronto a imprimir.
+    print() {
+      const d = currentData();
+      const node = h('div', { class: 'db-report' });
+      if (!d) { node.append(h('p', null, 'Sem dados.')); return { node, page: 'A4', margin: '15mm' }; }
+      node.append(
+        h('h1', null, d.title),
+        h('p', { class: 'db-report-meta' }, `${d.values.length} registo(s) · ${new Date().toLocaleDateString('pt-PT')}`),
+        h('table', null, h('thead', null, h('tr', null, d.columns.map((c) => h('th', null, c)))), h('tbody', null, d.values.slice(0, 5000).map((r) => h('tr', null, r.map((v) => h('td', { class: typeof v === 'number' ? 'num' : null }, v == null ? '' : typeof v === 'number' ? number.format(v) : String(v))))))));
+      return { node, page: d.columns.length > 6 ? 'A4 landscape' : 'A4', margin: '14mm', pageRule: '@bottom-right { content: counter(page) " / " counter(pages); font: 9pt Arial; color: #667085; }' };
+    },
+
+    // Usado pelos testes.
+    _debug: { sql: (s, p) => rows(s, p), tables: () => tables(), fields: (t) => fields(t), state: () => ({ current, mode }) },
+
+    show() { if (db) renderAll(); }
+  };
+})();
