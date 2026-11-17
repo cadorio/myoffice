@@ -29,7 +29,7 @@ function flush() {
   const text = clean(paragraph.join(' '));
   paragraph = [];
   if (text.length < 32 || /^[-:·\s]+$/.test(text)) return;
-  const sentences = text.match(/[^.!?]+[.!?]?/g) || [text];
+  const sentences = text.split(/(?<=[.!?])\s+(?=[A-ZÀ-Ý"«(])/u);
   let chunk = '';
   for (const sentence of sentences) {
     const next = `${chunk}${chunk ? ' ' : ''}${sentence.trim()}`;
@@ -47,6 +47,7 @@ function addDocument(text) {
 }
 
 for (const line of source.split(/\r?\n/)) {
+  if (/^\s*\|/.test(line) || /^\s*!\[/.test(line)) { flush(); continue; }
   if (/^\s*```/.test(line)) {
     flush();
     code = !code;
@@ -63,9 +64,14 @@ for (const line of source.split(/\r?\n/)) {
     continue;
   }
   if (code) {
+    if (section === 'Desenvolvimento' || section === 'Estrutura') continue;
     const codeLine = clean(line);
     if (codeLine) addDocument(codeLine);
-  } else paragraph.push(line);
+  } else {
+    if (section === 'Índice' || section === 'Desenvolvimento' || section === 'Estrutura') continue;
+    if (/^\s*(?:[-*+]|\d+[.)])\s+/.test(line)) flush();
+    paragraph.push(line);
+  }
 }
 flush();
 
