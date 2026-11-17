@@ -98,7 +98,13 @@ O ecrã inicial tem seis **modelos prontos a usar** (relatório, ata de reunião
 
 ![MyOffice Desenho](docs/screenshots/desenho.png)
 
-Comece por um modelo de fluxo, mapa mental ou organograma e acrescente caixas, círculos, decisões e ligações. Cada elemento tem texto e cor editáveis. Exporta em SVG para usar noutros documentos.
+- **8 formas**: caixa, arredondada, círculo, decisão, dados, base de dados, nota e texto. O texto ajusta-se à forma; faça duplo clique para escrever diretamente nela.
+- **Ligações**: arraste a partir de um ponto azul da forma até outra. Cada ligação pode ter texto, setas numa ou nas duas pontas, tracejado e traçado em cotovelo.
+- **Formatar**: cor de fundo, contorno e texto, tamanho da letra e negrito; mudar o tipo de forma sem perder o texto.
+- **Organizar**: selecionar várias (Shift+clique ou arrastar à volta), alinhar, distribuir, trazer para a frente, duplicar (Ctrl+D), copiar e colar, mover com as setas.
+- Grelha com encaixe, zoom, ajustar ao ecrã e anular/refazer (Ctrl+Z / Ctrl+Y).
+- Modelos: fluxograma, mapa mental, organograma, linha temporal, SWOT ou em branco.
+- Exporta em **SVG**, **PNG** e PDF.
 
 ### Em todas as aplicações
 
