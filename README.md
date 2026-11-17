@@ -109,7 +109,7 @@ O ecrã inicial tem seis **modelos prontos a usar** (relatório, ata de reunião
 
 ### Em todas as aplicações
 
-- **Cada programa na sua janela**: Texto, Folhas, Diapositivos, Desenho, PDF e Assistente abrem em janelas separadas, cada uma com a sua entrada na barra de tarefas do Windows, como o Word e o Excel. Fechar um programa não fecha os outros, e cada um recupera o seu próprio trabalho se fechar inesperadamente.
+- **Programas independentes**: Texto, Folhas, Diapositivos, Desenho, PDF e Assistente abrem cada um na sua janela, com o seu atalho no menu Iniciar e a sua entrada na barra de tarefas, como o Word e o Excel. Cada programa começa no seu próprio ecrã de início (em branco, modelos e ficheiros recentes desse tipo) e não depende de um menu principal. Fechar um programa não fecha os outros, e cada um recupera o seu próprio trabalho. O atalho geral "MyOffice" abre apenas um pequeno ecrã para escolher o programa.
 - **Painel de ferramentas** à direita, em secções, e barra de aplicações à esquerda. Ctrl+. esconde ou mostra o painel.
 - **Ctrl+K** abre a procura de comandos: escreva o que quer fazer.
 - Modo claro e escuro, que acompanha o Windows ou se escolhe na aplicação.

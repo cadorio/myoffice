@@ -17,7 +17,7 @@
   const ORDER = ['writer', 'sheets', 'slides', 'draw', 'pdf'];
   const EXT_MODULE = { modoc: 'writer', html: 'writer', htm: 'writer', txt: 'writer', mosheet: 'sheets', csv: 'sheets', moslides: 'slides', modraw: 'draw', pdf: 'pdf', docx: 'writer', xlsx: 'sheets', pptx: 'slides' };
   const BINARY_EXT = ['docx', 'xlsx', 'pptx', 'pdf'];
-  const APP_ICON = { writer: 'icon-text.svg', sheets: 'icon-sheets.svg', slides: 'icon-slides.svg', draw: 'icon-draw.svg', assistant: 'icon-assistant.svg' };
+  const APP_ICON = { writer: 'icon-text.svg', sheets: 'icon-sheets.svg', slides: 'icon-slides.svg', draw: 'icon-draw.svg', pdf: 'icon-pdf.svg', assistant: 'icon-assistant.svg' };
   const docs = {};
   let current = 'home';
 
@@ -83,6 +83,7 @@
 
   function newDoc() {
     if (current === 'home' || !confirmDiscard(current)) return;
+    hideStart();
     MO.modules[current].newDoc();
     docs[current] = { path: null, name: null, dirty: false };
     dropDraft(current);
@@ -122,6 +123,7 @@
     const native = ext === mod.ext;
     docs[id] = { path: native ? file.path : null, name: file.name, dirty: false };
     dropDraft(id);
+    hideStart();
     show(id);
   }
 
@@ -141,6 +143,7 @@
       return;
     }
     if (!MO.modules[id] || !confirmDiscard(id)) return;
+    hideStart();
     current = id;
     MO.modules[id].newDoc(template);
     docs[id] = { path: null, name: null, dirty: Boolean(template), };
@@ -291,6 +294,67 @@
 
   // ---------- Recentes (só na aplicação instalada) ----------
 
+  // ---------- Ecrã de início de cada programa ----------
+  // Cada programa abre no seu próprio início (em branco, modelos, recentes desse tipo), como o Word
+  // e o Excel. Só existe na aplicação instalada, onde cada programa tem a sua janela.
+
+  const START_TEMPLATES = {
+    draw: [['flow', 'Fluxograma', 'Etapas e decisões'], ['mind', 'Mapa mental', 'Ideias à volta de um tema'], ['org', 'Organograma', 'Equipas e funções'], ['timeline', 'Linha temporal', 'Etapas ao longo do tempo'], ['swot', 'SWOT', 'Forças, fraquezas, oportunidades e ameaças']]
+  };
+  const START_TITLE = { writer: 'Texto', sheets: 'Folhas', slides: 'Diapositivos', draw: 'Desenho', pdf: 'PDF' };
+  const START_BLANK = { writer: 'Documento em branco', sheets: 'Livro em branco', slides: 'Apresentação em branco', draw: 'Desenho em branco', pdf: null };
+  let startEl = null;
+
+  function hideStart() {
+    if (startEl) { startEl.remove(); startEl = null; document.body.classList.remove('has-start'); }
+  }
+
+  async function showStart(id) {
+    if (!MO.modules[id] || startEl) return;
+    const view = $('#view-' + id);
+    const cards = [];
+    if (START_BLANK[id]) {
+      cards.push(h('button', { type: 'button', class: 'start-card blank', onclick: () => { hideStart(); MO.modules[id].show(); } },
+        h('span', { class: 'start-thumb blank-thumb' }, '＋'), h('strong', null, START_BLANK[id])));
+    }
+    // Modelos do ecrã inicial que pertencem a este programa.
+    for (const card of document.querySelectorAll(`#view-home .template-card[data-template-module="${id}"]`)) {
+      const clone = card.cloneNode(true);
+      clone.classList.add('start-card');
+      cards.push(clone);
+    }
+    for (const [key, name, hint] of START_TEMPLATES[id] || []) {
+      if (key === 'flow') continue; // o desenho em branco já abre o fluxograma
+      cards.push(h('button', { type: 'button', class: 'start-card template-card', 'data-template-module': id, 'data-template': key },
+        h('span', { class: 'start-thumb' }, MO.icon('branch')), h('strong', null, name), h('small', null, hint)));
+    }
+    const recentList = h('ul', { class: 'start-recent' });
+    const empty = h('p', { class: 'start-empty' }, 'Ainda não há ficheiros recentes deste programa.');
+    startEl = h('section', { class: 'start-screen', 'aria-label': `Início — ${START_TITLE[id]}` },
+      h('div', { class: 'start-inner' },
+        h('header', { class: 'start-head' },
+          h('span', { class: 'app-tile ' + id }, h('img', { src: 'assets/' + APP_ICON[id], alt: '' })),
+          h('h1', null, START_TITLE[id]),
+          h('button', { type: 'button', class: 'btn', 'data-action': 'open' }, 'Abrir…')
+        ),
+        cards.length ? h('div', { class: 'start-cards' }, cards) : h('p', { class: 'start-lead' }, id === 'pdf' ? 'Abra um PDF para o ler, anotar, assinar ou organizar. Também pode arrastá-lo para esta janela.' : ''),
+        h('h2', null, 'Recentes'),
+        recentList,
+        empty
+      )
+    );
+    view.append(startEl);
+    document.body.classList.add('has-start');
+    const list = api ? await api.getRecent() : [];
+    const mine = list.filter((item) => EXT_MODULE[item.name.split('.').pop().toLowerCase()] === id);
+    empty.hidden = mine.length > 0;
+    recentList.replaceChildren(...mine.map((item) => h('li', null,
+      h('button', { type: 'button', class: 'recent-item', title: item.path, onclick: async () => loadFile(await api.openRecent(item.path)) },
+        h('span', { class: 'app-tile ' + id }, h('img', { src: 'assets/' + APP_ICON[id], alt: '' })),
+        h('span', { class: 'recent-name' }, item.name),
+        h('span', { class: 'recent-path' }, item.path)))));
+  }
+
   async function refreshRecent() {
     const list = api ? await api.getRecent() : [];
     document.querySelectorAll('.recent-empty').forEach((el) => (el.hidden = list.length > 0));
@@ -374,6 +438,7 @@
             docs[draft.module] = { path: draft.path, name: draft.name, dirty: true };
             stale.add(draft.module);
             last = draft.module;
+            hideStart();
           } catch {
             MO.toast('Não foi possível recuperar um dos documentos.');
           }
@@ -701,6 +766,8 @@
 
     const requestedView = SOLO || new URLSearchParams(location.search).get('view');
     show(ORDER.includes(requestedView) || requestedView === 'assistant' ? requestedView : 'home');
+    // Programa aberto sozinho: começa no seu ecrã de início.
+    if (SOLO && MO.modules[SOLO]) showStart(SOLO);
   }
 
   init();
