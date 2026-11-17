@@ -399,6 +399,20 @@
     });
   }
 
+  function duplicateElement() {
+    const el = selected();
+    if (!el) return MO.toast('Selecione primeiro um elemento do diapositivo.');
+    commitTextEdit();
+    const copy = JSON.parse(JSON.stringify(el));
+    copy.id = uid();
+    copy.x = Math.max(0, Math.min(W - Math.min(W, el.w), el.x + 24));
+    copy.y = Math.max(0, Math.min(H - Math.min(H, el.h), el.y + 24));
+    change(() => {
+      slide().els.push(copy);
+      selId = copy.id;
+    });
+  }
+
   function deleteSlide() {
     commitTextEdit();
     if (slides.length === 1) return MO.toast('A apresentação precisa de pelo menos um diapositivo.');
@@ -645,6 +659,7 @@
 
     if (mod && k === 'z' && !e.shiftKey) timeTravel(undoStack, redoStack);
     else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) timeTravel(redoStack, undoStack);
+    else if (mod && k === 'd' && el) duplicateElement();
     else if ((e.key === 'Delete' || e.key === 'Backspace') && el) deleteSelected();
     else if (e.key === 'Enter' && el && el.type === 'text') startTextEdit(el.id);
     else if (e.key === 'Escape' && el) selectEl(null);
@@ -819,7 +834,7 @@
             {
               label: 'Dispor',
               rows: [
-                [iconButton('front', 'Trazer para a frente', () => reorder(true), 'Frente'), iconButton('close', 'Eliminar elemento (Delete)', deleteSelected)],
+                [iconButton('duplicate', 'Duplicar elemento (Ctrl+D)', duplicateElement, 'Duplicar'), iconButton('front', 'Trazer para a frente', () => reorder(true), 'Frente'), iconButton('close', 'Eliminar elemento (Delete)', deleteSelected)],
                 [iconButton('back', 'Enviar para trás', () => reorder(false), 'Trás')]
               ]
             }

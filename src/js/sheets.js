@@ -847,6 +847,17 @@
                   bigButton('lookup', 'ProcV', 'Inserir PROCV(valor; tabela; coluna; FALSO)', () => insertFn('=PROCV('))
                 ]
               ]
+            },
+            {
+              label: 'Estatística',
+              rows: [[
+                bigButton('average', 'Mediana', 'Inserir MEDIANA(intervalo)', () => insertFn('=MEDIANA(')),
+                bigButton('chart', 'Moda', 'Inserir MODA(intervalo)', () => insertFn('=MODA(')),
+                bigButton('average', 'Desvio A', 'Inserir DESVPAD.A(intervalo), para amostras', () => insertFn('=DESVPAD.A(')),
+                bigButton('average', 'Desvio P', 'Inserir DESVPAD.P(intervalo), para a população completa', () => insertFn('=DESVPAD.P(')),
+                bigButton('average', 'Variância A', 'Inserir VAR.S(intervalo), para amostras', () => insertFn('=VAR.S(')),
+                bigButton('average', 'Variância P', 'Inserir VAR.P(intervalo), para a população completa', () => insertFn('=VAR.P('))
+              ]]
             }
           ]
         },

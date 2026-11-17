@@ -51,6 +51,9 @@ O Assistente IA tem uma área própria, com conversa e atalhos para obter ajuda 
 - **Espaço de trabalho MyOffice Horizon** — página inicial renovada com acesso direto às ferramentas, modelos editáveis e pesquisa de ficheiros recentes.
 - **Seis modelos prontos a usar** — relatório, ata de reunião, orçamento mensal com fórmulas, gestor de tarefas, apresentação de projeto e apresentação de aula.
 - **Gráficos em Folhas** — pré-visualização de gráficos de colunas e linhas a partir de dados selecionados, com exportação SVG.
+- **Análise estatística em Folhas** — fórmulas para mediana, moda, desvio padrão e variância, além de soma, média e contagem.
+- **Edição mais rápida de apresentações** — duplicar elementos com Ctrl+D e ajustar a posição com as setas; Shift+setas move em passos maiores.
+- **Acompanhamento da leitura em Texto** — contagem de palavras e caracteres na seleção e estimativa do tempo de leitura; revisão ortográfica em português quando suportada pelo sistema.
 - **Assistente MyOffice independente** — aplicação própria para responder a pedidos conhecidos sobre os três programas, analisar texto e tabelas, ajudar com fórmulas e estruturar apresentações. Usa regras e cálculos incluídos no projeto, sem modelos ou serviços externos.
 - **Filtros rápidos em Folhas** — mostrar apenas as linhas que correspondem a um texto na coluna ativa; a ordenação ascendente e descendente também está disponível.
 - **Três módulos integrados** — alternar entre documentos, folhas de cálculo e apresentações.

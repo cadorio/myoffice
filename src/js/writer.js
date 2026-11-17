@@ -85,7 +85,13 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
     const text = editor.innerText.replace(/ /g, ' ');
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
     const chars = text.replace(/\n/g, '').length;
-    statusEl.textContent = `${words} ${words === 1 ? 'palavra' : 'palavras'} · ${chars} ${chars === 1 ? 'carácter' : 'caracteres'}`;
+    const selection = document.getSelection();
+    const selectedText = selection && editor.contains(selection.anchorNode) ? selection.toString().trim() : '';
+    const selectedWords = selectedText ? selectedText.split(/\s+/).length : 0;
+    const selectedChars = selectedText.replace(/\n/g, '').length;
+    const prefix = selectedText ? `${selectedWords} ${selectedWords === 1 ? 'palavra' : 'palavras'} selecionadas · ${selectedChars} ${selectedChars === 1 ? 'carácter' : 'caracteres'} · ` : '';
+    const reading = words ? ` · ~${Math.max(1, Math.ceil(words / 200))} min de leitura` : '';
+    statusEl.textContent = `${prefix}${words} ${words === 1 ? 'palavra' : 'palavras'} · ${chars} ${chars === 1 ? 'carácter' : 'caracteres'}${reading}`;
   }
 
   function rememberSelection() {
@@ -332,6 +338,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
     init(container, context) {
       ctx = context;
       editor = h('div', { class: 'page', contenteditable: 'true', spellcheck: 'true', role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Documento' });
+      editor.lang = 'pt-PT';
       statusEl = h('span', { class: 'status-text' });
       const ribbon = buildRibbon();
       const bar = h('div', { class: 'statusbar' }, statusEl, MO.zoomControl((k) => (editor.style.zoom = k)));
@@ -341,6 +348,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
 
       editor.addEventListener('input', changed);
       document.addEventListener('selectionchange', rememberSelection);
+      document.addEventListener('selectionchange', updateStats);
 
       editor.addEventListener('keydown', (e) => {
         if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {

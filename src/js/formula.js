@@ -18,6 +18,20 @@
     MAXIMO: 'MAX',
     CONTAR: 'COUNT',
     'CONTAR.VAL': 'COUNTA',
+    MEDIANA: 'MEDIAN',
+    MODA: 'MODE',
+    DESVPAD: 'STDEV_S',
+    'DESVPAD.A': 'STDEV_S',
+    'DESVPAD.S': 'STDEV_S',
+    'DESVPAD.P': 'STDEV_P',
+    DESVPADP: 'STDEV_P',
+    'STDEV.S': 'STDEV_S',
+    'STDEV.P': 'STDEV_P',
+    'MODE.SNGL': 'MODE',
+    VAR: 'VAR_S',
+    'VAR.S': 'VAR_S',
+    'VAR.P': 'VAR_P',
+    VARP: 'VAR_P',
     PRODUTO: 'PRODUCT',
     SE: 'IF',
     'SE.ERRO': 'IFERROR',
@@ -375,6 +389,24 @@
       const n = nums(a);
       return n.length ? Math.max(...n) : 0;
     },
+    MEDIAN: (a) => {
+      const n = nums(a).sort((x, y) => x - y);
+      if (!n.length) throw new FError('#NUM!');
+      const middle = Math.floor(n.length / 2);
+      return n.length % 2 ? n[middle] : (n[middle - 1] + n[middle]) / 2;
+    },
+    MODE: (a) => {
+      const counts = new Map();
+      for (const value of nums(a)) counts.set(value, (counts.get(value) || 0) + 1);
+      if (!counts.size) throw new FError('#N/D');
+      const best = Math.max(...counts.values());
+      if (best < 2) throw new FError('#N/D');
+      return Math.min(...[...counts].filter(([, count]) => count === best).map(([value]) => value));
+    },
+    STDEV_S: (a) => deviation(a, true),
+    STDEV_P: (a) => deviation(a, false),
+    VAR_S: (a) => deviation(a, true, true),
+    VAR_P: (a) => deviation(a, false, true),
     COUNT: (a) => flat(a).filter((v) => typeof v === 'number').length,
     COUNTA: (a) => flat(a).filter((v) => v !== null && v !== '').length,
     ROUND: (a) => round(num(a[0]), a.length > 1 ? num(a[1]) : 0),
@@ -404,7 +436,16 @@
     TODAY: () => new Date().toLocaleDateString('pt-PT')
   };
 
-  const MIN_ARGS = { SUMIF: 2, COUNTIF: 2, VLOOKUP: 3, ROUND: 1, INT: 1, ABS: 1, SQRT: 1, POWER: 2, MOD: 2, NOT: 1, LEN: 1, UPPER: 1, LOWER: 1, TRIM: 1 };
+  function deviation(args, sample, variance = false) {
+    const n = nums(args);
+    if (n.length < (sample ? 2 : 1)) throw new FError('#DIV/0!');
+    const mean = n.reduce((sum, value) => sum + value, 0) / n.length;
+    const divisor = sample ? n.length - 1 : n.length;
+    const result = n.reduce((sum, value) => sum + (value - mean) ** 2, 0) / divisor;
+    return variance ? result : Math.sqrt(result);
+  }
+
+  const MIN_ARGS = { SUMIF: 2, COUNTIF: 2, VLOOKUP: 3, MEDIAN: 1, MODE: 1, STDEV_S: 1, STDEV_P: 1, VAR_S: 1, VAR_P: 1, ROUND: 1, INT: 1, ABS: 1, SQRT: 1, POWER: 2, MOD: 2, NOT: 1, LEN: 1, UPPER: 1, LOWER: 1, TRIM: 1 };
 
   function evaluate(n, ctx) {
     switch (n.k) {
