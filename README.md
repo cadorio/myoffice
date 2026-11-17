@@ -6,9 +6,11 @@ Sete programas independentes — **Texto, Folhas, Diapositivos, Desenho, PDF, Ba
 
 **[⬇ Descarregar MyOffice 1.12.0 para Windows (64 bits)](https://github.com/cadorio/myoffice/releases/download/v1.12.0/MyOffice-Setup-1.12.0.exe)**
 
+Também disponível como [MSI para empresas](https://github.com/cadorio/myoffice/releases/download/v1.12.0/MyOffice-1.12.0-x64.msi) e [ZIP portátil](https://github.com/cadorio/myoffice/releases/download/v1.12.0/MyOffice-1.12.0-x64-portatil.zip) · [Somas SHA-256](https://github.com/cadorio/myoffice/releases/download/v1.12.0/SHA256SUMS.txt)
+
 [Notas da versão](https://github.com/cadorio/myoffice/releases/tag/v1.12.0) · [Versões anteriores](https://github.com/cadorio/myoffice/releases) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
-![Ecrã inicial do MyOffice](docs/screenshots/inicio.png)
+![MyOffice Bases de dados](docs/screenshots/bases-de-dados.png)
 
 ## Índice
 
@@ -148,7 +150,7 @@ A ligação ao MySQL/MariaDB e ao PostgreSQL foi testada com servidores reais; a
 
 ### Em todas as aplicações
 
-- **Programas independentes**: Texto, Folhas, Diapositivos, Desenho, PDF, Bases de dados e Assistente abrem cada um na sua janela, com o seu atalho no menu Iniciar e a sua entrada na barra de tarefas, como o Word e o Excel. Cada programa começa no seu próprio ecrã de início (em branco, modelos e ficheiros recentes desse tipo) e não depende de um menu principal. Fechar um programa não fecha os outros, e cada um recupera o seu próprio trabalho. O atalho geral "MyOffice" abre apenas um pequeno ecrã para escolher o programa.
+- **Programas independentes**: Texto, Folhas, Diapositivos, Desenho, PDF, Bases de dados e Assistente abrem cada um na sua janela, com o seu atalho no menu Iniciar e a sua entrada na barra de tarefas, como o Word e o Excel. Cada programa começa no seu próprio ecrã de início (em branco, modelos e ficheiros recentes desse tipo) e não depende de um menu principal. Fechar um programa não fecha os outros, e cada um recupera o seu próprio trabalho. Cada programa tem o seu ícone no ambiente de trabalho; abrir o `MyOffice.exe` sem escolher o programa abre o último usado.
 - **Painel de ferramentas** à direita, em secções. Ctrl+. esconde ou mostra o painel.
 - **Ctrl+K** abre a procura de comandos: escreva o que quer fazer.
 - Modo claro e escuro, que acompanha o Windows ou se escolhe na aplicação.
@@ -170,15 +172,15 @@ Cada versão traz três formatos. Escolha um:
 
 | Ficheiro | Para quem |
 | --- | --- |
-| `MyOffice-Setup-X.Y.Z.exe` | Uso pessoal. Assistente em português; instala só para o utilizador atual, sem pedir administrador. |
-| `MyOffice-X.Y.Z-x64.msi` | Empresas. Instala para todos os utilizadores e pode ser distribuído por GPO, Intune ou `msiexec /i MyOffice-X.Y.Z-x64.msi /qn`. |
-| `MyOffice-X.Y.Z-x64-portatil.zip` | Sem instalação. Extraia e abra `MyOffice.exe` (por exemplo, numa pen USB). Não cria atalhos nem associações. |
+| [`MyOffice-Setup-1.12.0.exe`](https://github.com/cadorio/myoffice/releases/download/v1.12.0/MyOffice-Setup-1.12.0.exe) | Uso pessoal. Assistente em português; instala só para o utilizador atual, sem pedir administrador. |
+| [`MyOffice-1.12.0-x64.msi`](https://github.com/cadorio/myoffice/releases/download/v1.12.0/MyOffice-1.12.0-x64.msi) | Empresas. Instala para todos os utilizadores e pode ser distribuído por GPO, Intune ou `msiexec /i MyOffice-1.12.0-x64.msi /qn`. |
+| [`MyOffice-1.12.0-x64-portatil.zip`](https://github.com/cadorio/myoffice/releases/download/v1.12.0/MyOffice-1.12.0-x64-portatil.zip) | Sem instalação. Extraia e abra `MyOffice.exe` (por exemplo, numa pen USB). Não cria atalhos nem associações. |
 
 1. Descarregue o formato que quer na [página de versões](https://github.com/cadorio/myoffice/releases/latest).
 2. Abra o ficheiro e siga o assistente de instalação, em português; é mostrada a licença Apache 2.0 antes de instalar.
 3. **Aviso do Windows:** enquanto não houver assinatura digital, o SmartScreen mostra "O Windows protegeu o computador". Clique em **Mais informações** e depois em **Executar mesmo assim**.
 
-**Antivírus:** cada versão traz `SHA256SUMS.txt`. Confirme que o ficheiro descarregado é o original com `Get-FileHash .\MyOffice-Setup-X.Y.Z.exe` no PowerShell e compare o valor. Se o antivírus bloquear o MyOffice, é um falso positivo comum em programas novos sem assinatura; veja [docs/assinatura-windows.md](docs/assinatura-windows.md) para saber como o reportar.
+**Antivírus:** cada versão traz `SHA256SUMS.txt`. Confirme que o ficheiro descarregado é o original com `Get-FileHash .\MyOffice-Setup-1.12.0.exe` no PowerShell e compare o valor. Se o antivírus bloquear o MyOffice, é um falso positivo comum em programas novos sem assinatura; veja [docs/assinatura-windows.md](docs/assinatura-windows.md) para saber como o reportar.
 
 O instalador cria, no menu Iniciar e no ambiente de trabalho, um atalho com ícone próprio para cada programa (MyOffice Texto, Folhas, Diapositivos, Desenho, PDF, Bases de dados e Assistente), cada um com a sua entrada na barra de tarefas. Não há menu inicial: abrir o `MyOffice.exe` diretamente (no ZIP portátil ou no MSI) abre o último programa usado. Os ficheiros `.modoc`, `.mosheet`, `.moslides`, `.modraw` e `.modb` passam a abrir com o MyOffice; `.docx`, `.pptx` e `.pdf` ficam disponíveis em "Abrir com".
 
@@ -279,7 +281,7 @@ node tools/vendor-pdf.js   # atualiza as bibliotecas de PDF em src/vendor
 node tools/vendor-db.js    # atualiza o SQLite e o leitor de Access em src/vendor
 ```
 
-O workflow **Instalador Windows** do GitHub Actions corre os testes e cria o instalador em cada alteração ao `main`. Uma tag `vX.Y.Z` (com `v` minúsculo) publica também uma release com o instalador anexado.
+O workflow **Instalador Windows** do GitHub Actions corre os testes e cria o instalador em cada alteração ao `main`. Uma tag `vX.Y.Z` (com `v` minúsculo) publica também uma release com o instalador `.exe`, o MSI, o ZIP portátil e o `SHA256SUMS.txt`.
 
 ### Estrutura
 
