@@ -442,6 +442,141 @@
     }
   }
 
+  // ---------- Design "Estúdio": documento ao centro, ferramentas num painel lateral ----------
+
+  // Cada módulo cria o seu friso (.ribbon) e o conteúdo. Aqui o conteúdo vai para uma coluna
+  // principal e o friso passa a ser o painel de ferramentas à direita, que se pode recolher.
+  function studioLayout(view) {
+    const ribbon = view.querySelector(':scope > .ribbon');
+    if (!ribbon) return;
+    const mainCol = h('div', { class: 'studio-main' });
+    mainCol.append(...[...view.children].filter((el) => el !== ribbon));
+    const collapse = h('button', { type: 'button', class: 'inspector-toggle', title: 'Mostrar ou esconder as ferramentas (Ctrl+.)', 'aria-label': 'Mostrar ou esconder as ferramentas' }, MO.icon('sidebar'));
+    collapse.addEventListener('click', () => toggleInspector(view));
+    const head = h('div', { class: 'inspector-head' }, h('span', { class: 'inspector-title' }, 'Ferramentas'), h('kbd', { class: 'inspector-kbd', title: 'Paleta de comandos' }, 'Ctrl K'), collapse);
+    ribbon.classList.add('inspector');
+    ribbon.prepend(head);
+    view.append(mainCol, ribbon);
+    let collapsed = false;
+    try {
+      collapsed = localStorage.getItem('mo-inspector-' + view.id) === '1';
+    } catch {
+      collapsed = false;
+    }
+    view.classList.toggle('inspector-collapsed', collapsed);
+  }
+
+  function toggleInspector(view = document.querySelector('.view.module:not([hidden])')) {
+    if (!view) return;
+    const collapsed = view.classList.toggle('inspector-collapsed');
+    try {
+      localStorage.setItem('mo-inspector-' + view.id, collapsed ? '1' : '0');
+    } catch {
+      /* preferência só para esta sessão */
+    }
+  }
+
+  // ---------- Paleta de comandos (Ctrl+K) ----------
+  // Encontra qualquer comando pelo nome: ferramentas da aplicação atual, mudar de aplicação e ações de ficheiro.
+
+  const plain = (text) => String(text || '').toLocaleLowerCase('pt-PT').normalize('NFD').replace(/\p{M}/gu, '');
+  let palette = null;
+
+  function paletteCommands() {
+    const out = [];
+    const view = document.querySelector('.view.module:not([hidden])');
+    if (view) {
+      const panels = [...view.querySelectorAll('.ribbon-panel')];
+      const tabs = [...view.querySelectorAll('.ribbon-tab:not(.file)')];
+      panels.forEach((panel, i) => {
+        const section = tabs[i] ? tabs[i].textContent.trim() : '';
+        panel.querySelectorAll('button.tool').forEach((btn) => {
+          const label = (btn.title || btn.textContent).trim();
+          if (!label) return;
+          out.push({ label, hint: section, run: () => { tabs[i] && tabs[i].click(); btn.click(); } });
+        });
+      });
+    }
+    const actions = [
+      ['Novo documento', 'new'], ['Abrir ficheiro…', 'open'], ['Guardar', 'save'], ['Guardar como…', 'saveAs'], ['Exportar como PDF', 'exportPdf'], ['Acerca do MyOffice', 'about']
+    ];
+    for (const [label, action] of actions) out.push({ label, hint: 'Ficheiro', run: () => run(action) });
+    for (const [label, id] of [['Ir para o Início', 'home'], ['Abrir Texto', 'writer'], ['Abrir Folhas', 'sheets'], ['Abrir Diapositivos', 'slides'], ['Abrir Desenho', 'draw'], ['Abrir Assistente', 'assistant']]) {
+      if (id === current) continue;
+      out.push({ label, hint: 'Aplicações', run: () => show(id) });
+    }
+    out.push({ label: 'Mudar entre modo claro e escuro', hint: 'Aparência', run: () => $('#mode-toggle').click() });
+    if (view) out.push({ label: 'Mostrar ou esconder as ferramentas', hint: 'Aparência', run: () => toggleInspector(view) });
+    return out;
+  }
+
+  function openPalette() {
+    if (palette) return;
+    const commands = paletteCommands();
+    const input = h('input', { type: 'search', class: 'palette-input', placeholder: 'Escreva um comando: negrito, gráfico, PDF…', 'aria-label': 'Procurar comando' });
+    const list = h('ul', { class: 'palette-list', role: 'listbox' });
+    const dlg = h('dialog', { class: 'palette', 'aria-label': 'Paleta de comandos' }, input, list, h('p', { class: 'palette-foot' }, '↑ ↓ para escolher · Enter para executar · Esc para fechar'));
+    let shown = [];
+    let active = 0;
+    const draw = () => {
+      const q = plain(input.value).split(/\s+/).filter(Boolean);
+      shown = commands.filter((c) => q.every((w) => plain(c.label + ' ' + c.hint).includes(w))).slice(0, 12);
+      active = Math.min(active, Math.max(0, shown.length - 1));
+      list.replaceChildren(
+        ...(shown.length
+          ? shown.map((c, i) =>
+              h('li', { role: 'option', class: 'palette-item' + (i === active ? ' active' : ''), 'aria-selected': String(i === active), onclick: () => runItem(i) }, h('span', null, c.label), h('small', null, c.hint))
+            )
+          : [h('li', { class: 'palette-empty' }, 'Nenhum comando encontrado.')])
+      );
+    };
+    const runItem = (i) => {
+      const item = shown[i];
+      dlg.close();
+      if (item) item.run();
+    };
+    input.addEventListener('input', () => {
+      active = 0;
+      draw();
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        active = (active + (e.key === 'ArrowDown' ? 1 : -1) + shown.length) % Math.max(1, shown.length);
+        draw();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        runItem(active);
+      }
+    });
+    dlg.addEventListener('click', (e) => {
+      if (e.target === dlg) dlg.close();
+    });
+    dlg.addEventListener('close', () => {
+      dlg.remove();
+      palette = null;
+    });
+    palette = dlg;
+    document.body.append(dlg);
+    draw();
+    dlg.showModal();
+    input.focus();
+  }
+
+  function initPalette() {
+    $('#palette-btn')?.addEventListener('click', openPalette);
+    document.addEventListener('keydown', (e) => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && !e.altKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        openPalette();
+      } else if (mod && e.key === '.') {
+        e.preventDefault();
+        toggleInspector();
+      }
+    });
+  }
+
   function init() {
     document.querySelectorAll('[data-icon]').forEach((el) => el.prepend(MO.icon(el.dataset.icon)));
     initMode();
@@ -460,7 +595,9 @@
         file: openBackstage
       });
       MO.modules[id].newDoc();
+      studioLayout($('#view-' + id));
     }
+    initPalette();
 
     document.addEventListener('click', (e) => {
       const templateBtn = e.target.closest('[data-template-module]');
