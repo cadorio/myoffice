@@ -56,6 +56,7 @@
   function ensureMeta() {
     run('CREATE TABLE IF NOT EXISTS _mo_fields (tbl TEXT NOT NULL, name TEXT NOT NULL, type TEXT NOT NULL, opts TEXT, pos INTEGER, PRIMARY KEY (tbl, name))');
     run('CREATE TABLE IF NOT EXISTS _mo_queries (name TEXT PRIMARY KEY, sql TEXT NOT NULL)');
+    run('CREATE TABLE IF NOT EXISTS _mo_forms (tbl TEXT PRIMARY KEY, cfg TEXT NOT NULL)');
   }
 
   function tables() {
@@ -233,7 +234,8 @@
     if (current.kind === 'remote') renderRemoteTable();
     else if (current.kind === 'remote-sql') renderRemoteSql();
     else if (mode === 'query') renderQuery();
-    else if (!current.name) renderEmpty();
+    else if (mode === 'rel') renderRelations();
+    else if (!current.name && mode !== 'rel') renderEmpty();
     else if (mode === 'form') renderForm();
     else if (mode === 'design') renderDesign();
     else renderSheet();
@@ -297,8 +299,11 @@
     const save = (v) => {
       const stored = toStored(f, v);
       if (stored === value || (stored == null && value == null)) return;
+      const problem = checkRules(table, f, stored, r._id);
+      if (problem) { MO.toast(problem); renderAll(); return; }
       change(() => run(`UPDATE ${q(table)} SET ${q(f.name)} = ? WHERE rowid = ?`, [stored, r._id]));
     };
+    if (f.opts.required && (value == null || value === '')) td.classList.add('db-missing');
     if (f.type === 'bool') {
       const box = h('input', { type: 'checkbox', checked: Boolean(value), 'aria-label': f.name });
       box.addEventListener('change', () => save(box.checked));
@@ -332,20 +337,24 @@
     }
   }
 
-  function deleteRecord(id) {
+  function deleteRecord(id, table = current.name) {
+    const used = usages(table, id);
+    if (used.length) return MO.toast(`Não é possível eliminar: este registo está ligado a ${used.map((u) => `${u.n} registo(s) de ${u.table}`).join(' e ')}. Elimine ou altere primeiro esses registos.`);
     if (!window.confirm('Eliminar este registo?')) return;
-    change(() => run(`DELETE FROM ${q(current.name)} WHERE rowid = ?`, [id]));
+    change(() => run(`DELETE FROM ${q(table)} WHERE rowid = ?`, [id]));
   }
 
   // ---------- Formulário ----------
 
   function renderForm() {
     const table = current.name;
-    const fs = fields(table);
+    const all = fields(table);
+    const cfg = formConfig(table);
+    const fs = orderFields(all, cfg).filter((f) => customizing || !cfg.hidden.includes(f.name));
     const total = rows(`SELECT COUNT(*) AS n FROM ${q(table)}`)[0].n;
     formIndex = Math.max(0, Math.min(formIndex, total - 1));
     const r = total ? rows(`SELECT rowid AS _id, * FROM ${q(table)} ORDER BY rowid LIMIT 1 OFFSET ?`, [formIndex])[0] : null;
-    const links = linkMaps(fs);
+    const links = linkMaps(all);
     const nav = h('div', { class: 'db-form-nav' },
       h('button', { type: 'button', class: 'btn', disabled: formIndex <= 0, onclick: () => { formIndex = 0; renderAll(); } }, '⏮'),
       h('button', { type: 'button', class: 'btn', disabled: formIndex <= 0, onclick: () => { formIndex--; renderAll(); } }, '◀ Anterior'),
@@ -353,10 +362,322 @@
       h('button', { type: 'button', class: 'btn', disabled: formIndex >= total - 1, onclick: () => { formIndex++; renderAll(); } }, 'Seguinte ▶'),
       h('button', { type: 'button', class: 'btn', disabled: formIndex >= total - 1, onclick: () => { formIndex = total - 1; renderAll(); } }, '⏭'),
       h('button', { type: 'button', class: 'btn primary', onclick: newRecord }, '＋ Novo'),
-      r ? h('button', { type: 'button', class: 'btn danger', onclick: () => deleteRecord(r._id) }, 'Eliminar') : null);
-    const card = h('div', { class: 'db-form-card' }, h('h2', null, table), r ? fs.map((f) => h('label', { class: 'db-form-field' }, h('span', null, f.name, h('small', null, TYPES[f.type])), cell(table, f, r, links.get(f.name)).firstChild)) : h('p', null, 'Esta tabela ainda não tem registos.'));
-    contentBox.append(h('div', { class: 'db-form' }, nav, card));
+      r ? h('button', { type: 'button', class: 'btn danger', onclick: () => deleteRecord(r._id) }, 'Eliminar') : null,
+      h('button', { type: 'button', class: 'btn' + (customizing ? ' on' : ''), title: 'Escolher a ordem dos campos e os que aparecem', onclick: () => { customizing = !customizing; renderAll(); } }, customizing ? '✓ Concluir' : '⚙ Personalizar'));
+    const fieldRow = (f, i) => {
+      const hidden = cfg.hidden.includes(f.name);
+      const tools = customizing ? h('span', { class: 'db-form-tools' },
+        h('button', { type: 'button', class: 'btn', title: 'Subir', 'aria-label': `Subir ${f.name}`, disabled: i === 0, onclick: () => moveField(table, f.name, -1) }, '▲'),
+        h('button', { type: 'button', class: 'btn', title: 'Descer', 'aria-label': `Descer ${f.name}`, disabled: i === fs.length - 1, onclick: () => moveField(table, f.name, 1) }, '▼'),
+        h('button', { type: 'button', class: 'btn', title: hidden ? 'Mostrar no formulário' : 'Esconder no formulário', 'aria-label': `${hidden ? 'Mostrar' : 'Esconder'} ${f.name}`, onclick: () => toggleHidden(table, f.name) }, hidden ? '👁 Mostrar' : 'Esconder')) : null;
+      const control = r ? cell(table, f, r, links.get(f.name)) : null;
+      return h('div', { class: 'db-form-field' + (hidden ? ' is-hidden' : '') + (control && control.classList.contains('db-missing') ? ' db-missing' : '') },
+        h('span', null, f.name + (f.opts.required ? ' *' : ''), h('small', null, TYPES[f.type])), control ? control.firstChild : h('span'), tools);
+    };
+    const card = h('div', { class: 'db-form-card' }, h('h2', null, table), r || customizing ? fs.map(fieldRow) : h('p', null, 'Esta tabela ainda não tem registos.'));
+    contentBox.append(h('div', { class: 'db-form' }, nav, card, r ? subforms(table, r._id) : null));
     status(`${table} · formulário`);
+  }
+
+  // Subformulários: registos de outras tabelas ligados a este (ex.: as encomendas do cliente).
+  function subforms(table, id) {
+    const out = [];
+    for (const other of tables()) {
+      for (const f of fields(other).filter((x) => x.type === 'link' && x.opts.table === table)) {
+        const cols = fields(other).filter((x) => x.name !== f.name).slice(0, 6);
+        const links = linkMaps(cols);
+        const list = rows(`SELECT rowid AS _id, * FROM ${q(other)} WHERE ${q(f.name)} = ? ORDER BY rowid LIMIT 200`, [id]);
+        out.push(h('section', { class: 'db-subform' },
+          h('h3', null, `${other}`, h('small', null, ` · ${f.name} = este registo · ${list.length}`)),
+          h('table', { class: 'db-grid' },
+            h('thead', null, h('tr', null, h('th', { class: 'db-rownum' }), cols.map((c) => h('th', null, h('span', { class: 'db-type db-type-' + c.type }), c.name)))),
+            h('tbody', null,
+              list.map((r) => h('tr', null, h('td', { class: 'db-rownum' }, h('button', { type: 'button', class: 'db-row-del', title: 'Eliminar registo', 'aria-label': 'Eliminar registo', onclick: () => deleteRecord(r._id, other) }, '×')), cols.map((c) => cell(other, c, r, links.get(c.name))))),
+              h('tr', { class: 'db-newrow' }, h('td', { colspan: cols.length + 1 }, h('button', { type: 'button', class: 'btn', onclick: () => change(() => run(`INSERT INTO ${q(other)} (${q(f.name)}) VALUES (?)`, [id])) }, `＋ Acrescentar a ${other}`)))))));
+      }
+    }
+    return out.length ? h('div', { class: 'db-subforms' }, out) : null;
+  }
+
+  // Configuração do formulário: ordem dos campos e campos escondidos.
+  let customizing = false;
+  function formConfig(table) {
+    try {
+      const row = rows('SELECT cfg FROM _mo_forms WHERE tbl = ?', [table])[0];
+      const cfg = row ? JSON.parse(row.cfg) : {};
+      return { order: Array.isArray(cfg.order) ? cfg.order.map(String) : [], hidden: Array.isArray(cfg.hidden) ? cfg.hidden.map(String) : [] };
+    } catch {
+      return { order: [], hidden: [] };
+    }
+  }
+  const orderFields = (fs, cfg) => [...fs].sort((a, b) => { const ia = cfg.order.indexOf(a.name), ib = cfg.order.indexOf(b.name); return (ia < 0 ? 1e6 + a.pos : ia) - (ib < 0 ? 1e6 + b.pos : ib); });
+  function saveFormConfig(table, cfg) {
+    change(() => { ensureMeta(); run('INSERT OR REPLACE INTO _mo_forms (tbl, cfg) VALUES (?, ?)', [table, JSON.stringify(cfg)]); });
+  }
+  function moveField(table, name, delta) {
+    const cfg = formConfig(table);
+    const order = orderFields(fields(table), cfg).map((f) => f.name);
+    const i = order.indexOf(name);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= order.length) return;
+    [order[i], order[j]] = [order[j], order[i]];
+    saveFormConfig(table, { ...cfg, order });
+  }
+  function toggleHidden(table, name) {
+    const cfg = formConfig(table);
+    const hidden = cfg.hidden.includes(name) ? cfg.hidden.filter((x) => x !== name) : [...cfg.hidden, name];
+    saveFormConfig(table, { ...cfg, hidden });
+  }
+
+  // ---------- Regras e integridade ----------
+
+  function checkRules(table, f, stored, rowId) {
+    const o = f.opts || {};
+    if (o.required && (stored == null || stored === '')) return `O campo "${f.name}" é obrigatório.`;
+    if (stored == null || stored === '') return null;
+    if ((f.type === 'number' || f.type === 'money') && typeof stored === 'number') {
+      if (o.min != null && o.min !== '' && stored < Number(o.min)) return `"${f.name}" tem de ser pelo menos ${o.min}.`;
+      if (o.max != null && o.max !== '' && stored > Number(o.max)) return `"${f.name}" não pode passar de ${o.max}.`;
+    }
+    if (o.unique && rows(`SELECT COUNT(*) AS n FROM ${q(table)} WHERE ${q(f.name)} = ? AND rowid <> ?`, [stored, rowId ?? -1])[0].n) return `Já existe um registo com "${f.name}" = ${stored}. Este campo não pode repetir valores.`;
+    return null;
+  }
+
+  // Registos de outras tabelas que apontam para este (campos de ligação).
+  function usages(table, id) {
+    const out = [];
+    for (const other of tables()) {
+      for (const f of fields(other).filter((x) => x.type === 'link' && x.opts.table === table)) {
+        const n = rows(`SELECT COUNT(*) AS n FROM ${q(other)} WHERE ${q(f.name)} = ?`, [id])[0].n;
+        if (n) out.push({ table: other, field: f.name, n });
+      }
+    }
+    return out;
+  }
+
+  // ---------- Diagrama de relações ----------
+
+  function renderRelations() {
+    const ts = tables();
+    const NS = 'http://www.w3.org/2000/svg';
+    const S = (tag, attrs, text) => { const el = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, v); if (text != null) el.textContent = text; return el; };
+    const W = 230, RH = 22, HEAD = 34, GAPX = 90, GAPY = 60, COLS = Math.max(1, Math.min(4, Math.ceil(Math.sqrt(ts.length))));
+    const boxes = new Map();
+    const heights = ts.map((t) => HEAD + fields(t).length * RH + 8);
+    ts.forEach((t, i) => {
+      const col = i % COLS, row = Math.floor(i / COLS);
+      const y = 20 + heights.filter((_h, k) => k % COLS === col && Math.floor(k / COLS) < row).reduce((a, b) => a + b + GAPY, 0);
+      boxes.set(t, { x: 20 + col * (W + GAPX), y, h: heights[i], fields: fields(t) });
+    });
+    const width = 40 + COLS * W + (COLS - 1) * GAPX;
+    const height = Math.max(200, ...[...boxes.values()].map((b) => b.y + b.h + 20));
+    const svg = S('svg', { viewBox: `0 0 ${width} ${height}`, width, height, class: 'db-rel', role: 'img', 'aria-label': 'Diagrama de relações' });
+    svg.append(S('defs', {}), S('rect', { x: 0, y: 0, width, height, fill: 'transparent' }));
+    svg.firstChild.append((() => { const m = S('marker', { id: 'db-rel-arrow', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 8, markerHeight: 8, orient: 'auto-start-reverse' }); m.append(S('path', { d: 'M0,0 L10,5 L0,10 z', fill: '#a4373a' })); return m; })());
+    // Ligações primeiro (ficam por baixo das caixas).
+    let links = 0;
+    for (const [t, b] of boxes) b.fields.forEach((f, i) => {
+      const target = f.type === 'link' && boxes.get(f.opts.table);
+      if (!target) return;
+      links++;
+      const y1 = b.y + HEAD + i * RH + RH / 2;
+      const toRight = target.x > b.x;
+      const x1 = toRight ? b.x + W : b.x;
+      const x2 = toRight || target.x === b.x ? target.x : target.x + W;
+      const y2 = target.y + HEAD / 2;
+      const mid = target.x === b.x ? x1 - 40 : (x1 + x2) / 2;
+      svg.append(S('path', { d: `M${x1},${y1} C${mid},${y1} ${mid},${y2} ${target.x === b.x ? target.x : x2},${y2}`, fill: 'none', stroke: '#a4373a', 'stroke-width': 2, 'marker-end': 'url(#db-rel-arrow)' }));
+    });
+    for (const [t, b] of boxes) {
+      const g = S('g', { class: 'db-rel-table', tabindex: 0, role: 'button', 'aria-label': `Abrir a tabela ${t}` });
+      g.append(S('rect', { x: b.x, y: b.y, width: W, height: b.h, rx: 10, fill: '#ffffff', stroke: '#cfd8d1' }));
+      g.append(S('rect', { x: b.x, y: b.y, width: W, height: HEAD, rx: 10, fill: '#a4373a' }), S('rect', { x: b.x, y: b.y + HEAD - 10, width: W, height: 10, fill: '#a4373a' }));
+      g.append(S('text', { x: b.x + 12, y: b.y + 22, fill: '#fff', 'font-weight': 700, 'font-size': 14 }, t));
+      b.fields.forEach((f, i) => {
+        const y = b.y + HEAD + i * RH + 15;
+        g.append(S('text', { x: b.x + 12, y, 'font-size': 12.5, fill: '#1d2622' }, (f.type === 'link' ? '🔗 ' : '') + f.name + (f.opts.required ? ' *' : '')));
+        g.append(S('text', { x: b.x + W - 10, y, 'font-size': 11, fill: '#8a968f', 'text-anchor': 'end' }, f.type === 'link' ? '→ ' + (f.opts.table || '?') : TYPES[f.type].split(' ')[0]));
+      });
+      g.addEventListener('click', () => { current = { kind: 'table', name: t }; mode = 'sheet'; renderAll(); });
+      g.addEventListener('keydown', (e) => { if (e.key === 'Enter') g.dispatchEvent(new Event('click')); });
+      svg.append(g);
+    }
+    contentBox.append(h('div', { class: 'db-relations' },
+      h('h2', null, 'Relações'),
+      h('p', { class: 'db-hint' }, ts.length ? `${ts.length} tabela(s) e ${links} ligação(ões). Clique numa tabela para a abrir. Crie ligações na Estrutura com o tipo "Ligação a outra tabela".` : 'Ainda não há tabelas.'),
+      svg));
+    status(`Relações · ${ts.length} tabela(s)`);
+  }
+
+  // ---------- Perguntas em português → consulta ----------
+
+  const plainPt = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const stem = (w) => plainPt(w).replace(/(oes|aes|ais|eis|res|ns|s)$/, '').replace(/(a|o|e)$/, '');
+  const hasWord = (text, w) => new RegExp(`(^|[^a-z0-9])${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(text);
+
+  // Devolve { sql, explanation } ou { error }.
+  function nlToSql(question) {
+    const text = ' ' + plainPt(question).replace(/[?!.,;:]/g, ' ').replace(/\s+/g, ' ') + ' ';
+    const ts = tables();
+    if (!ts.length) return { error: 'Ainda não há tabelas.' };
+    // Tabela: a que é referida pelo nome (singular ou plural); senão, a aberta.
+    // Pontuação de cada tabela: o nome dela antes de "por" vale mais; depois somam-se os campos
+    // dela que a pergunta refere ("soma da quantidade por produto" → Encomendas).
+    const byPos = text.search(/ por /);
+    let table = null, bestScore = 0, bestPos = Infinity;
+    for (const t of ts) {
+      const m = new RegExp(`(^|[^a-z0-9])${stem(plainPt(t).split(/\s+/)[0]).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).exec(text);
+      const pos = m ? m.index + m[1].length : Infinity;
+      let score = m && (byPos < 0 || pos < byPos) ? 3 : 0;
+      for (const f of fields(t)) if (stem(f.name).length >= 4 && hasWord(text, stem(f.name)) && plainPt(f.name) !== plainPt(t)) score += 1;
+      if (score > bestScore || (score === bestScore && score > 0 && pos < bestPos)) { bestScore = score; bestPos = pos; table = t; }
+    }
+    if (!table) table = current.kind === 'table' && current.name ? current.name : ts[0];
+    const fs = fields(table);
+    const mention = (f) => hasWord(text, stem(f.name)) || plainPt(f.name).split(/\s+/).every((w) => w.length > 2 && hasWord(text, stem(w)));
+    const numeric = fs.filter((f) => f.type === 'number' || f.type === 'money');
+    const dates = fs.filter((f) => f.type === 'date');
+    const where = [];
+    const params = [];
+    const explain = [];
+    const sel = (f) => (f.type === 'link' && f.opts.table && tables().includes(f.opts.table) ? labelExpr(f) : `t.${q(f.name)}`);
+
+    // Valores de texto e listas que aparecem na pergunta ("de Lisboa", "estado Enviada").
+    for (const f of fs.filter((x) => x.type === 'text' || x.type === 'choice')) {
+      const values = rows(`SELECT DISTINCT ${q(f.name)} AS v FROM ${q(table)} WHERE ${q(f.name)} IS NOT NULL LIMIT 500`).map((r) => String(r.v));
+      // Valor exato, ou a mesma palavra no plural/feminino ("Enviada" ↔ "enviadas").
+      const hit = values.filter((v) => plainPt(v).length >= 3 && (text.includes(' ' + plainPt(v) + ' ') || (!/\s/.test(v.trim()) && stem(v).length >= 4 && new RegExp(` ${stem(v)}[a-z]{0,3} `).test(text)))).sort((a, b) => b.length - a.length)[0];
+      if (hit) { where.push(`t.${q(f.name)} = ?`); params.push(hit); explain.push(`${f.name} = ${hit}`); }
+    }
+    // Ligações: "encomendas da Ana Sousa".
+    for (const f of fs.filter((x) => x.type === 'link' && x.opts.table)) {
+      const names = [...recordNames(f.opts.table).entries()].filter(([, label]) => plainPt(label).length >= 3 && text.includes(' ' + plainPt(label)));
+      const hit = names.sort((a, b) => b[1].length - a[1].length)[0];
+      if (hit) { where.push(`t.${q(f.name)} = ?`); params.push(hit[0]); explain.push(`${f.name} = ${hit[1]}`); }
+    }
+    // Sim/não: "ativos", "não pagos", "sem stock"…
+    for (const f of fs.filter((x) => x.type === 'bool')) {
+      const s = stem(f.name);
+      const m = new RegExp(`(nao |sem |in)?${s}[a-z]*`).exec(text);
+      if (m && s.length >= 3) { const v = m[1] ? 0 : 1; where.push(`t.${q(f.name)} = ${v}`); explain.push(`${f.name}: ${v ? 'sim' : 'não'}`); }
+    }
+    // Comparações numéricas: "preço acima de 100", "stock menor que 5", "entre 10 e 50".
+    const numField = numeric.find(mention) || numeric[0];
+    const cmp = /(maior(?:es)? (?:que|do que|de)|acima de|mais de|superior(?:es)? a|menor(?:es)? (?:que|do que|de)|abaixo de|menos de|inferior(?:es)? a) (-?\d+(?:[.,]\d+)?)/.exec(text);
+    const btw = /entre (-?\d+(?:[.,]\d+)?) e (-?\d+(?:[.,]\d+)?)/.exec(text);
+    if (numField && btw) { where.push(`t.${q(numField.name)} BETWEEN ? AND ?`); params.push(Number(btw[1].replace(',', '.')), Number(btw[2].replace(',', '.'))); explain.push(`${numField.name} entre ${btw[1]} e ${btw[2]}`); }
+    else if (numField && cmp) {
+      const op = /maior|acima|mais|superior/.test(cmp[1]) ? '>' : '<';
+      where.push(`t.${q(numField.name)} ${op} ?`); params.push(Number(cmp[2].replace(',', '.'))); explain.push(`${numField.name} ${op} ${cmp[2]}`);
+    }
+    // Datas
+    const dateField = dates.find(mention) || dates[0];
+    if (dateField) {
+      const d = `t.${q(dateField.name)}`;
+      let m;
+      if (/ (este|deste|neste) mes /.test(text)) { where.push(`strftime('%Y-%m', ${d}) = strftime('%Y-%m', 'now')`); explain.push(`${dateField.name}: este mês`); }
+      else if (/ (o |do |no )?mes passado /.test(text)) { where.push(`strftime('%Y-%m', ${d}) = strftime('%Y-%m', 'now', 'start of month', '-1 month')`); explain.push(`${dateField.name}: mês passado`); }
+      else if (/ (este|deste|neste) ano /.test(text)) { where.push(`strftime('%Y', ${d}) = strftime('%Y', 'now')`); explain.push(`${dateField.name}: este ano`); }
+      else if (/ hoje /.test(text)) { where.push(`date(${d}) = date('now')`); explain.push(`${dateField.name}: hoje`); }
+      else if ((m = / ultimos (\d+) dias /.exec(text))) { where.push(`date(${d}) >= date('now', ?)`); params.push(`-${m[1]} days`); explain.push(`${dateField.name}: últimos ${m[1]} dias`); }
+      else if ((m = / (?:em|de|desde) (19\d\d|20\d\d) /.exec(text))) { where.push(`strftime('%Y', ${d}) ${/desde/.test(m[0]) ? '>=' : '='} ?`); params.push(m[1]); explain.push(`${dateField.name}: ${m[1]}`); }
+    }
+
+    // Agrupar: "por cliente", "por cidade".
+    const byMatch = / por ([a-z ]+?) (?:com|onde|que|de|em|ordenad|$)/.exec(text + ' ');
+    const groupField = byMatch ? fs.find((f) => hasWord(' ' + byMatch[1] + ' ', stem(f.name))) : null;
+    // Agregados
+    // "total de encomendas" (o nome da tabela) é uma contagem; "total de quantidade" é uma soma.
+    const totalOfTable = new RegExp(`(total|numero)( d[eoa]s?)? ${stem(plainPt(table).split(/\s+/)[0])}`).test(text);
+    const sumField = numeric.find((f) => new RegExp(`(total|soma|somar|valor total)( d[eoa]s?)? ${stem(f.name)}`).test(text)) || (!totalOfTable && / (total|soma|faturac|vendas totais) /.test(text) ? numField : null);
+    const avgField = numeric.find((f) => new RegExp(`media( d[eoa]s?)? ${stem(f.name)}`).test(text)) || (/ media /.test(text) ? numField : null);
+    const count = / (quantos|quantas|numero de|contar|conta) /.test(text) || totalOfTable;
+    const whereSql = where.length ? '\nWHERE ' + where.join('\n  AND ') : '';
+    let sql;
+    if (groupField || count || sumField || avgField) {
+      const aggs = [];
+      if (count || (!sumField && !avgField)) aggs.push('COUNT(*) AS "Quantidade"');
+      if (sumField) aggs.push(`SUM(t.${q(sumField.name)}) AS ${q('Total de ' + sumField.name)}`);
+      if (avgField) aggs.push(`ROUND(AVG(t.${q(avgField.name)}), 2) AS ${q('Média de ' + avgField.name)}`);
+      if (groupField) {
+        sql = `SELECT ${sel(groupField)} AS ${q(groupField.name)}, ${aggs.join(', ')}\nFROM ${q(table)} t${whereSql}\nGROUP BY t.${q(groupField.name)}\nORDER BY 2 DESC`;
+        explain.push(`agrupado por ${groupField.name}`);
+      } else sql = `SELECT ${aggs.join(', ')}\nFROM ${q(table)} t${whereSql}`;
+    } else {
+      // Os N mais caros / maiores / mais recentes.
+      const top = /(?:os|as)? ?(\d+)? ?(mais|menos) (caros?|caras?|baratos?|baratas?|recentes?|antig[oa]s?|altos?|altas?|baix[oa]s?|grandes?|pequen[oa]s?|vendid[oa]s?)/.exec(text);
+      let order = '';
+      let limit = '';
+      if (top) {
+        const recent = /recente|antig/.test(top[3]);
+        const f = recent ? dateField : numField;
+        const desc = (top[2] === 'mais') !== /barat|antig|baix|pequen/.test(top[3]);
+        if (f) { order = `\nORDER BY t.${q(f.name)} ${desc ? 'DESC' : 'ASC'}`; explain.push(`ordenado por ${f.name} ${desc ? '(maior primeiro)' : '(menor primeiro)'}`); }
+        const n = top[1] || (/ (?:os|as|[ao]s?) (\d+) /.exec(text) || [])[1];
+        limit = `\nLIMIT ${Math.min(1000, Number(n) || (/s$/.test(top[3]) ? 10 : 1))}`;
+      }
+      const ordBy = / ordenad[oa]s? por ([a-z ]+?) $/.exec(text + ' ') || / por ordem de ([a-z ]+?) $/.exec(text + ' ');
+      const ordField = ordBy && fs.find((f) => hasWord(' ' + ordBy[1] + ' ', stem(f.name)));
+      if (ordField && !order) { order = `\nORDER BY t.${q(ordField.name)}`; explain.push(`ordenado por ${ordField.name}`); }
+      sql = `SELECT ${fs.map((f) => `${sel(f)} AS ${q(f.name)}`).join(', ')}\nFROM ${q(table)} t${whereSql}${order}${limit}`;
+    }
+    // Os parâmetros ficam escritos no SQL (com aspas), para o utilizador ver e poder editar.
+    let i = 0;
+    sql = sql.replace(/\?/g, () => { const v = params[i++]; return typeof v === 'number' ? String(v) : `'${String(v).replace(/'/g, "''")}'`; });
+    return { sql, explanation: `Tabela ${table}` + (explain.length ? ': ' + explain.join(', ') : ' (todos os registos)') };
+  }
+  // Nome legível de um registo ligado, dentro de uma consulta.
+  function labelExpr(f) {
+    const tfs = fields(f.opts.table);
+    const label = tfs.find((x) => x.type === 'text' && /nome|produto|descri|t[ií]tulo|designa/i.test(x.name)) || tfs.find((x) => x.type === 'text') || tfs[0];
+    return label ? `(SELECT ${q(label.name)} FROM ${q(f.opts.table)} WHERE rowid = t.${q(f.name)})` : `t.${q(f.name)}`;
+  }
+
+  // ---------- Relatório com grupos e totais ----------
+
+  let reportCfg = null; // { group, totals: [] }
+  async function report() {
+    if (!currentData()) return MO.toast('Abra uma tabela ou execute uma consulta.');
+    if (current.kind === 'table' && current.name && mode !== 'query') {
+      const fs = fields(current.name);
+      const group = h('select', null, h('option', { value: '' }, 'Sem grupos'), fs.map((f) => h('option', { value: f.name }, f.name)));
+      const totals = fs.filter((f) => f.type === 'number' || f.type === 'money').map((f) => [f.name, h('input', { type: 'checkbox', checked: f.type === 'money' })]);
+      const dlg = h('dialog', { class: 'mo-dialog' }, h('form', { method: 'dialog' },
+        h('h2', null, `Relatório de ${current.name}`),
+        h('label', { class: 'db-conn-field' }, h('span', null, 'Agrupar por'), group),
+        totals.length ? h('div', { class: 'db-conn-field' }, h('span', null, 'Totais de'), ...totals.map(([n, box]) => h('label', { class: 'chart-check' }, box, n))) : null,
+        h('div', { class: 'mo-dialog-actions' }, h('button', { type: 'button', class: 'btn', onclick: () => dlg.close() }, 'Cancelar'), h('button', { type: 'submit', class: 'btn primary', value: 'ok' }, 'Pré-visualizar'))));
+      const ok = await new Promise((resolve) => { dlg.addEventListener('close', () => { dlg.remove(); resolve(dlg.returnValue === 'ok'); }); document.body.append(dlg); dlg.showModal(); });
+      if (!ok) return;
+      reportCfg = { group: group.value, totals: totals.filter(([, b]) => b.checked).map(([n]) => n) };
+    } else reportCfg = null;
+    document.querySelector('[data-action="printPreview"]')?.click();
+  }
+
+  function reportNode() {
+    const d = currentData();
+    const node = h('div', { class: 'db-report' });
+    if (!d) { node.append(h('p', null, 'Sem dados.')); return node; }
+    const cfg = current.kind === 'table' && mode !== 'query' ? reportCfg : null;
+    const fmtv = (v) => (v == null ? '' : typeof v === 'number' ? number.format(v) : String(v));
+    const fs = current.kind === 'table' && current.name ? fields(current.name) : [];
+    const isMoney = (c) => (fs.find((f) => f.name === c) || {}).type === 'money';
+    const fmtCell = (c, v) => (isMoney(c) && typeof v === 'number' ? money.format(v) : fmtv(v));
+    const ti = (cfg ? cfg.totals : []).map((n) => d.columns.indexOf(n)).filter((i) => i >= 0);
+    const sum = (list, i) => list.reduce((t, r) => t + (typeof r[i] === 'number' ? r[i] : 0), 0);
+    const table = (list, label) => h('table', null,
+      h('thead', null, h('tr', null, d.columns.map((c) => h('th', null, c)))),
+      h('tbody', null, list.slice(0, 5000).map((r) => h('tr', null, r.map((v, i) => h('td', { class: typeof v === 'number' ? 'num' : null }, fmtCell(d.columns[i], v))))),
+        ti.length ? h('tr', { class: 'db-report-total' }, d.columns.map((c, i) => h('td', { class: ti.includes(i) ? 'num' : null }, i === 0 ? label : ti.includes(i) ? fmtCell(c, sum(list, i)) : ''))) : null));
+    node.append(h('h1', null, d.title), h('p', { class: 'db-report-meta' }, `${d.values.length} registo(s) · ${new Date().toLocaleDateString('pt-PT')}${cfg && cfg.group ? ` · agrupado por ${cfg.group}` : ''}`));
+    const gi = cfg && cfg.group ? d.columns.indexOf(cfg.group) : -1;
+    if (gi >= 0) {
+      const groups = new Map();
+      for (const r of d.values) { const k = fmtv(r[gi]) || '(vazio)'; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(r); }
+      for (const [k, list] of [...groups].sort((a, b) => a[0].localeCompare(b[0], 'pt'))) node.append(h('h2', null, `${cfg.group}: ${k}`, h('small', null, ` · ${list.length} registo(s)`)), table(list, 'Subtotal'));
+      if (ti.length) node.append(h('p', { class: 'db-report-grand' }, 'Total geral: ' + ti.map((i) => `${d.columns[i]} ${fmtCell(d.columns[i], sum(d.values, i))}`).join(' · ')));
+    } else node.append(table(d.values, 'Total'));
+    return node;
   }
 
   // ---------- Estrutura ----------
@@ -371,22 +692,45 @@
       let extra = null;
       if (f.type === 'choice') {
         const choices = h('input', { type: 'text', value: (f.opts.choices || []).join('; '), placeholder: 'Opção 1; Opção 2; …', 'aria-label': `Opções de ${f.name}` });
-        choices.addEventListener('change', () => change(() => setFieldMeta(table, { ...f, opts: { choices: choices.value.split(';').map((c) => c.trim()).filter(Boolean).slice(0, 100) } }, i)));
+        choices.addEventListener('change', () => change(() => setFieldMeta(table, { ...f, opts: { ...f.opts, choices: choices.value.split(';').map((c) => c.trim()).filter(Boolean).slice(0, 100) } }, i)));
         extra = choices;
       } else if (f.type === 'link') {
         const target = h('select', { 'aria-label': `Tabela ligada a ${f.name}` }, h('option', { value: '' }, 'Escolha a tabela…'), others.map((t) => h('option', { value: t, selected: f.opts.table === t }, t)));
-        target.addEventListener('change', () => change(() => setFieldMeta(table, { ...f, opts: { table: target.value } }, i)));
+        target.addEventListener('change', () => change(() => setFieldMeta(table, { ...f, opts: { ...f.opts, table: target.value } }, i)));
         extra = target;
+      }
+      // Regras: obrigatório, único e (números) mínimo e máximo.
+      const setOpt = (key, value) => change(() => setFieldMeta(table, { ...f, opts: { ...f.opts, [key]: value } }, i));
+      const req = h('input', { type: 'checkbox', checked: Boolean(f.opts.required), 'aria-label': `${f.name} obrigatório` });
+      req.addEventListener('change', () => {
+        const empty = rows(`SELECT COUNT(*) AS n FROM ${q(table)} WHERE ${q(f.name)} IS NULL OR ${q(f.name)} = ''`)[0].n;
+        if (req.checked && empty) MO.toast(`Atenção: ${empty} registo(s) ainda têm "${f.name}" vazio; ficam assinalados a vermelho.`);
+        setOpt('required', req.checked);
+      });
+      const uni = h('input', { type: 'checkbox', checked: Boolean(f.opts.unique), 'aria-label': `${f.name} único` });
+      uni.addEventListener('change', () => {
+        const dup = uni.checked ? rows(`SELECT COUNT(*) AS n FROM (SELECT ${q(f.name)} FROM ${q(table)} WHERE ${q(f.name)} IS NOT NULL GROUP BY ${q(f.name)} HAVING COUNT(*) > 1)`)[0].n : 0;
+        if (dup) { uni.checked = false; return MO.toast(`Não é possível: "${f.name}" já tem ${dup} valor(es) repetido(s).`); }
+        setOpt('unique', uni.checked);
+      });
+      const rules = h('div', { class: 'db-rules' }, h('label', { class: 'chart-check' }, req, 'Obrigatório'), h('label', { class: 'chart-check' }, uni, 'Único'));
+      if (f.type === 'number' || f.type === 'money') {
+        for (const [key, label] of [['min', 'Mín.'], ['max', 'Máx.']]) {
+          const inp = h('input', { type: 'number', value: f.opts[key] ?? '', placeholder: label, 'aria-label': `${label} de ${f.name}`, class: 'db-rule-num' });
+          inp.addEventListener('change', () => setOpt(key, inp.value === '' ? null : Number(inp.value)));
+          rules.append(inp);
+        }
       }
       return h('tr', null,
         h('td', null, h('button', { type: 'button', class: 'db-link', title: 'Mudar o nome do campo', onclick: () => renameField(table, f) }, f.name)),
         h('td', null, type),
         h('td', null, extra),
+        h('td', null, rules),
         h('td', null, h('button', { type: 'button', class: 'db-row-del', title: 'Eliminar campo', 'aria-label': `Eliminar o campo ${f.name}`, onclick: () => dropField(table, f) }, '×')));
     });
     contentBox.append(h('div', { class: 'db-design' },
       h('h2', null, `Estrutura de ${table}`),
-      h('table', { class: 'db-design-table' }, h('thead', null, h('tr', null, h('th', null, 'Campo'), h('th', null, 'Tipo'), h('th', null, 'Opções'), h('th'))), h('tbody', null, rowsEl)),
+      h('table', { class: 'db-design-table' }, h('thead', null, h('tr', null, h('th', null, 'Campo'), h('th', null, 'Tipo'), h('th', null, 'Opções'), h('th', null, 'Regras'), h('th'))), h('tbody', null, rowsEl)),
       h('div', { class: 'db-design-actions' },
         h('button', { type: 'button', class: 'btn primary', onclick: () => addField(table) }, '＋ Adicionar campo'),
         h('button', { type: 'button', class: 'btn', onclick: () => renameTable(table) }, 'Mudar o nome da tabela'),
@@ -465,6 +809,8 @@
   }
 
   function dropTable(table) {
+    const refs = tables().filter((t) => t !== table && fields(t).some((f) => f.type === 'link' && f.opts.table === table));
+    if (refs.length && !window.confirm(`A tabela "${table}" está ligada a ${refs.join(', ')}. As ligações deixam de funcionar. Continuar?`)) return;
     if (!window.confirm(`Eliminar a tabela "${table}" com todos os registos? Pode anular com Ctrl+Z.`)) return;
     change(() => { run(`DROP TABLE ${q(table)}`); run('DELETE FROM _mo_fields WHERE tbl = ?', [table]); });
     current = { kind: 'table', name: tables()[0] || null };
@@ -553,8 +899,23 @@
       renderAll();
     };
 
+    // Perguntar em português: gera o SQL, mostra-o e executa (só consultas de leitura).
+    const ask = h('input', { type: 'search', class: 'db-ask-input', placeholder: 'Pergunte em português: "clientes de Lisboa ativos", "total de vendas por cliente", "os 5 produtos mais caros"…', 'aria-label': 'Pergunta em português' });
+    const explanation = h('p', { class: 'db-ask-explain', hidden: true });
+    const doAsk = () => {
+      const res = nlToSql(ask.value);
+      if (res.error) { explanation.hidden = false; explanation.textContent = res.error; return; }
+      editor.value = res.sql;
+      queryText = res.sql;
+      explanation.hidden = false;
+      explanation.textContent = 'Entendi: ' + res.explanation + '. Confira o SQL abaixo; pode editá-lo.';
+      execute();
+    };
+    ask.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doAsk(); } });
     contentBox.append(h('div', { class: 'db-query' },
       h('h2', null, current.name ? `Consulta: ${current.name}` : 'Nova consulta'),
+      h('div', { class: 'db-ask' }, h('span', { class: 'db-ask-icon' }, '✦'), ask, h('button', { type: 'button', class: 'btn primary', onclick: doAsk }, 'Perguntar')),
+      explanation,
       h('div', { class: 'db-builder' }, h('span', null, 'Mostrar'), tableSel, h('span', null, 'onde'), fieldSel, opSel, valueIn, h('span', null, 'ordenado por'), sortSel, h('button', { type: 'button', class: 'btn', onclick: build }, 'Criar consulta')),
       editor,
       h('div', { class: 'db-query-actions' },
@@ -726,10 +1087,7 @@
   const exportXlsx = () => withData((title) => saveCopy(xlsxBytes(), title + '.xlsx', 'xlsx', 'Livro do Excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'));
   const exportCsv = () => withData((title) => saveCopy(csvText(), title + '.csv', 'csv', 'Valores separados por ;', 'text/csv'));
 
-  function report() {
-    if (!currentData()) return MO.toast('Abra uma tabela ou execute uma consulta.');
-    document.querySelector('[data-action="printPreview"]')?.click();
-  }
+
 
   // ---------- Servidores (fase 2) ----------
   // As ligações são abertas pelo processo principal (dbserver.js); aqui só se mostram os dados.
@@ -1022,7 +1380,7 @@
     const B = MO.bigButton;
     const I = MO.iconButton;
     const modeBtn = (key, icon, label, title) => {
-      const b = B(icon, label, title, () => { if (key !== 'query' && !current.name) return MO.toast('Crie ou abra primeiro uma tabela.'); if (key === 'query') { open('query', null); return; } if (current.kind === 'query') current = { kind: 'table', name: tables()[0] || null }; mode = key; formIndex = 0; renderAll(); });
+      const b = B(icon, label, title, () => { if (key === 'rel') { if (current.kind !== 'table') current = { kind: 'table', name: tables()[0] || null }; mode = 'rel'; renderAll(); return; } if (key !== 'query' && !current.name) return MO.toast('Crie ou abra primeiro uma tabela.'); if (key === 'query') { open('query', null); return; } if (current.kind === 'query') current = { kind: 'table', name: tables()[0] || null }; mode = key; formIndex = 0; renderAll(); });
       b.classList.add('db-mode');
       b.dataset.mode = key;
       return b;
@@ -1035,7 +1393,7 @@
         label: 'Base',
         groups: [
           { label: 'Anular', rows: [[I('undo', 'Anular (Ctrl+Z)', undo), I('redo', 'Refazer (Ctrl+Y)', redo)]] },
-          { label: 'Vistas', rows: [[modeBtn('sheet', 'table', 'Folha de dados', 'Ver e editar os registos em tabela')], [modeBtn('form', 'textBox', 'Formulário', 'Ver e editar um registo de cada vez')], [modeBtn('design', 'pageSetup', 'Estrutura', 'Campos e tipos da tabela')]] },
+          { label: 'Vistas', rows: [[modeBtn('sheet', 'table', 'Folha de dados', 'Ver e editar os registos em tabela')], [modeBtn('form', 'textBox', 'Formulário', 'Ver e editar um registo de cada vez, com os registos ligados')], [modeBtn('design', 'pageSetup', 'Estrutura', 'Campos, tipos e regras da tabela')], [modeBtn('rel', 'branch', 'Relações', 'Diagrama das tabelas e das ligações entre elas')]] },
           { label: 'Registos', rows: [[B('rowAdd', 'Novo registo', 'Acrescentar um registo', newRecord)], [searchInput]] },
           { label: 'Tabelas', rows: [[B('slideNew', 'Nova tabela', 'Criar uma tabela', newTable)]] }
         ]
@@ -1144,17 +1502,11 @@
     // Relatório: a tabela ou o resultado da consulta, pronto a imprimir.
     print() {
       const d = currentData();
-      const node = h('div', { class: 'db-report' });
-      if (!d) { node.append(h('p', null, 'Sem dados.')); return { node, page: 'A4', margin: '15mm' }; }
-      node.append(
-        h('h1', null, d.title),
-        h('p', { class: 'db-report-meta' }, `${d.values.length} registo(s) · ${new Date().toLocaleDateString('pt-PT')}`),
-        h('table', null, h('thead', null, h('tr', null, d.columns.map((c) => h('th', null, c)))), h('tbody', null, d.values.slice(0, 5000).map((r) => h('tr', null, r.map((v) => h('td', { class: typeof v === 'number' ? 'num' : null }, v == null ? '' : typeof v === 'number' ? number.format(v) : String(v))))))));
-      return { node, page: d.columns.length > 6 ? 'A4 landscape' : 'A4', margin: '14mm', pageRule: '@bottom-right { content: counter(page) " / " counter(pages); font: 9pt Arial; color: #667085; }' };
+      return { node: reportNode(), page: d && d.columns.length > 6 ? 'A4 landscape' : 'A4', margin: '14mm', pageRule: '@bottom-right { content: counter(page) " / " counter(pages); font: 9pt Arial; color: #667085; }' };
     },
 
     // Usado pelos testes.
-    _debug: { servers: () => servers, sql: (s, p) => rows(s, p), tables: () => tables(), fields: (t) => fields(t), state: () => ({ current, mode }) },
+    _debug: { nl: (t) => nlToSql(t), reportHTML: () => reportNode().outerHTML, setReport: (c) => { reportCfg = c; }, servers: () => servers, sql: (s, p) => rows(s, p), tables: () => tables(), fields: (t) => fields(t), state: () => ({ current, mode }) },
 
     show() { if (db) renderAll(); }
   };

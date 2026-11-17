@@ -108,6 +108,14 @@ Tons calmos de verde e papel, com modo claro e escuro.
 
 Uma alternativa simples ao Access, num único ficheiro `.modb` (SQLite) no seu computador.
 
+**O que o torna diferente:**
+
+- **Pergunte em português** (Criar › Consulta): "clientes de Lisboa ativos", "total de encomendas por cliente", "os 5 produtos mais caros", "encomendas deste mês". O programa gera a consulta SQL, explica o que entendeu e mostra o resultado; o SQL fica visível e editável.
+- **Formulários com os registos ligados**: a ficha de um cliente mostra logo as encomendas dele, que se editam e acrescentam ali mesmo. Em **Personalizar** escolhe a ordem dos campos e os que aparecem.
+- **Relações**: diagrama automático das tabelas e das ligações entre elas.
+- **Regras e integridade**: campos obrigatórios (assinalados a vermelho quando vazios), valores únicos, mínimo e máximo nos números, e não deixa eliminar um registo que outros usam (por exemplo, um cliente com encomendas).
+- **Relatórios com grupos e totais**: agrupe por um campo (por exemplo, categoria) com subtotais e total geral.
+
 - **Tabelas** com tipos de campo: texto, número, moeda, data, sim/não, lista de opções e **ligação a outra tabela** (por exemplo, a encomenda ligada ao cliente e ao produto).
 - **Folha de dados** para editar como numa folha de cálculo, com procura e ordenação, e **Formulário** para ver e editar um registo de cada vez.
 - **Estrutura**: acrescentar, mudar o nome, mudar o tipo (os valores são convertidos) e eliminar campos.
