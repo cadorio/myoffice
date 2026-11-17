@@ -4,10 +4,10 @@
 
 O MyOffice reúne quatro áreas numa única aplicação: **Texto**, **Folhas**, **Diapositivos** e o **Assistente IA**, que ajuda a utilizar os programas e a criar conteúdos. Foi desenvolvido com Electron e é distribuído para computadores Windows de 64 bits, com Windows 10 versão 22H2 ou Windows 11. Os documentos são processados localmente e a aplicação foi concebida para funcionar sem ligação à Internet.
 
-[Consultar compilações e instaladores](https://github.com/cadorio/myoffice/actions) · [Ver código-fonte](https://github.com/cadorio/myoffice) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
+[Descarregar instalador Windows](https://github.com/cadorio/myoffice/releases/download/v1.4.0-independent.1/MyOffice-Setup-1.4.0.exe) · [Consultar compilações](https://github.com/cadorio/myoffice/actions) · [Ver código-fonte](https://github.com/cadorio/myoffice) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
 > **Versão 1.4.0 — MyOffice Horizon**  
-> Integrada na branch `main`. A compilação Windows está a ser validada pelo GitHub Actions; a publicação oficial depende da criação da tag `v1.4.0`.
+> A versão base está na branch `main`. Está disponível uma pré-versão Windows x64 construída a partir da branch `codex/independent-local-ai`, com as melhorias mais recentes de IA e dos editores.
 
 ## Capturas de ecrã
 
@@ -81,9 +81,9 @@ O MyOffice é distribuído oficialmente para computadores Windows de 64 bits. O 
 | Windows 10 | `.exe` | Versão 22H2, 64 bits |
 | Windows 11 | `.exe` | 64 bits |
 
-**[Consultar compilações e descarregar o instalador Windows](https://github.com/cadorio/myoffice/actions)**
+**[Descarregar MyOffice 1.4.0 para Windows x64](https://github.com/cadorio/myoffice/releases/download/v1.4.0-independent.1/MyOffice-Setup-1.4.0.exe)**
 
-Abre a compilação mais recente concluída com sucesso e descarrega o artefacto `MyOffice-Windows`. O nome do instalador da versão 1.4.0 será `MyOffice-Setup-1.4.0.exe`, quando a versão for compilada e publicada. As versões estáveis serão também disponibilizadas em [Releases](https://github.com/cadorio/myoffice/releases) quando forem publicadas.
+Esta pré-versão foi compilada a partir da branch `codex/independent-local-ai`. O instalador oficial da branch `main` será publicado separadamente após validação.
 
 > **Aviso de assinatura:** os instaladores atuais não estão assinados digitalmente. O Windows SmartScreen pode apresentar avisos na primeira execução. A assinatura requer certificados próprios, configurados como segredos no GitHub Actions.
 
@@ -178,7 +178,7 @@ O MyOffice ainda não oferece todas as funcionalidades das suites comerciais. En
 
 ## Estado da versão Horizon
 
-A versão **1.4.0 — MyOffice Horizon** foi integrada na branch `main` através da PR [#11](https://github.com/cadorio/myoffice/pull/11). Inclui o novo espaço de trabalho, seis modelos editáveis, gráficos de pré-visualização/exportação em Folhas e a aplicação independente Assistente IA. A compilação Windows e os testes são acompanhados no [GitHub Actions](https://github.com/cadorio/myoffice/actions). A Release oficial será publicada após a validação final da compilação e a criação da tag `v1.4.0`.
+A versão **1.4.0 — MyOffice Horizon** foi integrada na branch `main` através da PR [#11](https://github.com/cadorio/myoffice/pull/11). A pré-versão `v1.4.0-independent.1` acrescenta as alterações mais recentes da branch `codex/independent-local-ai`; a compilação está disponível em [Releases](https://github.com/cadorio/myoffice/releases/tag/v1.4.0-independent.1). A versão estável da branch `main` será publicada separadamente após validação.
 
 ## Desenvolvimento
 
