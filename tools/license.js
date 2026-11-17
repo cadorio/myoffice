@@ -16,7 +16,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const { createKey, verifyKey } = require('../license');
+const { createKey, verifyKey } = require('../license.js');
 
 const root = path.join(__dirname, '..');
 const publicFile = path.join(root, 'license-public.pem');

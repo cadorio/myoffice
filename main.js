@@ -2,7 +2,7 @@
 
 const { app, BrowserWindow, Menu, dialog, ipcMain, session } = require('electron');
 const { fileURLToPath } = require('url');
-const license = require('./license').createManager(app);
+const license = require('./license.js').createManager(app);
 const ai = require('./ai');
 const path = require('path');
 const fs = require('fs/promises');

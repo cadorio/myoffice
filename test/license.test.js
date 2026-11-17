@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
-const { createKey, verifyKey, trialState, TRIAL_DAYS } = require('../license');
+const { createKey, verifyKey, trialState, TRIAL_DAYS } = require('../license.js');
 
 const pair = () => {
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
