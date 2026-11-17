@@ -88,7 +88,7 @@
 
   function snapshotState() {
     const m = meta();
-    return JSON.stringify({ cells, pivots: m.pivots || [], merges: m.merges || [], widths: m.widths || {}, freeze: m.freeze || null, rules: m.rules || [] });
+    return JSON.stringify({ cells, pivots: m.pivots || [], merges: m.merges || [], widths: m.widths || {}, freeze: m.freeze || null, rules: m.rules || [], charts: m.charts || [] });
   }
 
   function restoreState(state) {
@@ -100,7 +100,14 @@
     m.widths = state.widths || {};
     m.freeze = state.freeze || null;
     m.rules = state.rules || [];
+    m.charts = state.charts || [];
     applyColumnWidths();
+  }
+
+  function pushUndo() {
+    undoStack.push(snapshotState());
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    redoStack = [];
   }
 
   function mutate(fn) {
@@ -458,6 +465,7 @@
     renderWindow();
     painted = new Set(Object.keys(cells));
     paintSelection(false);
+    renderCharts();
   }
 
   function rebuildPivotTables() {
@@ -1022,133 +1030,130 @@
 
   // ---------- Gráficos e filtros ----------
 
-  let chartDialog = null;
-  let chartRange = null;
-  let editingChart = null;
+  // ---------- Gráficos sobre a folha ----------
 
-  function selectedChartData() {
-    const { r0, r1, c0, c1 } = chartRange || range();
-    if (r1 - r0 < 1 || c1 - c0 < 1) return null;
-    const points = [];
-    for (let r = r0 + 1; r <= r1; r++) {
-      const label = F.format(values.get(F.addr(r, c0)) ?? cells[F.addr(r, c0)]?.v ?? '');
-      const value = values.get(F.addr(r, c0 + 1));
-      if (typeof value === 'number' && Number.isFinite(value)) points.push({ label: label || `Linha ${r + 1}`, value });
+  const CHART_TYPES = Object.keys(MO.Charts.TYPES);
+  let chartLayer = null;
+  let selectedChart = -1;
+
+  const headerHeight = () => (colHeads[0] ? colHeads[0].offsetHeight : 26);
+  const colLeft = (c) => { let x = 46; for (let i = 0; i < c; i++) x += widthOf(i); return x; };
+  const rowTop = (r) => headerHeight() + r * ROW_HEIGHT;
+
+  // Dados do intervalo: 1.ª linha = nomes das séries, 1.ª coluna = categorias.
+  function chartRows(r) {
+    const rows = [];
+    for (let row = r.r0; row <= r.r1; row++) {
+      const line = [];
+      for (let c = r.c0; c <= r.c1; c++) {
+        const a = F.addr(row, c);
+        const v = values.get(a);
+        line.push(typeof v === 'number' ? v : F.format(v ?? cells[a]?.v ?? ''));
+      }
+      rows.push(line);
     }
-    return points.length ? { points, title: `${F.addr(r0, c0)}:${F.addr(r1, c1)}` } : null;
+    return rows;
+  }
+  const chartSpec = (chart) => MO.Charts.fromTable(chartRows(chart.range), chart) || MO.Charts.normalize({ ...chart, categories: [], series: [] });
+
+  function renderCharts() {
+    if (!chartLayer) return;
+    const charts = meta().charts || [];
+    chartLayer.replaceChildren(...charts.map((chart, i) => chartBox(chart, i)));
   }
 
-  function renderChart(type) {
-    if (!chartDialog) return;
-    const host = chartDialog.querySelector('.mo-chart-preview');
-    const data = selectedChartData();
-    host.replaceChildren();
-    if (!data) {
-      host.textContent = 'Selecione pelo menos duas colunas: categorias na primeira e valores numéricos na segunda.';
-      return;
-    }
-    const max = Math.max(1, ...data.points.map((p) => Math.abs(p.value)));
-    const width = 720, height = 310, left = 52, bottom = 48, top = 22;
-    const plotH = height - top - bottom;
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-    svg.setAttribute('role', 'img');
-    svg.setAttribute('aria-label', 'Gráfico de valores da seleção');
-    const add = (tag, attrs, text) => {
-      const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
-      Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, String(v)));
-      if (text != null) el.textContent = text;
-      svg.append(el);
-      return el;
-    };
-    [0, .25, .5, .75, 1].forEach((step) => {
-      const y = top + plotH * step;
-      add('line', { x1: left, x2: width - 12, y1: y, y2: y, stroke: 'currentColor', opacity: .13 });
-      add('text', { x: left - 10, y: y + 4, 'text-anchor': 'end', fill: 'currentColor', 'font-size': 11 }, F.format(max * (1 - step)));
+  function chartBox(chart, i) {
+    const box = h('div', { class: 'sheet-chart' + (i === selectedChart ? ' selected' : ''), tabindex: '0', 'data-i': i, title: 'Arraste para mover · duplo clique para editar', style: `left:${chart.x}px;top:${chart.y}px;width:${chart.w}px;height:${chart.h}px` },
+      MO.Charts.render(chartSpec(chart), { width: chart.w, height: chart.h }),
+      h('div', { class: 'sheet-chart-tools' },
+        h('button', { type: 'button', title: 'Editar o gráfico', 'aria-label': 'Editar o gráfico', onclick: (e) => { e.stopPropagation(); editChart(i); } }, '✎'),
+        h('button', { type: 'button', title: 'Eliminar o gráfico', 'aria-label': 'Eliminar o gráfico', onclick: (e) => { e.stopPropagation(); deleteChart(i); } }, '×')),
+      h('span', { class: 'sheet-chart-resize', title: 'Arraste para mudar o tamanho' }));
+    let last = 0;
+    box.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || e.target.closest('button')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (editing) stopEdit(true);
+      const now = Date.now();
+      if (now - last < 450) { last = 0; editChart(i); return; }
+      last = now;
+      selectChart(i);
+      box.focus({ preventScroll: true });
+      const resize = e.target.classList.contains('sheet-chart-resize');
+      const start = { x: e.clientX, y: e.clientY, cx: chart.x, cy: chart.y, w: chart.w, h: chart.h };
+      let moved = false;
+      const move = (ev) => {
+        const dx = ev.clientX - start.x;
+        const dy = ev.clientY - start.y;
+        if (!moved && Math.hypot(dx, dy) < 3) return;
+        if (!moved) { pushUndo(); moved = true; }
+        if (resize) { chart.w = Math.max(260, Math.min(1600, Math.round(start.w + dx))); chart.h = Math.max(180, Math.min(1000, Math.round(start.h + dy))); }
+        else { chart.x = Math.max(46, Math.round(start.cx + dx)); chart.y = Math.max(headerHeight(), Math.round(start.cy + dy)); }
+        Object.assign(box.style, { left: chart.x + 'px', top: chart.y + 'px', width: chart.w + 'px', height: chart.h + 'px' });
+      };
+      const up = () => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        if (moved) { renderCharts(); ctx.dirty(); }
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
     });
-    const slot = (width - left - 20) / data.points.length;
-    const coords = data.points.map((p, i) => ({
-      x: left + slot * (i + .5),
-      y: top + plotH - (p.value / max) * plotH,
-      label: p.label,
-      value: p.value
-    }));
-    if (type === 'line') {
-      add('polyline', { points: coords.map((p) => `${p.x},${p.y}`).join(' '), fill: 'none', stroke: '#16865b', 'stroke-width': 3, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
-      coords.forEach((p) => add('circle', { cx: p.x, cy: p.y, r: 5, fill: '#16865b' }));
-    } else {
-      const barW = Math.max(8, Math.min(54, slot * .62));
-      coords.forEach((p) => add('rect', { x: p.x - barW / 2, y: p.y, width: barW, height: Math.max(0, top + plotH - p.y), rx: 4, fill: '#16865b' }));
-    }
-    coords.forEach((p) => {
-      add('text', { x: p.x, y: height - 25, 'text-anchor': 'middle', fill: 'currentColor', 'font-size': 11 }, p.label.slice(0, 12));
-      add('title', {}, `${p.label}: ${F.format(p.value)}`);
+    box.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteChart(i); }
+      else if (e.key === 'Enter') { e.preventDefault(); editChart(i); }
+      else if (e.key === 'Escape') { selectChart(-1); wrap.focus({ preventScroll: true }); }
     });
-    host.append(svg);
-    chartDialog.querySelector('.mo-chart-range').textContent = `Intervalo: ${data.title} · ${data.points.length} valores`;
+    return box;
   }
 
-  function openChart() {
+  function selectChart(i) {
+    selectedChart = i;
+    chartLayer.querySelectorAll('.sheet-chart').forEach((el) => el.classList.toggle('selected', Number(el.dataset.i) === i));
+  }
+
+  async function openChart() {
     if (editing) stopEdit(true);
-    chartRange = { ...range() };
-    if (chartRange.c1 - chartRange.c0 < 1 || chartRange.r1 - chartRange.r0 < 1) {
-      return MO.toast('Selecione uma tabela com categorias na primeira coluna e valores na segunda.');
-    }
-    chartDialog = h('dialog', { class: 'mo-chart-dialog', 'aria-labelledby': 'mo-chart-title' });
-    const type = h('select', { class: 'tool-select', 'aria-label': 'Tipo de gráfico' },
-      h('option', { value: 'bar' }, 'Colunas'),
-      h('option', { value: 'line' }, 'Linhas')
-    );
-    const savedCharts = sheetList[activeSheet].charts || [];
-    const picker = h('select', { class: 'tool-select', 'aria-label': 'Gráficos guardados' },
-      h('option', { value: '' }, 'Nova seleção'),
-      ...savedCharts.map((chart, index) => h('option', { value: String(index) }, chart.name))
-    );
-    picker.addEventListener('change', () => {
-      editingChart = picker.value === '' ? null : Number(picker.value);
-      if (editingChart !== null) {
-        const chart = savedCharts[editingChart];
-        chartRange = { ...chart.range };
-        type.value = chart.type;
-      } else chartRange = { ...range() };
-      renderChart(type.value);
-    });
-    type.addEventListener('change', () => renderChart(type.value));
-    const preview = h('div', { class: 'mo-chart-preview' });
-    const close = () => { chartDialog.close(); chartDialog.remove(); chartDialog = null; chartRange = null; editingChart = null; };
-    const saveChart = () => {
-      const data = selectedChartData();
-      if (!data) return MO.toast('Preencha os dados do intervalo antes de guardar o gráfico.');
-      const sheet = sheetList[activeSheet];
-      sheet.charts ||= [];
-      const chart = { name: editingChart === null ? `Gráfico ${sheet.charts.length + 1}` : sheet.charts[editingChart].name, type: type.value, range: { ...chartRange } };
-      if (editingChart === null) {
-        sheet.charts.push(chart);
-        editingChart = sheet.charts.length - 1;
-        picker.append(h('option', { value: String(editingChart) }, chart.name));
-      } else sheet.charts[editingChart] = chart;
-      picker.value = String(editingChart);
-      ctx.dirty();
-      MO.toast('Gráfico guardado no livro.');
-    };
-    const exportSvg = () => {
-      const svg = preview.querySelector('svg');
-      if (!svg) return MO.toast('Não há gráfico para exportar.');
-      const source = new XMLSerializer().serializeToString(svg);
-      const url = URL.createObjectURL(new Blob([source], { type: 'image/svg+xml;charset=utf-8' }));
-      const a = h('a', { href: url, download: 'grafico-myoffice.svg' });
-      document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-    };
-    chartDialog.append(
-      h('header', { class: 'mo-chart-head' }, h('div', null, h('h2', { id: 'mo-chart-title' }, 'Gráficos do livro'), h('p', null, 'Os gráficos guardados acompanham este livro MyOffice.')), picker, type, h('button', { class: 'mo-chart-close', type: 'button', onclick: close, 'aria-label': 'Fechar' }, '×')),
-      preview,
-      h('p', { class: 'mo-chart-range' }),
-      h('footer', { class: 'mo-chart-actions' }, h('button', { type: 'button', class: 'btn', onclick: exportSvg }, 'Exportar SVG'), h('button', { type: 'button', class: 'btn', onclick: saveChart }, 'Guardar no livro'), h('button', { type: 'button', class: 'btn primary', onclick: close }, 'Concluir'))
-    );
-    chartDialog.addEventListener('click', (e) => { if (e.target === chartDialog) close(); });
-    document.body.append(chartDialog);
-    chartDialog.showModal();
-    renderChart(type.value);
+    const r = { ...range() };
+    if (r.c1 - r.c0 < 1 || r.r1 - r.r0 < 1) return MO.toast('Selecione uma tabela: categorias na primeira coluna e valores nas seguintes (com os cabeçalhos).');
+    const data = MO.Charts.fromTable(chartRows(r), { type: 'column' });
+    if (!data) return MO.toast('A seleção não tem valores numéricos para o gráfico.');
+    const head = chartRows({ ...r, r1: r.r0 })[0];
+    const spec = await MO.Charts.dialog({ title: 'Inserir gráfico', okLabel: 'Inserir na folha', spec: { ...data, title: data.series.length === 1 ? String(head[1] || '') : '' } });
+    if (!spec) return;
+    pushUndo();
+    const m = meta();
+    m.charts ||= [];
+    if (m.charts.length >= 50) return MO.toast('Uma folha pode ter até 50 gráficos.');
+    m.charts.push({ name: `Gráfico ${m.charts.length + 1}`, type: spec.type, title: spec.title, legend: spec.legend, labels: spec.labels, palette: spec.palette, range: r, x: colLeft(r.c1 + 1) + 24, y: rowTop(r.r0), w: 520, h: 320 });
+    selectedChart = m.charts.length - 1;
+    renderCharts();
+    ctx.dirty();
+    MO.toast('Gráfico inserido. Arraste para mover; duplo clique para editar.');
+  }
+
+  async function editChart(i) {
+    const chart = (meta().charts || [])[i];
+    if (!chart) return;
+    const spec = await MO.Charts.dialog({ title: 'Editar gráfico', okLabel: 'Aplicar', spec: chartSpec(chart) });
+    if (!spec) return;
+    pushUndo();
+    Object.assign(chart, { type: spec.type, title: spec.title, legend: spec.legend, labels: spec.labels, palette: spec.palette });
+    renderCharts();
+    ctx.dirty();
+  }
+
+  function deleteChart(i) {
+    const charts = meta().charts || [];
+    if (!charts[i]) return;
+    pushUndo();
+    charts.splice(i, 1);
+    selectedChart = -1;
+    renderCharts();
+    ctx.dirty();
+    wrap.focus({ preventScroll: true });
   }
 
   function filterSelection() {
@@ -1215,7 +1220,7 @@
     activeSheet = index;
     cells = sheetList[index].cells;
     undoStack = []; redoStack = []; cur = { r: 0, c: 0 }; end = { ...cur };
-    drawn.clear(); filteredRows.clear(); wrap.scrollTop = 0;
+    drawn.clear(); filteredRows.clear(); wrap.scrollTop = 0; selectedChart = -1;
     refresh(); showSheetTabs();
   }
 
@@ -1242,8 +1247,18 @@
       names.add(name.toLocaleLowerCase('pt-PT'));
       const charts = (Array.isArray(sheet && sheet.charts) ? sheet.charts : []).slice(0, 50).flatMap((chart) => {
         const r = chart && chart.range;
-        if (!r || !['bar', 'line'].includes(chart.type) || ![r.r0, r.r1, r.c0, r.c1].every(Number.isInteger) || r.r0 < 0 || r.c0 < 0 || r.r1 >= ROWS || r.c1 >= COLS || r.r1 <= r.r0 || r.c1 <= r.c0) return [];
-        return [{ name: String(chart.name || 'Gráfico').slice(0, 60), type: chart.type, range: { r0: r.r0, r1: r.r1, c0: r.c0, c1: r.c1 } }];
+        // Ficheiros antigos: 'bar' eram colunas verticais.
+        const type = chart && chart.type === 'bar' && chart.x == null ? 'column' : chart && chart.type;
+        if (!r || !CHART_TYPES.includes(type) || ![r.r0, r.r1, r.c0, r.c1].every(Number.isInteger) || r.r0 < 0 || r.c0 < 0 || r.r1 >= ROWS || r.c1 >= COLS || r.r1 <= r.r0 || r.c1 <= r.c0) return [];
+        const n = (v, a, b, d) => (Number.isFinite(Number(v)) ? Math.max(a, Math.min(b, Math.round(Number(v)))) : d);
+        let left = 46 + 24;
+        for (let c = 0; c <= r.c1; c++) left += Number(((sheet && sheet.widths) || {})[c]) || DEFAULT_WIDTH;
+        return [{
+          name: String(chart.name || 'Gráfico').slice(0, 60), type, range: { r0: r.r0, r1: r.r1, c0: r.c0, c1: r.c1 },
+          title: String(chart.title || '').slice(0, 120), legend: chart.legend !== false, labels: Boolean(chart.labels),
+          palette: Object.hasOwn(MO.Charts.PALETTES, chart.palette) ? chart.palette : 'myoffice',
+          x: n(chart.x, 46, 60000, left), y: n(chart.y, 0, ROWS * ROW_HEIGHT, 26 + r.r0 * ROW_HEIGHT), w: n(chart.w, 260, 1600, 520), h: n(chart.h, 180, 1000, 320)
+        }];
       });
       const pivots = (Array.isArray(sheet && sheet.pivots) ? sheet.pivots : []).slice(0, 10).flatMap((pivot) => {
         const r = pivot && pivot.range;
@@ -1567,7 +1582,8 @@
       const table = buildGrid();
       gridEl = table;
       fillHandle = h('span', { class: 'fill-handle', title: 'Arraste para preencher', hidden: true });
-      wrap = h('div', { class: 'sheet-wrap', tabindex: '0', 'aria-label': 'Folha de cálculo' }, h('div', { class: 'sheet-inner' }, table, editorEl, fillHandle));
+      chartLayer = h('div', { class: 'sheet-charts' });
+      wrap = h('div', { class: 'sheet-wrap', tabindex: '0', 'aria-label': 'Folha de cálculo' }, h('div', { class: 'sheet-inner' }, table, editorEl, fillHandle, chartLayer));
       fillHandle.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
         e.preventDefault();

@@ -223,33 +223,75 @@ const cellText = (page, a) =>
   });
 
   // ---------------- Folhas: gráficos ----------------
-  await test('Gráficos: criar a partir da seleção e guardar no livro', page, async () => {
-    const book = { format: 'myoffice-sheet', version: 3, sheets: [{ name: 'Vendas', cells: { A1: { v: 'Mês' }, B1: { v: 'Vendas' }, A2: { v: 'Jan' }, B2: { v: '10' }, A3: { v: 'Fev' }, B3: { v: '25' }, A4: { v: 'Mar' }, B4: { v: '18' } } }] };
+  await test('Gráficos: inserir na folha com várias séries, editar, mover e anular', page, async () => {
+    const book = { format: 'myoffice-sheet', version: 3, sheets: [{ name: 'Vendas', cells: { A1: { v: 'Mês' }, B1: { v: 'Lisboa' }, C1: { v: 'Porto' }, A2: { v: 'Jan' }, B2: { v: '10' }, C2: { v: '7' }, A3: { v: 'Fev' }, B3: { v: '25' }, C3: { v: '12' }, A4: { v: 'Mar' }, B4: { v: '18' }, C4: { v: '20' } } }] };
     await page.evaluate((text) => MO.modules.sheets.load(text, 'mosheet'), JSON.stringify(book));
     await page.click('.grid td[data-r="0"][data-c="0"]');
-    for (let i = 0; i < 3; i++) await page.keyboard.press('Shift+ArrowDown');
-    await page.keyboard.press('Shift+ArrowRight');
+    await page.click('.grid td[data-r="3"][data-c="2"]', { modifiers: ['Shift'] });
     await page.click('#view-sheets .ribbon-tab:has-text("Dados")');
     await page.click('button[title="Criar gráfico a partir da seleção"]');
-    await page.waitForSelector('.mo-chart-dialog .mo-chart-preview svg');
-    assert.match(await page.textContent('.mo-chart-range'), /3 valores/);
-    await page.click('.mo-chart-dialog button:has-text("Guardar no livro")');
-    await page.click('.mo-chart-dialog button:has-text("Concluir")');
-    const charts = JSON.parse(await page.evaluate(() => MO.modules.sheets.serialize())).sheets[0].charts;
+    await page.waitForSelector('.chart-dialog .chart-preview svg');
+    assert.equal(await page.locator('.chart-dialog .chart-type').count(), 8, '8 tipos de gráfico');
+    await page.click('.chart-dialog .chart-type[data-type="line"]');
+    await page.fill('.chart-dialog input[type=text]', 'Vendas por loja');
+    await page.click('.chart-dialog button[type=submit]');
+    await page.waitForSelector('.sheet-chart svg');
+    assert.match(await page.textContent('.sheet-chart svg'), /Vendas por loja[\s\S]*Lisboa[\s\S]*Porto/);
+    let charts = JSON.parse(await page.evaluate(() => MO.modules.sheets.serialize())).sheets[0].charts;
     assert.equal(charts.length, 1);
-    assert.deepEqual(charts[0].range, { r0: 0, r1: 3, c0: 0, c1: 1 });
+    assert.equal(charts[0].type, 'line');
+    assert.deepEqual(charts[0].range, { r0: 0, r1: 3, c0: 0, c1: 2 });
+    // Mover arrastando
+    const before = charts[0];
+    const box = await page.locator('.sheet-chart').boundingBox();
+    await page.mouse.move(box.x + 100, box.y + 100);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 160, box.y + 150, { steps: 4 });
+    await page.mouse.up();
+    charts = JSON.parse(await page.evaluate(() => MO.modules.sheets.serialize())).sheets[0].charts;
+    assert.equal(charts[0].x, before.x + 60, 'moveu 60 px para a direita');
+    assert.equal(charts[0].y, before.y + 50, 'moveu 50 px para baixo');
+    // Os dados mudam e o gráfico acompanha
+    await page.click('.grid td[data-r="1"][data-c="1"]');
+    await page.keyboard.type('99');
+    await page.keyboard.press('Enter');
+    assert.match(await page.locator('.sheet-chart svg').innerHTML(), /99/);
+    // Editar: mudar para circular
+    await page.click('.sheet-chart button[title="Editar o gráfico"]');
+    await page.click('.chart-dialog .chart-type[data-type="pie"]');
+    await page.click('.chart-dialog button[type=submit]');
+    charts = JSON.parse(await page.evaluate(() => MO.modules.sheets.serialize())).sheets[0].charts;
+    assert.equal(charts[0].type, 'pie');
+    // Eliminar e anular
+    await page.click('.sheet-chart button[title="Eliminar o gráfico"]');
+    assert.equal(await page.locator('.sheet-chart').count(), 0);
+    await page.keyboard.press('Control+z');
+    assert.equal(await page.locator('.sheet-chart').count(), 1, 'anular repõe o gráfico');
+  });
+
+  await test('Gráficos: os 8 tipos vão para o Excel e voltam', page, async () => {
+    const types = await page.evaluate(() => {
+      const F = MO.Formula;
+      const cells = { A1: { v: 'Mês' }, B1: { v: 'Lisboa' }, C1: { v: 'Porto' }, A2: { v: 'Jan' }, B2: { v: '120' }, C2: { v: '90' }, A3: { v: 'Fev' }, B3: { v: '150' }, C3: { v: '110' } };
+      const charts = ['column', 'stacked', 'bar', 'line', 'area', 'pie', 'doughnut', 'scatter'].map((type, i) => ({ name: 'G' + i, type, title: 'T' + i, range: { r0: 0, r1: 2, c0: 0, c1: 2 }, x: 400, y: 26 + i * 340, w: 520, h: 320 }));
+      const bytes = MO.OOXML.exportXlsx([{ name: 'Folha1', cells, charts, values: F.compute(cells, 100, 26) }]);
+      return MO.OOXML.importXlsx(bytes, 1000, 26).sheets[0].charts.map((c) => c.type + ':' + c.title);
+    });
+    assert.deepEqual(types, ['column:T0', 'stacked:T1', 'bar:T2', 'line:T3', 'area:T4', 'pie:T5', 'doughnut:T6', 'scatter:T7']);
   });
 
   await test('Gráficos: ficam no ficheiro e intervalos inválidos são descartados', page, async () => {
     const data = JSON.parse(await page.evaluate(() => MO.modules.sheets.serialize()));
     data.sheets[0].charts.push(
       { name: 'Mau tipo', type: 'pie3d', range: { r0: 0, r1: 3, c0: 0, c1: 1 } },
+      { name: 'Posição absurda', type: 'column', range: { r0: 0, r1: 3, c0: 0, c1: 1 }, x: -500, y: 1e12, w: 99999, h: 1, title: 'x'.repeat(500) },
       { name: 'Fora da grelha', type: 'bar', range: { r0: 0, r1: 200000, c0: 0, c1: 1 } },
       { name: 'Invertido', type: 'line', range: { r0: 3, r1: 0, c0: 0, c1: 1 } }
     );
     await page.evaluate((text) => MO.modules.sheets.load(text, 'mosheet'), JSON.stringify(data));
     const charts = JSON.parse(await page.evaluate(() => MO.modules.sheets.serialize())).sheets[0].charts;
-    assert.equal(charts.length, 1, 'só o gráfico válido fica');
+    assert.equal(charts.length, 2, 'só os gráficos válidos ficam');
+    assert.ok(charts[1].x >= 46 && charts[1].w <= 1600 && charts[1].h >= 180 && charts[1].title.length <= 120, 'posição e tamanho limitados');
   });
 
   // ---------------- Folhas: funções essenciais ----------------
@@ -687,6 +729,29 @@ const cellText = (page, a) =>
     assert.match(await page.textContent('.pdf-result'), /Pág\. 2/);
     const A = await page.evaluate(() => MO.Assistant.assist({ module: 'assistant', task: 'chat', content: 'Utilizador: como assino um pdf' }).answer);
     assert.match(A, /^Assinar um PDF/);
+  });
+
+  await test('Gráficos no Texto e nos Diapositivos', page, async () => {
+    await page.click('#rail [data-view="writer"]');
+    await page.evaluate(() => MO.modules.writer.newDoc());
+    await page.click('#view-writer .page');
+    await page.click('#view-writer .ribbon-tab:has-text("Inserir")');
+    await page.click('#view-writer button[title^="Inserir um gráfico"]');
+    await page.waitForSelector('.chart-dialog textarea.chart-data');
+    await page.click('.chart-dialog .chart-type[data-type="bar"]');
+    await page.fill('.chart-dialog textarea.chart-data', '\tVendas\nNorte\t10\nSul\t20');
+    await page.click('.chart-dialog button[type=submit]');
+    await page.waitForSelector('#view-writer .page img[src^="data:image/png"]');
+    await page.click('#rail [data-view="slides"]');
+    const before = await page.evaluate(() => JSON.parse(MO.modules.slides.serialize()).slides[0].els.length);
+    await page.click('#view-slides .ribbon-tab:has-text("Inserir")');
+    await page.click('#view-slides button[title^="Inserir um gráfico"]');
+    await page.click('.chart-dialog .chart-type[data-type="doughnut"]');
+    await page.click('.chart-dialog button[type=submit]');
+    await page.waitForFunction((n) => JSON.parse(MO.modules.slides.serialize()).slides[0].els.length === n + 1, before);
+    const el = await page.evaluate(() => JSON.parse(MO.modules.slides.serialize()).slides[0].els.at(-1));
+    assert.equal(el.type, 'image');
+    assert.match(el.src, /^data:image\/png/);
   });
 
   await test('Sem erros na consola da página', page, async () => {

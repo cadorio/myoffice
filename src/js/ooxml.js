@@ -719,20 +719,30 @@
           const chartRel = chartRels[relAttr(chartRef)];
           const chartDoc = chartRel && parseXML(files, chartRel.path);
           if (!chartDoc) continue;
-          const chartType = first(chartDoc, 'lineChart') ? 'line' : first(chartDoc, 'barChart') ? 'bar' : null;
-          const series = first(chartDoc, 'ser');
-          const catFormula = first(first(series, 'cat'), 'f')?.textContent || '';
-          const valFormula = first(first(series, 'val'), 'f')?.textContent || '';
+          const barNode = first(chartDoc, 'barChart');
+          const chartType = barNode
+            ? (attr(first(barNode, 'barDir'), 'val') === 'bar' ? 'bar' : /stacked/i.test(attr(first(barNode, 'grouping'), 'val') || '') ? 'stacked' : 'column')
+            : first(chartDoc, 'lineChart') ? 'line' : first(chartDoc, 'areaChart') ? 'area' : first(chartDoc, 'doughnutChart') ? 'doughnut' : first(chartDoc, 'pieChart') ? 'pie' : first(chartDoc, 'scatterChart') ? 'scatter' : null;
           const parseChartRange = (formula) => {
-            const ref = formula.split('!').pop().replace(/\$/g, '');
+            const ref = String(formula || '').split('!').pop().replace(/\$/g, '');
             const parts = ref.split(':');
             return parts.length === 2 ? [F.parseAddr(parts[0]), F.parseAddr(parts[1])] : null;
           };
-          const cat = parseChartRange(catFormula);
-          const val = parseChartRange(valFormula);
-          if (!chartType || !cat || !val || !cat[0] || !cat[1] || !val[0] || !val[1]) continue;
-          if (cat[0].r !== val[0].r || cat[1].r !== val[1].r || cat[0].r < 1 || cat[0].c + 1 !== val[0].c || cat[0].c !== cat[1].c || val[0].c !== val[1].c) continue;
-          charts.push({ name: `Gráfico ${charts.length + 1}`, type: chartType, range: { r0: cat[0].r - 1, r1: cat[1].r, c0: cat[0].c, c1: val[1].c } });
+          const sers = all(chartDoc, 'ser');
+          const cat = parseChartRange(first(first(sers[0], 'cat') || first(sers[0], 'xVal'), 'f')?.textContent);
+          const vals = sers.map((ser) => parseChartRange(first(first(ser, 'val') || first(ser, 'yVal'), 'f')?.textContent)).filter((v) => v && v[0] && v[1]);
+          if (!chartType || !cat || !cat[0] || !cat[1] || !vals.length) continue;
+          // Só intervalos simples: categorias numa coluna e valores nas colunas à direita, nas mesmas linhas.
+          if (cat[0].c !== cat[1].c || cat[0].r < 1 || vals.some((v) => v[0].r !== cat[0].r || v[1].r !== cat[1].r || v[0].c !== v[1].c || v[0].c <= cat[0].c)) continue;
+          const titleText = all(first(first(chartDoc, 'chart'), 'title'), 't').map((t) => t.textContent).join('').slice(0, 120);
+          const anchor = first(chartRef.parentElement && chartRef.closest ? chartRef.closest('twoCellAnchor') || chartRef.closest('oneCellAnchor') : null, 'from');
+          const aCol = Number(first(anchor, 'col')?.textContent) || 0;
+          const aRow = Number(first(anchor, 'row')?.textContent) || 0;
+          charts.push({
+            name: `Gráfico ${charts.length + 1}`, type: chartType, title: titleText, legend: Boolean(first(chartDoc, 'legend')), labels: false, palette: 'office',
+            range: { r0: cat[0].r - 1, r1: cat[1].r, c0: cat[0].c, c1: Math.max(...vals.map((v) => v[1].c)) },
+            x: 46 + aCol * 104, y: 26 + aRow * 26, w: 520, h: 320
+          });
         }
       }
       // Células unidas, larguras das colunas e painéis fixos.
@@ -906,25 +916,68 @@
         const drawingName = `drawing${i + 1}`;
         const drawingRels = [];
         const frames = [];
+        const widthsPx = sheet.widths || {};
+        const colAtX = (x) => { let left = 46; for (let c = 0; c < 255; c++) { const w = Number(widthsPx[c]) || 104; if (left + w > x) return { col: c, off: Math.round((x - left) * 9525) }; left += w; } return { col: 255, off: 0 }; };
+        const rowAtY = (y) => { const r = Math.max(0, (y - 26) / 26); return { row: Math.floor(r), off: Math.round((r % 1) * 26 * 9525) }; };
+        const KINDS = ['column', 'stacked', 'bar', 'line', 'area', 'pie', 'doughnut', 'scatter'];
         for (const chart of charts) {
           const range = chart && chart.range;
-          if (!range || !['bar', 'line'].includes(chart.type) || ![range.r0, range.r1, range.c0, range.c1].every(Number.isInteger) || range.r0 < 0 || range.r1 <= range.r0 || range.c0 < 0 || range.c1 <= range.c0) continue;
+          const kind = chart && (chart.type === 'bar' && chart.x == null ? 'column' : chart.type);
+          if (!range || !KINDS.includes(kind) || ![range.r0, range.r1, range.c0, range.c1].every(Number.isInteger) || range.r0 < 0 || range.r1 <= range.r0 || range.c0 < 0 || range.c1 <= range.c0) continue;
           chartCount++;
           const chartName = `chart${chartCount}`;
           const chartRelId = `rId${drawingRels.length + 1}`;
           drawingRels.push(`<Relationship Id="${chartRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/${chartName}.xml"/>`);
-          const col0 = range.c0, col1 = Math.min(255, range.c0 + 8);
-          const row0 = range.r0 + frames.length * 16, row1 = row0 + 14;
-          const seriesName = String(sheet.cells?.[F.addr(range.r0, range.c1)]?.v || 'Valores');
-          const catRef = `'${safeName.replace(/'/g, "''")}'!$${F.colName(range.c0)}$${range.r0 + 2}:$${F.colName(range.c0)}$${range.r1 + 1}`;
-          const valRef = `'${safeName.replace(/'/g, "''")}'!$${F.colName(range.c1)}$${range.r0 + 2}:$${F.colName(range.c1)}$${range.r1 + 1}`;
+          // Posição: a mesma que na folha (ou ao lado dos dados nos ficheiros antigos).
+          const fromX = colAtX(Number.isFinite(chart.x) ? chart.x : 46 + (range.c1 + 1) * 104 + 24);
+          const fromY = rowAtY(Number.isFinite(chart.y) ? chart.y : 26 + range.r0 * 26);
+          const toX = colAtX((Number.isFinite(chart.x) ? chart.x : 46 + (range.c1 + 1) * 104 + 24) + (chart.w || 520));
+          const toY = rowAtY((Number.isFinite(chart.y) ? chart.y : 26 + range.r0 * 26) + (chart.h || 320));
+          const sheetRef = `'${safeName.replace(/'/g, "''")}'!`;
+          const colRef = (c) => `${sheetRef}$${F.colName(c)}$${range.r0 + 2}:$${F.colName(c)}$${range.r1 + 1}`;
           const ax1 = chartCount * 10 + 1, ax2 = chartCount * 10 + 2;
-          const plot = chart.type === 'line'
-            ? `<c:lineChart><c:grouping val="standard"/><c:ser><c:idx val="0"/><c:order val="0"/><c:tx><c:v>${esc(seriesName)}</c:v></c:tx><c:cat><c:strRef><c:f>${esc(catRef)}</c:f></c:strRef></c:cat><c:val><c:numRef><c:f>${esc(valRef)}</c:f></c:numRef></c:val></c:ser><c:marker val="1"/><c:smooth val="0"/><c:axId val="${ax1}"/><c:axId val="${ax2}"/></c:lineChart>`
-            : `<c:barChart><c:barDir val="col"/><c:grouping val="clustered"/><c:ser><c:idx val="0"/><c:order val="0"/><c:tx><c:v>${esc(seriesName)}</c:v></c:tx><c:cat><c:strRef><c:f>${esc(catRef)}</c:f></c:strRef></c:cat><c:val><c:numRef><c:f>${esc(valRef)}</c:f></c:numRef></c:val></c:ser><c:gapWidth val="150"/><c:axId val="${ax1}"/><c:axId val="${ax2}"/></c:barChart>`;
-          chartFiles[`xl/charts/${chartName}.xml`] = XML_HEAD + `<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><c:lang val="pt-PT"/><c:chart><c:plotArea><c:layout/>${plot}<c:catAx><c:axId val="${ax1}"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:axPos val="b"/><c:tickLblPos val="nextTo"/><c:crossAx val="${ax2}"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/></c:catAx><c:valAx><c:axId val="${ax2}"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:axPos val="l"/><c:majorGridlines/><c:numFmt formatCode="General" sourceLinked="1"/><c:tickLblPos val="nextTo"/><c:crossAx val="${ax1}"/><c:crosses val="autoZero"/><c:crossBetween val="between"/></c:valAx></c:plotArea><c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/></c:chart></c:chartSpace>`;
+          const pie = kind === 'pie' || kind === 'doughnut';
+          const lastCol = pie ? range.c0 + 1 : range.c1;
+          const sers = [];
+          const palette = (MO.Charts && MO.Charts.PALETTES[chart.palette] ? MO.Charts.PALETTES[chart.palette] : { colors: ['#16865b', '#2f6fdd', '#e47758', '#c79a1e', '#8a5cd1', '#1aa3a3', '#d14d72', '#6b7a72'] }).colors.map((c) => c.slice(1).toUpperCase());
+          const fill = (k) => `<a:solidFill><a:srgbClr val="${palette[k % palette.length]}"/></a:solidFill>`;
+          // Valores guardados no próprio gráfico, para quem não recalcula.
+          const cellVal = (r, c) => { const v = sheet.values && sheet.values.get ? sheet.values.get(F.addr(r, c)) : undefined; return v != null && typeof v !== 'object' ? v : sheet.cells?.[F.addr(r, c)]?.v ?? ''; };
+          const nPts = range.r1 - range.r0;
+          const strCache = (c) => `<c:strCache><c:ptCount val="${nPts}"/>${Array.from({ length: nPts }, (_x, i) => `<c:pt idx="${i}"><c:v>${esc(String(cellVal(range.r0 + 1 + i, c)))}</c:v></c:pt>`).join('')}</c:strCache>`;
+          const numCache = (c) => `<c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="${nPts}"/>${Array.from({ length: nPts }, (_x, i) => { const v = Number(cellVal(range.r0 + 1 + i, c)); return Number.isFinite(v) && String(cellVal(range.r0 + 1 + i, c)) !== '' ? `<c:pt idx="${i}"><c:v>${v}</c:v></c:pt>` : ''; }).join('')}</c:numCache>`;
+          for (let c = range.c0 + 1, k = 0; c <= lastCol; c++, k++) {
+            const name = String(sheet.cells?.[F.addr(range.r0, c)]?.v || `Série ${k + 1}`);
+            const tx = `<c:tx><c:strRef><c:f>${esc(`${sheetRef}$${F.colName(c)}$${range.r0 + 1}`)}</c:f><c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>${esc(name)}</c:v></c:pt></c:strCache></c:strRef></c:tx>`;
+            const cat = kind === 'scatter' ? `<c:xVal><c:numRef><c:f>${esc(colRef(range.c0))}</c:f>${numCache(range.c0)}</c:numRef></c:xVal>` : `<c:cat><c:strRef><c:f>${esc(colRef(range.c0))}</c:f>${strCache(range.c0)}</c:strRef></c:cat>`;
+            const val = kind === 'scatter' ? `<c:yVal><c:numRef><c:f>${esc(colRef(c))}</c:f>${numCache(c)}</c:numRef></c:yVal>` : `<c:val><c:numRef><c:f>${esc(colRef(c))}</c:f>${numCache(c)}</c:numRef></c:val>`;
+            const marker = (size) => `<c:marker><c:symbol val="circle"/><c:size val="${size}"/><c:spPr>${fill(k)}<a:ln><a:noFill/></a:ln></c:spPr></c:marker>`;
+            const points = pie ? Array.from({ length: nPts }, (_x, i) => `<c:dPt><c:idx val="${i}"/><c:bubble3D val="0"/><c:spPr>${fill(i)}<a:ln w="19050"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt>`).join('') : '';
+            const extra = kind === 'scatter' ? `<c:spPr><a:ln w="19050"><a:noFill/></a:ln></c:spPr>${marker(7)}`
+              : kind === 'line' ? `<c:spPr><a:ln w="28575" cap="rnd">${fill(k)}<a:round/></a:ln></c:spPr>${marker(6)}`
+              : kind === 'area' ? `<c:spPr><a:solidFill><a:srgbClr val="${palette[k % palette.length]}"><a:alpha val="45000"/></a:srgbClr></a:solidFill><a:ln w="22225">${fill(k)}</a:ln></c:spPr>`
+              : pie ? points
+              : `<c:spPr>${fill(k)}</c:spPr><c:invertIfNegative val="0"/>`;
+            sers.push(`<c:ser><c:idx val="${k}"/><c:order val="${k}"/>${tx}${extra}${cat}${val}${kind === 'line' || kind === 'scatter' ? '<c:smooth val="0"/>' : ''}</c:ser>`);
+          }
+          const labels = chart.labels ? `<c:dLbls><c:showLegendKey val="0"/><c:showVal val="${pie ? 0 : 1}"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="${pie ? 1 : 0}"/><c:showBubbleSize val="0"/></c:dLbls>` : '';
+          const axes = `<c:axId val="${ax1}"/><c:axId val="${ax2}"/>`;
+          let plot;
+          if (kind === 'line') plot = `<c:lineChart><c:grouping val="standard"/><c:varyColors val="0"/>${sers.join('')}${labels}<c:marker val="1"/>${axes}</c:lineChart>`;
+          else if (kind === 'area') plot = `<c:areaChart><c:grouping val="standard"/><c:varyColors val="0"/>${sers.join('')}${labels}${axes}</c:areaChart>`;
+          else if (kind === 'pie') plot = `<c:pieChart><c:varyColors val="1"/>${sers.join('')}${labels}<c:firstSliceAng val="0"/></c:pieChart>`;
+          else if (kind === 'doughnut') plot = `<c:doughnutChart><c:varyColors val="1"/>${sers.join('')}${labels}<c:firstSliceAng val="0"/><c:holeSize val="55"/></c:doughnutChart>`;
+          else if (kind === 'scatter') plot = `<c:scatterChart><c:scatterStyle val="lineMarker"/><c:varyColors val="0"/>${sers.join('')}${labels}${axes}</c:scatterChart>`;
+          else plot = `<c:barChart><c:barDir val="${kind === 'bar' ? 'bar' : 'col'}"/><c:grouping val="${kind === 'stacked' ? 'stacked' : 'clustered'}"/><c:varyColors val="0"/>${sers.join('')}${labels}<c:gapWidth val="150"/>${kind === 'stacked' ? '<c:overlap val="100"/>' : ''}${axes}</c:barChart>`;
+          const catAxis = kind === 'scatter'
+            ? `<c:valAx><c:axId val="${ax1}"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:numFmt formatCode="General" sourceLinked="1"/><c:tickLblPos val="nextTo"/><c:crossAx val="${ax2}"/><c:crosses val="autoZero"/><c:crossBetween val="midCat"/></c:valAx>`
+            : `<c:catAx><c:axId val="${ax1}"/><c:scaling><c:orientation val="${kind === 'bar' ? 'maxMin' : 'minMax'}"/></c:scaling><c:delete val="0"/><c:axPos val="${kind === 'bar' ? 'l' : 'b'}"/><c:tickLblPos val="nextTo"/><c:crossAx val="${ax2}"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/></c:catAx>`;
+          const valAxis = `<c:valAx><c:axId val="${ax2}"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="${kind === 'bar' ? 'b' : 'l'}"/><c:majorGridlines/><c:numFmt formatCode="General" sourceLinked="1"/><c:tickLblPos val="nextTo"/><c:crossAx val="${ax1}"/><c:crosses val="${kind === 'bar' ? 'max' : 'autoZero'}"/><c:crossBetween val="between"/></c:valAx>`;
+          const title = chart.title ? `<c:title><c:tx><c:rich><a:bodyPr/><a:p><a:r><a:t>${esc(String(chart.title).slice(0, 120))}</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title><c:autoTitleDeleted val="0"/>` : '<c:autoTitleDeleted val="1"/>';
+          const legend = chart.legend !== false && (pie || sers.length > 1) ? '<c:legend><c:legendPos val="b"/><c:overlay val="0"/></c:legend>' : '';
+          chartFiles[`xl/charts/${chartName}.xml`] = XML_HEAD + `<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><c:lang val="pt-PT"/><c:chart>${title}<c:plotArea><c:layout/>${plot}${pie ? '' : catAxis + valAxis}</c:plotArea>${legend}<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/></c:chart></c:chartSpace>`;
           chartOverrides.push(`<Override PartName="/xl/charts/${chartName}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`);
-          frames.push(`<xdr:twoCellAnchor><xdr:from><xdr:col>${col0}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${row0}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:to><xdr:col>${col1}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${row1}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to><xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="${chartCount}" name="${esc(chart.name || `Gráfico ${chartCount}`)}"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="${chartRelId}"/></a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor>`);
+          frames.push(`<xdr:twoCellAnchor editAs="oneCell"><xdr:from><xdr:col>${fromX.col}</xdr:col><xdr:colOff>${fromX.off}</xdr:colOff><xdr:row>${fromY.row}</xdr:row><xdr:rowOff>${fromY.off}</xdr:rowOff></xdr:from><xdr:to><xdr:col>${toX.col}</xdr:col><xdr:colOff>${toX.off}</xdr:colOff><xdr:row>${toY.row}</xdr:row><xdr:rowOff>${toY.off}</xdr:rowOff></xdr:to><xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="${chartCount + 1}" name="${esc(chart.name || `Gráfico ${chartCount}`)}"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="${chartRelId}"/></a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor>`);
         }
         if (frames.length) {
           drawingTag = '<drawing r:id="rId1"/>';
