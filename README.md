@@ -4,9 +4,9 @@
 
 Texto, folhas de cálculo, apresentações e diagramas numa só aplicação. Os documentos ficam no seu computador: não é precisa conta, nuvem nem ligação à Internet. Abre e grava ficheiros do Word, Excel e PowerPoint.
 
-**[⬇ Descarregar MyOffice 1.6.0 para Windows (64 bits)](https://github.com/cadorio/myoffice/releases/download/v1.6.0/MyOffice-Setup-1.6.0.exe)**
+**[⬇ Descarregar MyOffice 1.7.0 para Windows (64 bits)](https://github.com/cadorio/myoffice/releases/download/v1.7.0/MyOffice-Setup-1.7.0.exe)**
 
-[Notas da versão](https://github.com/cadorio/myoffice/releases/tag/v1.6.0) · [Versões anteriores](https://github.com/cadorio/myoffice/releases) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
+[Notas da versão](https://github.com/cadorio/myoffice/releases/tag/v1.7.0) · [Versões anteriores](https://github.com/cadorio/myoffice/releases) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
 ![Ecrã inicial do MyOffice](docs/screenshots/inicio.png)
 
@@ -41,6 +41,8 @@ O ecrã inicial tem seis **modelos prontos a usar** (relatório, ata de reunião
 - Cabeçalhos e rodapés com número da página e total de páginas, também no PDF e no DOCX.
 - Localizar e substituir, quebras de página e contagem de palavras com tempo de leitura.
 - Revisão ortográfica em português, quando o Windows a disponibiliza.
+- **Rever**: comentários, controlo de alterações (aceitar ou rejeitar), notas de rodapé e índice automático.
+- **Configurar página**: tamanho (A4, Carta, A5), orientação e margens.
 
 ### Folhas
 
@@ -50,6 +52,9 @@ O ecrã inicial tem seis **modelos prontos a usar** (relatório, ata de reunião
 - Mais de 30 funções, em português e em inglês (ver [Fórmulas](#fórmulas)).
 - **Gráficos** de colunas e de linhas: selecione as categorias e os valores, abra **Dados › Gráfico** e guarde-o no livro. Os gráficos acompanham o ficheiro (também em XLSX) e podem ser exportados em SVG. Abrem na janela de gráficos; não ficam desenhados por cima das células.
 - **Resumo dinâmico**: agrupa categorias e calcula soma, contagem e média com fórmulas que se atualizam com os dados. É uma alternativa às tabelas dinâmicas do Excel, não uma tabela dinâmica compatível.
+- Bordas, unir e centrar células, fixar linhas e colunas, larguras de coluna (arrastar ou duplo clique para ajustar).
+- **Preenchimento automático**: arraste o canto da célula para continuar números, meses, dias da semana e fórmulas.
+- **Formatação condicional**: maior/menor que, entre, igual, contém texto e escala de cores.
 - Estatística (mediana, moda, desvio padrão, variância), formatos de número e moeda, ordenação e filtros rápidos (os filtros não ficam guardados no ficheiro).
 
 ### Diapositivos
@@ -59,7 +64,8 @@ O ecrã inicial tem seis **modelos prontos a usar** (relatório, ata de reunião
 - 13 temas, cada um com quatro variantes de cor (Claro, Suave, Vivo, Escuro), e cinco esquemas de diapositivo.
 - **Ideias de design**: propostas de composição com o conteúdo atual, que se aplicam com um clique e se podem anular.
 - Transições (desvanecer, deslizar, revelar) e efeitos simples de entrada por elemento, também em PPTX.
-- Notas do orador e modo de apresentação em ecrã inteiro.
+- Notas do orador, modo de apresentação em ecrã inteiro e **vista do apresentador** (diapositivo seguinte, notas e cronómetro; tecla P).
+- **Tabelas**, organizador de diapositivos com arrastar e largar, e alinhar, distribuir e agrupar vários objetos (Shift+clique).
 - Atalhos: Ctrl+D duplica um elemento, as setas movem-no e Shift+setas move-o em passos maiores.
 
 ### Desenho
@@ -70,10 +76,12 @@ Comece por um modelo de fluxo, mapa mental ou organograma e acrescente caixas, c
 
 ### Em todas as aplicações
 
+- **Painel de ferramentas** à direita, em secções, e barra de aplicações à esquerda. Ctrl+. esconde ou mostra o painel.
+- **Ctrl+K** abre a procura de comandos: escreva o que quer fazer.
 - Modo claro e escuro, que acompanha o Windows ou se escolhe na aplicação.
 - Zoom de 50% a 200% em Texto e Folhas.
 - **Recuperação automática**: se a aplicação fechar inesperadamente, oferece-se para recuperar o trabalho por guardar.
-- Exportação para PDF com Ctrl+P.
+- Pré-visualizar impressão (Ctrl+Shift+P), imprimir (Ctrl+P) e exportar para PDF (Ctrl+Shift+E).
 
 ![MyOffice em modo escuro](docs/screenshots/modo-escuro.png)
 
@@ -85,7 +93,7 @@ Comece por um modelo de fluxo, mapa mental ou organograma e acrescente caixas, c
 | **Memória** | 4 GB no mínimo, 8 GB recomendados |
 | **Internet** | não é necessária para usar a aplicação |
 
-1. [Descarregue o instalador](https://github.com/cadorio/myoffice/releases/download/v1.6.0/MyOffice-Setup-1.6.0.exe) (`MyOffice-Setup-1.6.0.exe`, 122 MB).
+1. [Descarregue o instalador](https://github.com/cadorio/myoffice/releases/download/v1.7.0/MyOffice-Setup-1.7.0.exe) (`MyOffice-Setup-1.7.0.exe`, 122 MB).
 2. Abra o ficheiro e siga o assistente de instalação.
 3. **Aviso do Windows:** o instalador ainda não tem assinatura digital, por isso o SmartScreen mostra "O Windows protegeu o computador". Clique em **Mais informações** e depois em **Executar mesmo assim**.
 
@@ -101,9 +109,9 @@ A conversão cobre o conteúdo e a formatação mais comuns, mas **não substitu
 
 | Formato | É convertido | Perde-se |
 | --- | --- | --- |
-| **DOCX** | Títulos, parágrafos e alinhamento, formatação de caracteres, listas, tabelas, ligações, imagens, quebras de página, cabeçalho, rodapé e campos de página | Notas, comentários e revisões, colunas, caixas de texto, células unidas; cabeçalhos e rodapés complexos |
-| **XLSX** | Até 100 folhas: valores, fórmulas, estilos básicos, alinhamento, formatos de número e moeda, gráficos simples de colunas e linhas | Tabelas dinâmicas, gráficos avançados, alguns estilos; fórmulas entre folhas e funções não suportadas mostram `#NOME?` |
-| **PPTX** | Texto e posição das caixas, listas, imagens, retângulos e elipses, fundo, notas do orador, transições e efeitos de entrada simples | Animações complexas, gráficos, tabelas, SmartArt, fundos com imagem, cores do tema do PowerPoint |
+| **DOCX** | Títulos, parágrafos e alinhamento, formatação de caracteres, listas, tabelas, ligações, imagens, quebras de página, cabeçalho, rodapé e campos de página | Ao abrir: notas, comentários e revisões, colunas, caixas de texto, células unidas (ao exportar, comentários, revisões, notas e configuração da página seguem para o Word); cabeçalhos e rodapés complexos |
+| **XLSX** | Até 100 folhas: valores, fórmulas, estilos básicos, alinhamento, formatos de número e moeda, gráficos simples de colunas e linhas, bordas, células unidas, larguras de coluna e painéis fixos | Tabelas dinâmicas, gráficos avançados, alguns estilos; fórmulas entre folhas e funções não suportadas mostram `#NOME?` |
+| **PPTX** | Texto e posição das caixas, listas, imagens, retângulos e elipses, fundo, notas do orador, transições e efeitos de entrada simples | Animações complexas, gráficos, tabelas (as tabelas criadas no MyOffice exportam para PPTX), SmartArt, fundos com imagem, cores do tema do PowerPoint |
 
 As imagens WebP são convertidas para PNG, para poderem seguir em DOCX e PPTX. Os ficheiros exportados foram verificados com o LibreOffice e com as bibliotecas python-docx, openpyxl e python-pptx; **ainda não foram testados no Microsoft Office**.
 
@@ -154,8 +162,8 @@ Também existem funções de estatística (mediana, moda, desvio padrão e vari�
 ## O que ainda não faz
 
 - Tabelas dinâmicas compatíveis com o Excel (o resumo dinâmico é a alternativa).
-- Revisão de alterações e comentários.
-- Animações complexas e vista do apresentador.
+- Animações complexas.
+- Formatação condicional no XLSX exportado.
 - Coautoria em tempo real e armazenamento na nuvem.
 - Correio eletrónico e calendário.
 - Versões para macOS e Linux distribuídas oficialmente (o código suporta-as, mas só o instalador Windows é publicado).
