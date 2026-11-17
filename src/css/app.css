@@ -2057,3 +2057,6 @@ body:not([data-current="home"]) .rail-btn .app-tile { width: 34px; height: 34px;
 .pv-side h3 { margin: 6px 0 0; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #8fa197; }
 .pv-notes { flex: 1; overflow: auto; font-size: 20px; line-height: 1.5; white-space: pre-wrap; }
 .pv-end { color: #8fa197; }
+@media print {
+  html, body, #print-area, .print-document, .print-doc, .print-sheet { background: #fff !important; }
+}

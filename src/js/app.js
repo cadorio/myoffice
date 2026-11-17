@@ -173,24 +173,39 @@
     else if (res) MO.toast(`Exportado para ${res.name}.`);
   }
 
-  async function exportPdf() {
-    if (current === 'home') return;
+  // Prepara a área de impressão com o documento atual e corre a ação pedida (PDF, pré-visualização, imprimir).
+  async function withPrintArea(run) {
+    if (current === 'home' || !MO.modules[current]) return;
     const { node, page, margin, pageRule } = MO.modules[current].print();
     const area = $('#print-area');
     $('#print-page').textContent = `@page { size: ${page}; margin: ${margin}; ${pageRule || ''} }`;
     area.replaceChildren(node);
     try {
-      if (api) {
-        const res = await api.exportPdf({ defaultName: titleOf(current) + '.pdf' });
-        if (res && res.error) MO.toast(res.error);
-        else if (res) MO.toast(`Exportado para ${res.name}.`);
-      } else {
-        window.print();
-      }
+      await run();
     } finally {
       area.replaceChildren();
     }
   }
+
+  const exportPdf = () => withPrintArea(async () => {
+    if (!api) return window.print();
+    const res = await api.exportPdf({ defaultName: titleOf(current) + '.pdf' });
+    if (res && res.error) MO.toast(res.error);
+    else if (res) MO.toast(`Exportado para ${res.name}.`);
+  });
+
+  const printPreview = () => withPrintArea(async () => {
+    if (!api) return window.print();
+    MO.toast('A preparar a pré-visualização…');
+    const res = await api.printPreview({ title: titleOf(current) });
+    if (res && res.error) MO.toast(res.error);
+  });
+
+  const printNow = () => withPrintArea(async () => {
+    if (!api) return window.print();
+    const res = await api.print();
+    if (res && res.error) MO.toast(res.error);
+  });
 
   // ---------- Iniciador de aplicações ----------
 
@@ -433,7 +448,7 @@
   }
 
   function run(action) {
-    const actions = { new: newDoc, open: openFile, save: () => save(false), saveAs: () => save(true), exportPdf, about, license: licenseDialog, closeFile: closeBackstage };
+    const actions = { new: newDoc, open: openFile, save: () => save(false), saveAs: () => save(true), exportPdf, printPreview, print: printNow, about, license: licenseDialog, closeFile: closeBackstage };
     if (actions[action]) {
       closeBackstage();
       actions[action]();
@@ -498,7 +513,7 @@
       });
     }
     const actions = [
-      ['Novo documento', 'new'], ['Abrir ficheiro…', 'open'], ['Guardar', 'save'], ['Guardar como…', 'saveAs'], ['Exportar como PDF', 'exportPdf'], ['Acerca do MyOffice', 'about']
+      ['Novo documento', 'new'], ['Abrir ficheiro…', 'open'], ['Guardar', 'save'], ['Guardar como…', 'saveAs'], ['Exportar como PDF', 'exportPdf'], ['Pré-visualizar impressão', 'printPreview'], ['Imprimir…', 'print'], ['Acerca do MyOffice', 'about']
     ];
     for (const [label, action] of actions) out.push({ label, hint: 'Ficheiro', run: () => run(action) });
     for (const [label, id] of [['Ir para o Início', 'home'], ['Abrir Texto', 'writer'], ['Abrir Folhas', 'sheets'], ['Abrir Diapositivos', 'slides'], ['Abrir Desenho', 'draw'], ['Abrir Assistente', 'assistant']]) {
@@ -630,7 +645,7 @@
     } else {
       document.addEventListener('keydown', (e) => {
         if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
-        const action = { s: e.shiftKey ? 'saveAs' : 'save', o: 'open', p: 'exportPdf' }[e.key.toLowerCase()];
+        const action = { s: e.shiftKey ? 'saveAs' : 'save', o: 'open', p: 'print' }[e.key.toLowerCase()];
         if (!action) return;
         e.preventDefault();
         run(action);
