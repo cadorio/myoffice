@@ -3,24 +3,33 @@
 ; Cada programa tem um atalho no menu Iniciar com o mesmo identificador (AppUserModelID) que a
 ; sua janela, para que fixar na barra de tarefas e as listas de atalhos funcionem por programa.
 
+; Versões anteriores punham os atalhos numa pasta "MyOffice" e tinham um atalho geral.
+!macro moCleanOldFolder
+  Delete "$SMPROGRAMS\MyOffice\*.lnk"
+  RMDir "$SMPROGRAMS\MyOffice"
+  Delete "$SMPROGRAMS\MyOffice.lnk"
+  Delete "$DESKTOP\MyOffice.lnk"
+!macroend
+
 ; Cada programa tem o seu ícone (resources\icons\<id>.ico), no menu Iniciar e no ambiente de trabalho.
 !macro moShortcut NAME ARG AUMI DESC ICON
-  CreateShortCut "$SMPROGRAMS\MyOffice\${NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "${ARG}" "$INSTDIR\resources\icons\${ICON}.ico" 0 SW_SHOWNORMAL "" "${DESC}"
-  WinShell::SetLnkAUMI "$SMPROGRAMS\MyOffice\${NAME}.lnk" "${AUMI}"
+  CreateShortCut "$SMPROGRAMS\${NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "${ARG}" "$INSTDIR\resources\icons\${ICON}.ico" 0 SW_SHOWNORMAL "" "${DESC}"
+  WinShell::SetLnkAUMI "$SMPROGRAMS\${NAME}.lnk" "${AUMI}"
   CreateShortCut "$DESKTOP\${NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "${ARG}" "$INSTDIR\resources\icons\${ICON}.ico" 0 SW_SHOWNORMAL "" "${DESC}"
   WinShell::SetLnkAUMI "$DESKTOP\${NAME}.lnk" "${AUMI}"
 !macroend
 
 !macro moRemoveShortcut NAME AUMI
-  WinShell::UninstShortcut "$SMPROGRAMS\MyOffice\${NAME}.lnk"
-  Delete "$SMPROGRAMS\MyOffice\${NAME}.lnk"
+  WinShell::UninstShortcut "$SMPROGRAMS\${NAME}.lnk"
+  Delete "$SMPROGRAMS\${NAME}.lnk"
   WinShell::UninstShortcut "$DESKTOP\${NAME}.lnk"
   Delete "$DESKTOP\${NAME}.lnk"
   WinShell::UninstAppUserModelId "${AUMI}"
 !macroend
 
 !macro customInstall
-  CreateDirectory "$SMPROGRAMS\MyOffice"
+  ; Os atalhos ficam diretamente no menu Iniciar, como o Word e o Excel (sem pasta "MyOffice").
+  !insertmacro moCleanOldFolder
   !insertmacro moShortcut "MyOffice Texto" "--writer" "pt.myoffice.writer" "Escrever documentos, cartas e relatórios" "writer"
   !insertmacro moShortcut "MyOffice Folhas" "--sheets" "pt.myoffice.sheets" "Folhas de cálculo, fórmulas e gráficos" "sheets"
   !insertmacro moShortcut "MyOffice Diapositivos" "--slides" "pt.myoffice.slides" "Criar e apresentar diapositivos" "slides"
@@ -29,6 +38,7 @@
   !insertmacro moShortcut "MyOffice Bases de dados" "--db" "pt.myoffice.db" "Tabelas, formulários, consultas e relatórios" "db"
   !insertmacro moShortcut "MyOffice Assistente" "--assistant" "pt.myoffice.assistant" "Ajuda, fórmulas e rascunhos sem Internet" "assistant"
 !macroend
+
 
 !macro customUnInstall
   ; Atalhos de cada programa (também os de versões antigas) e respetivos grupos na barra de tarefas.

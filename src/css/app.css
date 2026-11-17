@@ -2302,3 +2302,7 @@ tr:hover .db-row-del, .db-row-del:focus { opacity: 1; }
 .db-report h2 small { font-weight: 400; color: #666; }
 .db-report-total td { font-weight: 700; border-top: 1pt solid #333; }
 .db-report-grand { font-weight: 700; margin-top: 12pt; border-top: 1.5pt solid #333; padding-top: 6pt; }
+
+/* Programas independentes: sem botão de grelha para saltar entre programas. */
+body[data-solo]:not([data-solo="home"]) #launcher,
+body[data-solo]:not([data-solo="home"]) #launcher-menu { display: none !important; }
