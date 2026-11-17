@@ -637,6 +637,7 @@
 
   let chartDialog = null;
   let chartRange = null;
+  let editingChart = null;
 
   function selectedChartData() {
     const { r0, r1, c0, c1 } = chartRange || range();
@@ -711,9 +712,38 @@
       h('option', { value: 'bar' }, 'Colunas'),
       h('option', { value: 'line' }, 'Linhas')
     );
+    const savedCharts = sheetList[activeSheet].charts || [];
+    const picker = h('select', { class: 'tool-select', 'aria-label': 'Gráficos guardados' },
+      h('option', { value: '' }, 'Nova seleção'),
+      ...savedCharts.map((chart, index) => h('option', { value: String(index) }, chart.name))
+    );
+    picker.addEventListener('change', () => {
+      editingChart = picker.value === '' ? null : Number(picker.value);
+      if (editingChart !== null) {
+        const chart = savedCharts[editingChart];
+        chartRange = { ...chart.range };
+        type.value = chart.type;
+      } else chartRange = { ...range() };
+      renderChart(type.value);
+    });
     type.addEventListener('change', () => renderChart(type.value));
     const preview = h('div', { class: 'mo-chart-preview' });
-    const close = () => { chartDialog.close(); chartDialog.remove(); chartDialog = null; chartRange = null; };
+    const close = () => { chartDialog.close(); chartDialog.remove(); chartDialog = null; chartRange = null; editingChart = null; };
+    const saveChart = () => {
+      const data = selectedChartData();
+      if (!data) return MO.toast('Preencha os dados do intervalo antes de guardar o gráfico.');
+      const sheet = sheetList[activeSheet];
+      sheet.charts ||= [];
+      const chart = { name: editingChart === null ? `Gráfico ${sheet.charts.length + 1}` : sheet.charts[editingChart].name, type: type.value, range: { ...chartRange } };
+      if (editingChart === null) {
+        sheet.charts.push(chart);
+        editingChart = sheet.charts.length - 1;
+        picker.append(h('option', { value: String(editingChart) }, chart.name));
+      } else sheet.charts[editingChart] = chart;
+      picker.value = String(editingChart);
+      ctx.dirty();
+      MO.toast('Gráfico guardado no livro.');
+    };
     const exportSvg = () => {
       const svg = preview.querySelector('svg');
       if (!svg) return MO.toast('Não há gráfico para exportar.');
@@ -723,10 +753,10 @@
       document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     };
     chartDialog.append(
-      h('header', { class: 'mo-chart-head' }, h('div', null, h('h2', { id: 'mo-chart-title' }, 'Análise visual'), h('p', null, 'Gráfico baseado nos dados da seleção')), type, h('button', { class: 'mo-chart-close', type: 'button', onclick: close, 'aria-label': 'Fechar' }, '×')),
+      h('header', { class: 'mo-chart-head' }, h('div', null, h('h2', { id: 'mo-chart-title' }, 'Gráficos do livro'), h('p', null, 'Os gráficos guardados acompanham este livro MyOffice.')), picker, type, h('button', { class: 'mo-chart-close', type: 'button', onclick: close, 'aria-label': 'Fechar' }, '×')),
       preview,
       h('p', { class: 'mo-chart-range' }),
-      h('footer', { class: 'mo-chart-actions' }, h('button', { type: 'button', class: 'btn', onclick: exportSvg }, 'Exportar SVG'), h('button', { type: 'button', class: 'btn primary', onclick: close }, 'Concluir'))
+      h('footer', { class: 'mo-chart-actions' }, h('button', { type: 'button', class: 'btn', onclick: exportSvg }, 'Exportar SVG'), h('button', { type: 'button', class: 'btn', onclick: saveChart }, 'Guardar no livro'), h('button', { type: 'button', class: 'btn primary', onclick: close }, 'Concluir'))
     );
     chartDialog.addEventListener('click', (e) => { if (e.target === chartDialog) close(); });
     document.body.append(chartDialog);
@@ -823,7 +853,12 @@
       const base = name; let suffix = 2;
       while (names.has(name.toLocaleLowerCase('pt-PT'))) name = `${base.slice(0, 27)} (${suffix++})`;
       names.add(name.toLocaleLowerCase('pt-PT'));
-      return { name, cells: cleanCells(sheet && sheet.cells) };
+      const charts = (Array.isArray(sheet && sheet.charts) ? sheet.charts : []).slice(0, 50).flatMap((chart) => {
+        const r = chart && chart.range;
+        if (!r || !['bar', 'line'].includes(chart.type) || ![r.r0, r.r1, r.c0, r.c1].every(Number.isInteger) || r.r0 < 0 || r.c0 < 0 || r.r1 >= ROWS || r.c1 >= COLS || r.r1 <= r.r0 || r.c1 <= r.c0) return [];
+        return [{ name: String(chart.name || 'Gráfico').slice(0, 60), type: chart.type, range: { r0: r.r0, r1: r.r1, c0: r.c0, c1: r.c1 } }];
+      });
+      return { name, cells: cleanCells(sheet && sheet.cells), charts };
     });
   }
 
@@ -1145,7 +1180,7 @@
     serialize() {
       if (editing) stopEdit(true);
       sheetList[activeSheet].cells = cells;
-      return JSON.stringify({ format: 'myoffice-sheet', version: 2, theme: theme.id, cells, activeSheet, sheets: sheetList });
+      return JSON.stringify({ format: 'myoffice-sheet', version: 3, theme: theme.id, cells, activeSheet, sheets: sheetList });
     },
 
     load(text, ext) {
@@ -1176,7 +1211,7 @@
       if (clipped) MO.toast(`Algumas células ultrapassam o limite atual de ${ROWS} linhas × ${COLS} colunas e não foram importadas.`);
       if (nextSheets && nextSheets.length) {
         sheetList = nextSheets; activeSheet = nextActive; cells = sheetList[activeSheet].cells; showSheetTabs();
-      } else { cells = next; sheetList = [{ name: 'Folha1', cells }]; activeSheet = 0; showSheetTabs(); }
+      } else { cells = next; sheetList = [{ name: 'Folha1', cells, charts: [] }]; activeSheet = 0; showSheetTabs(); }
       refresh();
     },
 

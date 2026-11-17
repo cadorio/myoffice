@@ -60,7 +60,7 @@ O Assistente IA tem uma área própria, com conversa e atalhos para obter ajuda 
 
 - **Novo espaço de trabalho MyOffice** — identidade visual própria, navegação lateral, acesso direto às ferramentas, modelos editáveis e pesquisa de ficheiros recentes.
 - **Seis modelos prontos a usar** — relatório, ata de reunião, orçamento mensal com fórmulas, gestor de tarefas, apresentação de projeto e apresentação de aula.
-- **Gráficos em Folhas** — pré-visualização de gráficos de colunas e linhas a partir de dados selecionados, com exportação SVG.
+- **Gráficos em Folhas** — gráficos de colunas e linhas guardados no livro MyOffice, reabertos e atualizados a partir do intervalo original, com exportação SVG.
 - **Livros de várias folhas** — separadores editáveis e importação/exportação de várias folhas em XLSX; a grelha virtual suporta até 100 000 linhas e 256 colunas por folha.
 - **Análise estatística em Folhas** — fórmulas para mediana, moda, desvio padrão e variância, além de soma, média e contagem.
 - **Edição mais rápida de apresentações** — duplicar elementos com Ctrl+D e ajustar a posição com as setas; Shift+setas move em passos maiores.
@@ -121,7 +121,7 @@ O MyOffice importa e exporta `.docx`, `.xlsx` e `.pptx`. A conversão procura pr
 | Formato | Importação suportada | Limitações conhecidas |
 | --- | --- | --- |
 | DOCX | Títulos, parágrafos, alinhamento, formatação de caracteres, listas, tabelas, ligações, imagens, quebras de página, cabeçalho, rodapé e campos de página. | Cabeçalhos e rodapés simples; não preserva notas, comentários e revisões, colunas, caixas de texto e células unidas. |
-| XLSX | Até 100 folhas: valores, fórmulas, estilos básicos, alinhamento e formatos numéricos/moeda. | Limite atual de 100 000 linhas × 256 colunas por folha; sem gráficos ou tabelas dinâmicas. Fórmulas entre folhas e funções não suportadas podem apresentar `#NOME?`. |
+| XLSX | Até 100 folhas: valores, fórmulas, estilos básicos, alinhamento e formatos numéricos/moeda. | Limite atual de 100 000 linhas × 256 colunas por folha; gráficos guardados no formato `.mosheet` não são transferidos para XLSX; sem gráficos XLSX ou tabelas dinâmicas. Fórmulas entre folhas e funções não suportadas podem apresentar `#NOME?`. |
 | PPTX | Texto e posição das caixas, listas, imagens, retângulos, elipses, fundo e notas do orador na importação. | Não preserva animações, transições, gráficos, tabelas, SmartArt ou fundos com imagem; algumas informações de tema e notas não são exportadas. |
 
 Os ficheiros originais não são alterados durante a importação: o documento convertido é guardado no formato próprio do MyOffice. Os ficheiros exportados foram verificados com LibreOffice e com as bibliotecas python-docx, openpyxl e python-pptx; não foram validados no Microsoft Office.
