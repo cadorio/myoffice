@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('api', {
   openRecent: (path) => ipcRenderer.invoke('file:openRecent', path),
   save: (opts) => ipcRenderer.invoke('file:save', opts),
   exportPdf: (opts) => ipcRenderer.invoke('file:exportPdf', opts),
+  printPreview: (opts) => ipcRenderer.invoke('file:printPreview', opts),
+  print: () => ipcRenderer.invoke('file:print'),
   getRecent: () => ipcRenderer.invoke('recent:get'),
   ai: {
     generate: (input) => ipcRenderer.invoke('ai:generate', input),

@@ -27,6 +27,12 @@
   const uid = () => 'e' + Date.now().toString(36) + (seq++).toString(36);
   const slide = () => slides[idx];
   const selected = () => slide().els.find((el) => el.id === selId) || null;
+  // Seleção múltipla (Shift+clique ou grupo): o elemento principal é selId e os outros ficam aqui.
+  const extraSel = new Set();
+  const MAX_TABLE_ROWS = 20;
+  const MAX_TABLE_COLS = 10;
+  const isSelected = (id) => id === selId || extraSel.has(id);
+  const selectedEls = () => slide().els.filter((el) => isSelected(el.id));
 
   const T = MO.Themes;
   const FONTS = T.FONTS;
@@ -110,7 +116,7 @@
     return input.slice(0, 500).map((s) => {
       const els = [];
       for (const el of Array.isArray(s && s.els) ? s.els.slice(0, 200) : []) {
-        if (!el || !['text', 'image', 'rect', 'ellipse'].includes(el.type)) continue;
+        if (!el || !['text', 'image', 'rect', 'ellipse', 'table'].includes(el.type)) continue;
         const clean = {
           id: uid(),
           type: el.type,
@@ -120,6 +126,7 @@
           h: clampNum(el.h, MIN, 2 * H, 100)
         };
         if (['fade', 'zoom', 'appear'].includes(el.animation)) clean.animation = el.animation;
+        if (typeof el.group === 'string' && /^[a-z0-9]{1,20}$/i.test(el.group)) clean.group = el.group;
         if (el.type === 'text') {
           clean.html = MO.sanitizeHTML(typeof el.html === 'string' ? el.html : '');
           clean.fs = clampNum(el.fs, 8, 200, 24);
@@ -131,6 +138,13 @@
         } else if (el.type === 'image') {
           if (typeof el.src !== 'string' || !MO.IMAGE_DATA_URL.test(el.src)) continue;
           clean.src = el.src;
+        } else if (el.type === 'table') {
+          const rows = (Array.isArray(el.rows) ? el.rows : []).slice(0, MAX_TABLE_ROWS).map((row) => (Array.isArray(row) ? row : []).slice(0, MAX_TABLE_COLS).map((v) => String(v ?? '').slice(0, 500)));
+          const cols = Math.max(1, ...rows.map((r) => r.length));
+          if (!rows.length) continue;
+          clean.rows = rows.map((r) => [...r, ...Array(cols - r.length).fill('')]);
+          clean.fs = clampNum(el.fs, 8, 72, 20);
+          clean.accent = MO.HEX.test(el.accent) ? el.accent : '#1f5fbf';
         } else {
           clean.fill = MO.HEX.test(el.fill) ? el.fill : '#4f5bd5';
         }
@@ -206,13 +220,18 @@
         box.append(content);
       } else if (el.type === 'image') {
         box.append(h('img', { src: imageURL(el.src), alt: '', draggable: 'false' }));
+      } else if (el.type === 'table') {
+        const table = h('table', { class: 'el-table', style: { fontSize: el.fs + 'px' } },
+          h('tbody', null, el.rows.map((row, r) => h('tr', null, row.map((v, c) => h(r === 0 ? 'th' : 'td', { 'data-r': r, 'data-c': c }, v))))));
+        table.style.setProperty('--tbl-accent', el.accent);
+        box.append(table);
       } else {
         box.style.background = el.fill;
       }
       if (interactive) {
         box.dataset.id = el.id;
         box.append(h('span', { class: 'handle' }));
-        if (el.id === selId) box.classList.add('selected');
+        if (isSelected(el.id)) box.classList.add('selected');
       }
       node.append(box);
     }
@@ -280,9 +299,14 @@
     renderAll();
   }
 
-  function selectEl(id) {
+  function selectEl(id, add) {
+    if (!add) extraSel.clear();
+    if (add && selId && selId !== id) extraSel.add(selId);
     selId = id;
-    stage.querySelectorAll('.el').forEach((box) => box.classList.toggle('selected', box.dataset.id === id));
+    // Selecionar um elemento de um grupo seleciona o grupo inteiro.
+    const el = id && slide().els.find((x) => x.id === id);
+    if (el && el.group) slide().els.forEach((x) => { if (x.group === el.group && x.id !== id) extraSel.add(x.id); });
+    stage.querySelectorAll('.el').forEach((box) => box.classList.toggle('selected', isSelected(box.dataset.id)));
     if (animationSelect) animationSelect.value = selected()?.animation || '';
     syncToolbar();
   }
@@ -342,16 +366,29 @@
     const id = box.dataset.id;
     if (editingId === id) return;
     commitTextEdit();
-    selectEl(id);
+    if (e.shiftKey && selId) {
+      // Shift+clique junta ou retira o elemento da seleção.
+      if (isSelected(id) && id !== selId) {
+        extraSel.delete(id);
+        stage.querySelectorAll('.el').forEach((b) => b.classList.toggle('selected', isSelected(b.dataset.id)));
+      } else selectEl(id, true);
+      e.preventDefault();
+      return;
+    }
+    if (!isSelected(id)) selectEl(id);
+    else selId = id;
     root.focus({ preventScroll: true });
     const el = selected();
+    const resize = e.target.classList.contains('handle');
     drag = {
       el,
       box,
-      resize: e.target.classList.contains('handle'),
+      resize,
       sx: e.clientX,
       sy: e.clientY,
       orig: { x: el.x, y: el.y, w: el.w, h: el.h },
+      // Ao mover, os restantes elementos selecionados acompanham.
+      others: resize ? [] : selectedEls().filter((x) => x !== el).map((x) => ({ el: x, box: stage.querySelector(`.el[data-id="${x.id}"]`), x: x.x, y: x.y })),
       moved: false
     };
     e.preventDefault();
@@ -373,6 +410,13 @@
     } else {
       el.x = Math.round(Math.max(-el.w + MIN, Math.min(W - MIN, orig.x + dx)));
       el.y = Math.round(Math.max(-el.h + MIN, Math.min(H - MIN, orig.y + dy)));
+      const mx = el.x - orig.x;
+      const my = el.y - orig.y;
+      for (const o of drag.others) {
+        o.el.x = Math.round(o.x + mx);
+        o.el.y = Math.round(o.y + my);
+        if (o.box) Object.assign(o.box.style, { left: o.el.x + 'px', top: o.el.y + 'px' });
+      }
     }
     Object.assign(box.style, { left: el.x + 'px', top: el.y + 'px', width: el.w + 'px', height: el.h + 'px' });
   }
@@ -482,8 +526,165 @@
   function deleteSelected() {
     if (!selected()) return;
     change(() => {
-      slide().els = slide().els.filter((el) => el.id !== selId);
+      slide().els = slide().els.filter((el) => !isSelected(el.id));
       selId = null;
+      extraSel.clear();
+    });
+  }
+
+  // ---------- Alinhar, distribuir e agrupar ----------
+
+  function alignSelected(kind) {
+    const els = selectedEls();
+    if (!els.length) return MO.toast('Selecione um ou mais elementos (Shift+clique para vários).');
+    // Um elemento alinha-se ao diapositivo; vários alinham-se entre si.
+    const box = els.length === 1 ? { x0: 0, y0: 0, x1: W, y1: H } : {
+      x0: Math.min(...els.map((e) => e.x)), y0: Math.min(...els.map((e) => e.y)),
+      x1: Math.max(...els.map((e) => e.x + e.w)), y1: Math.max(...els.map((e) => e.y + e.h))
+    };
+    change(() => {
+      for (const el of els) {
+        if (kind === 'left') el.x = box.x0;
+        else if (kind === 'hcenter') el.x = Math.round((box.x0 + box.x1 - el.w) / 2);
+        else if (kind === 'right') el.x = box.x1 - el.w;
+        else if (kind === 'top') el.y = box.y0;
+        else if (kind === 'vmiddle') el.y = Math.round((box.y0 + box.y1 - el.h) / 2);
+        else if (kind === 'bottom') el.y = box.y1 - el.h;
+      }
+    });
+  }
+
+  function distributeSelected(axis) {
+    const els = selectedEls();
+    if (els.length < 3) return MO.toast('Selecione três ou mais elementos para distribuir.');
+    const pos = axis === 'h' ? 'x' : 'y';
+    const size = axis === 'h' ? 'w' : 'h';
+    const sorted = [...els].sort((a, b) => a[pos] - b[pos]);
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    const total = sorted.reduce((sum, el) => sum + el[size], 0);
+    const gap = (last[pos] + last[size] - first[pos] - total) / (sorted.length - 1);
+    change(() => {
+      let at = first[pos];
+      for (const el of sorted) {
+        el[pos] = Math.round(at);
+        at += el[size] + gap;
+      }
+    });
+  }
+
+  function groupSelected(on) {
+    const els = selectedEls();
+    if (on && els.length < 2) return MO.toast('Selecione dois ou mais elementos (Shift+clique) para agrupar.');
+    if (!on && !els.some((el) => el.group)) return MO.toast('A seleção não tem grupos.');
+    const gid = uid();
+    change(() => els.forEach((el) => (on ? (el.group = gid) : delete el.group)));
+    MO.toast(on ? 'Elementos agrupados: movem-se juntos.' : 'Grupo desfeito.');
+  }
+
+  // ---------- Tabelas ----------
+
+  async function insertTable() {
+    const res = await MO.dialog({
+      title: 'Inserir tabela',
+      fields: [
+        { name: 'rows', label: 'Linhas (incluindo o cabeçalho)', type: 'number', value: 4, min: 2, max: MAX_TABLE_ROWS },
+        { name: 'cols', label: 'Colunas', type: 'number', value: 3, min: 1, max: MAX_TABLE_COLS }
+      ],
+      okLabel: 'Inserir'
+    });
+    if (!res) return;
+    const rows = Math.max(2, Math.min(MAX_TABLE_ROWS, parseInt(res.rows, 10) || 4));
+    const cols = Math.max(1, Math.min(MAX_TABLE_COLS, parseInt(res.cols, 10) || 3));
+    const data = Array.from({ length: rows }, (_r, r) => Array.from({ length: cols }, (_c, c) => (r === 0 ? `Coluna ${c + 1}` : '')));
+    addElement({ id: uid(), type: 'table', x: 80, y: 140, w: 800, h: Math.min(360, rows * 44), rows: data, fs: 20, accent: theme.accent || '#1f5fbf' });
+  }
+
+  function editTable(fn) {
+    const el = selected();
+    if (!el || el.type !== 'table') return MO.toast('Selecione primeiro uma tabela.');
+    commitTextEdit();
+    change(() => fn(el));
+  }
+
+  const addRow = () => editTable((el) => { if (el.rows.length < MAX_TABLE_ROWS) { el.rows.push(Array(el.rows[0].length).fill('')); el.h += 40; } });
+  const addCol = () => editTable((el) => { if (el.rows[0].length < MAX_TABLE_COLS) el.rows.forEach((r, i) => r.push(i === 0 ? `Coluna ${r.length + 1}` : '')); });
+  const removeRow = () => editTable((el) => { if (el.rows.length > 2) { el.rows.pop(); el.h = Math.max(MIN, el.h - 40); } });
+  const removeCol = () => editTable((el) => { if (el.rows[0].length > 1) el.rows.forEach((r) => r.pop()); });
+
+  // Duplo clique numa célula: edita o texto dessa célula.
+  function startCellEdit(box, cell) {
+    const el = slide().els.find((x) => x.id === box.dataset.id);
+    if (!el || el.type !== 'table') return;
+    const r = Number(cell.dataset.r);
+    const c = Number(cell.dataset.c);
+    selectEl(el.id);
+    cell.contentEditable = 'true';
+    cell.focus();
+    document.getSelection().selectAllChildren(cell);
+    const finish = () => {
+      cell.contentEditable = 'false';
+      const text = cell.textContent.replace(/\s+/g, ' ').trim().slice(0, 500);
+      if (text !== el.rows[r][c]) {
+        snapshot();
+        el.rows[r][c] = text;
+        ctx.dirty();
+        renderThumbs();
+      }
+    };
+    cell.addEventListener('blur', finish, { once: true });
+    cell.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); cell.blur(); }
+      else if (e.key === 'Tab') {
+        e.preventDefault();
+        const cells = [...box.querySelectorAll('th, td')];
+        const next = cells[cells.indexOf(cell) + (e.shiftKey ? -1 : 1)];
+        cell.blur();
+        if (next) startCellEdit(box, next);
+      }
+      e.stopPropagation();
+    });
+  }
+
+  // ---------- Organizar diapositivos (vista em grelha) ----------
+
+  let sorter = null;
+  function toggleSorter() {
+    if (sorter) { sorter.remove(); sorter = null; return; }
+    commitTextEdit();
+    sorter = h('div', { class: 'slide-sorter', role: 'list', 'aria-label': 'Organizar diapositivos' });
+    let dragFrom = null;
+    const draw = () => {
+      sorter.replaceChildren(
+        h('div', { class: 'sorter-head' }, h('strong', null, 'Organizar diapositivos'), h('span', null, 'Arraste para mudar a ordem · clique para abrir'), h('button', { type: 'button', class: 'btn', onclick: toggleSorter }, 'Fechar')),
+        h('div', { class: 'sorter-grid' }, slides.map((s, i) => {
+          const card = h('div', { class: 'sorter-card' + (i === idx ? ' active' : ''), draggable: 'true', role: 'listitem', 'data-index': i, title: 'Diapositivo ' + (i + 1) },
+            h('span', { class: 'sorter-frame' }, renderSlide(s, false)), h('span', { class: 'sorter-num' }, i + 1));
+          card.addEventListener('click', () => { goTo(i); toggleSorter(); });
+          card.addEventListener('dragstart', (e) => { dragFrom = i; e.dataTransfer.effectAllowed = 'move'; card.classList.add('dragging'); });
+          card.addEventListener('dragend', () => card.classList.remove('dragging'));
+          card.addEventListener('dragover', (e) => { e.preventDefault(); card.classList.add('drop'); });
+          card.addEventListener('dragleave', () => card.classList.remove('drop'));
+          card.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (dragFrom === null || dragFrom === i) return;
+            moveSlideTo(dragFrom, i);
+            dragFrom = null;
+            draw();
+          });
+          return card;
+        }))
+      );
+    };
+    draw();
+    root.append(sorter);
+  }
+
+  function moveSlideTo(from, to) {
+    change(() => {
+      const [moved] = slides.splice(from, 1);
+      slides.splice(to, 0, moved);
+      idx = to;
     });
   }
 
@@ -924,8 +1125,11 @@
 
   // ---------- Modo de apresentação ----------
 
-  function present(from) {
+  function present(from, presenterView) {
     commitTextEdit();
+    let presenter = Boolean(presenterView);
+    const started = Date.now();
+    let clock = null;
     let i = Math.max(0, Math.min(slides.length - 1, from));
     let wasFullscreen = false;
     const overlay = h('div', { class: 'present', tabindex: '0', 'aria-label': 'Apresentação' });
@@ -952,11 +1156,42 @@
           element.animate(frames, { duration: 360, delay: order * 100, easing: 'ease-out' });
         });
       }
-      overlay.replaceChildren(node, h('div', { class: 'present-count' }, `${i + 1} / ${slides.length}`));
+      overlay.classList.toggle('presenter', presenter);
+      if (presenter) {
+        // Vista do apresentador: diapositivo atual, o seguinte, notas e tempo decorrido.
+        const fit = (s, maxW, maxH) => {
+          const n = renderSlide(s, false);
+          const kk = Math.min(maxW / W, maxH / H);
+          n.style.transform = `scale(${kk})`;
+          return h('div', { class: 'pv-frame', style: { width: W * kk + 'px', height: H * kk + 'px' } }, n);
+        };
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        clockEl = h('span', { class: 'pv-clock' });
+        overlay.replaceChildren(h('div', { class: 'pv' },
+          h('div', { class: 'pv-main' }, fit(slides[i], vw * 0.6, vh * 0.72), h('div', { class: 'pv-bar' }, clockEl, h('span', null, `Diapositivo ${i + 1} de ${slides.length}`), h('span', { class: 'pv-hint' }, 'P: sair da vista · Esc: terminar'))),
+          h('div', { class: 'pv-side' },
+            h('h3', null, 'A seguir'),
+            slides[i + 1] ? fit(slides[i + 1], vw * 0.3, vh * 0.25) : h('p', { class: 'pv-end' }, 'Fim da apresentação'),
+            h('h3', null, 'Notas'),
+            h('div', { class: 'pv-notes' }, slides[i].notes || 'Sem notas para este diapositivo.'))));
+        tick();
+      } else {
+        overlay.replaceChildren(node, h('div', { class: 'present-count' }, `${i + 1} / ${slides.length}`));
+      }
       moveDirection = 0;
     }
 
+    let clockEl = null;
+    function tick() {
+      if (!clockEl) return;
+      const sec = Math.floor((Date.now() - started) / 1000);
+      clockEl.textContent = `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
+    }
+    clock = setInterval(tick, 1000);
+
     function close() {
+      clearInterval(clock);
       window.removeEventListener('resize', draw);
       document.removeEventListener('fullscreenchange', onFullscreenChange);
       if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -982,6 +1217,7 @@
       e.preventDefault();
       e.stopPropagation();
       if (e.key === 'Escape') close();
+      else if (e.key === 'p' || e.key === 'P') { presenter = !presenter; draw(); }
       else if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key)) step(1);
       else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key)) step(-1);
       else if (e.key === 'Home') step(-i);
@@ -1117,6 +1353,27 @@
                 [iconButton('duplicate', 'Duplicar elemento (Ctrl+D)', duplicateElement, 'Duplicar'), iconButton('front', 'Trazer para a frente', () => reorder(true), 'Frente'), iconButton('close', 'Eliminar elemento (Delete)', deleteSelected)],
                 [iconButton('back', 'Enviar para trás', () => reorder(false), 'Trás')]
               ]
+            },
+            {
+              label: 'Alinhar (Shift+clique para vários)',
+              rows: [
+                [
+                  iconButton('alignObjLeft', 'Alinhar à esquerda (elementos)', () => alignSelected('left')),
+                  iconButton('alignObjCenter', 'Centrar na horizontal (elementos)', () => alignSelected('hcenter')),
+                  iconButton('alignObjRight', 'Alinhar à direita (elementos)', () => alignSelected('right')),
+                  iconButton('alignObjTop', 'Alinhar acima (elementos)', () => alignSelected('top')),
+                  iconButton('alignObjMiddle', 'Centrar na vertical (elementos)', () => alignSelected('vmiddle')),
+                  iconButton('alignObjBottom', 'Alinhar abaixo (elementos)', () => alignSelected('bottom'))
+                ],
+                [
+                  iconButton('distH', 'Distribuir na horizontal', () => distributeSelected('h'), 'Distribuir ↔'),
+                  iconButton('distV', 'Distribuir na vertical', () => distributeSelected('v'), 'Distribuir ↕')
+                ],
+                [
+                  iconButton('group', 'Agrupar elementos', () => groupSelected(true), 'Agrupar'),
+                  iconButton('ungroup', 'Desagrupar elementos', () => groupSelected(false), 'Desagrupar')
+                ]
+              ]
             }
           ]
         },
@@ -1125,6 +1382,20 @@
           groups: [
             { label: 'Texto', rows: [[bigButton('textBox', 'Caixa de texto', 'Inserir caixa de texto', insertText)]] },
             { label: 'Ilustrações', rows: [[bigButton('image', 'Imagem', 'Inserir imagem', addImage)]] },
+            {
+              label: 'Tabela',
+              rows: [
+                [bigButton('table', 'Tabela', 'Inserir tabela no diapositivo', insertTable)],
+                [
+                  iconButton('rowAdd', 'Acrescentar linha à tabela', addRow, 'Linha +'),
+                  iconButton('colAdd', 'Acrescentar coluna à tabela', addCol, 'Coluna +')
+                ],
+                [
+                  iconButton('rowDel', 'Remover a última linha', removeRow, 'Linha −'),
+                  iconButton('colDel', 'Remover a última coluna', removeCol, 'Coluna −')
+                ]
+              ]
+            },
             {
               label: 'Formas',
               rows: [[bigButton('rect', 'Retângulo', 'Inserir retângulo', insertRect), bigButton('ellipse', 'Elipse', 'Inserir elipse', insertEllipse)]]
@@ -1165,8 +1436,15 @@
               rows: [
                 [
                   bigButton('play', 'Do início', 'Iniciar apresentação do início (F5)', () => present(0)),
-                  bigButton('playCurrent', 'Do diapositivo atual', 'Iniciar apresentação no diapositivo atual', () => present(idx))
+                  bigButton('playCurrent', 'Do diapositivo atual', 'Iniciar apresentação no diapositivo atual', () => present(idx)),
+                  bigButton('presenter', 'Vista do apresentador', 'Apresentar com notas, diapositivo seguinte e cronómetro (tecla P alterna)', () => present(idx, true))
                 ]
+              ]
+            },
+            {
+              label: 'Organizar',
+              rows: [
+                [bigButton('sorter', 'Organizar diapositivos', 'Ver todos os diapositivos em grelha e arrastar para reordenar', toggleSorter)]
               ]
             }
           ]
@@ -1213,6 +1491,8 @@
         document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
       });
       stage.addEventListener('dblclick', (e) => {
+        const cellEl = e.target.closest('.el-table th, .el-table td');
+        if (cellEl) return startCellEdit(cellEl.closest('.el'), cellEl);
         const box = e.target.closest('.el-text');
         if (box && editingId !== box.dataset.id) startTextEdit(box.dataset.id);
       });

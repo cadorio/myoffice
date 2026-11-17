@@ -275,6 +275,11 @@
     const media = {};
     const rels = [];
     let imageCount = 0;
+    // Comentários, alterações controladas e notas de rodapé, exportados como objetos nativos do Word.
+    const commentList = [];
+    const noteList = [];
+    let revision = 1;
+    const now = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
     const relId = (type, target, external) => {
       rels.push(`<Relationship Id="rId${rels.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/${type}" Target="${esc(target)}"${external ? ' TargetMode="External"' : ''}/>`);
       return 'rId' + rels.length;
@@ -343,12 +348,23 @@
           const pieces = child.nodeValue.split('\t');
           pieces.forEach((piece, i) => {
             if (i > 0) out += `<w:r>${runProps(fmt)}<w:tab/></w:r>`;
-            if (piece) out += `<w:r>${runProps(fmt)}<w:t xml:space="preserve">${esc(piece)}</w:t></w:r>`;
+            if (piece) out += fmt.del ? `<w:r>${runProps(fmt)}<w:delText xml:space="preserve">${esc(piece)}</w:delText></w:r>` : `<w:r>${runProps(fmt)}<w:t xml:space="preserve">${esc(piece)}</w:t></w:r>`;
           });
         } else if (child.nodeType === Node.ELEMENT_NODE) {
           if (child.tagName === 'BR') out += '<w:r><w:br/></w:r>';
           else if (child.tagName === 'IMG') out += imageRun(child);
           else if (BLOCKS.includes(child.tagName)) continue; // os blocos aninhados são tratados por blocks()
+          else if (child.tagName === 'MARK' && child.classList.contains('mo-comment') && pageParts.comments && pageParts.comments[child.dataset.id]) {
+            const id = commentList.push(pageParts.comments[child.dataset.id]) - 1;
+            out += `<w:commentRangeStart w:id="${id}"/>${inline(child, fmt)}<w:commentRangeEnd w:id="${id}"/><w:r><w:commentReference w:id="${id}"/></w:r>`;
+          } else if (child.tagName === 'INS' && child.classList.contains('mo-ins')) {
+            out += `<w:ins w:id="${revision++}" w:author="MyOffice" w:date="${now}">${inline(child, fmt)}</w:ins>`;
+          } else if (child.tagName === 'DEL' && child.classList.contains('mo-del')) {
+            out += `<w:del w:id="${revision++}" w:author="MyOffice" w:date="${now}">${inline(child, { ...fmt, del: true })}</w:del>`;
+          } else if (child.tagName === 'SUP' && child.classList.contains('mo-fn') && pageParts.notes && pageParts.notes[child.dataset.id] != null) {
+            const id = noteList.push(pageParts.notes[child.dataset.id]);
+            out += `<w:r><w:rPr><w:vertAlign w:val="superscript"/></w:rPr><w:footnoteReference w:id="${id}"/></w:r>`;
+          }
           else if (child.tagName === 'A' && /^(https?:|mailto:)/i.test(child.getAttribute('href') || '')) {
             out += `<w:hyperlink r:id="${relId('hyperlink', child.getAttribute('href'), true)}">${inline(child, formatOf(child, fmt))}</w:hyperlink>`;
           } else out += inline(child, formatOf(child, fmt));
@@ -424,11 +440,38 @@
       `<w:pPr><w:ind w:left="${720 * (i + 1)}" w:hanging="360"/></w:pPr>${font ? `<w:rPr><w:rFonts w:ascii="${font}" w:hAnsi="${font}" w:hint="default"/></w:rPr>` : ''}</w:lvl>`;
     const levels = (ordered) => Array.from({ length: 9 }, (_x, i) => (ordered ? level(i, 'decimal', `%${i + 1}.`) : level(i, 'bullet', '•', 'Arial'))).join('');
 
+    // Tamanho, orientação e margens da página (em vigésimos de ponto, como no Word).
+    function pageSize() {
+      const pg = pageParts.page || {};
+      const mm = (x) => Math.round(x * 56.6929);
+      const sizes = { A4: [210, 297], Letter: [215.9, 279.4], A5: [148, 210] };
+      let [w, hgt] = sizes[pg.size] || sizes.A4;
+      if (pg.orient === 'landscape') [w, hgt] = [hgt, w];
+      const m = { normal: [25, 20], narrow: [12.7, 12.7], wide: [25.4, 38.1] }[pg.margin] || [25, 20];
+      return `<w:pgSz w:w="${mm(w)}" w:h="${mm(hgt)}"${pg.orient === 'landscape' ? ' w:orient="landscape"' : ''}/><w:pgMar w:top="${mm(m[0])}" w:right="${mm(m[1])}" w:bottom="${mm(m[0])}" w:left="${mm(m[1])}" w:header="708" w:footer="708" w:gutter="0"/>`;
+    }
+    const textParagraphs = (text) => String(text || '').split(/\n/).map((line) => `<w:p><w:r><w:t xml:space="preserve">${esc(line)}</w:t></w:r></w:p>`).join('');
+    const extraParts = {};
+    const extraTypes = [];
+    const extraRels = [];
+    if (commentList.length) {
+      extraParts['word/comments.xml'] = XML_HEAD + `<w:comments ${W}>${commentList.map((c, i) => `<w:comment w:id="${i}" w:author="${esc(c.author || 'MyOffice')}" w:date="${esc(c.date || now)}" w:initials="MO">${textParagraphs(c.text)}</w:comment>`).join('')}</w:comments>`;
+      extraTypes.push('<Override PartName="/word/comments.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml"/>');
+      extraRels.push('<Relationship Id="rIdComments" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="comments.xml"/>');
+    }
+    if (noteList.length) {
+      extraParts['word/footnotes.xml'] = XML_HEAD + `<w:footnotes ${W}><w:footnote w:type="separator" w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:footnote><w:footnote w:type="continuationSeparator" w:id="0"><w:p><w:r><w:continuationSeparator/></w:r></w:p></w:footnote>` +
+        noteList.map((text, i) => `<w:footnote w:id="${i + 1}"><w:p><w:r><w:rPr><w:vertAlign w:val="superscript"/></w:rPr><w:footnoteRef/></w:r><w:r><w:t xml:space="preserve"> ${esc(text)}</w:t></w:r></w:p></w:footnote>`).join('') + '</w:footnotes>';
+      extraTypes.push('<Override PartName="/word/footnotes.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml"/>');
+      extraRels.push('<Relationship Id="rIdFootnotes" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes" Target="footnotes.xml"/>');
+    }
+
     return zip({
       '[Content_Types].xml':
         XML_HEAD +
         '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
         '<Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="jpg" ContentType="image/jpeg"/><Default Extension="gif" ContentType="image/gif"/>' +
+        extraTypes.join('') +
         '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
         '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
         '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>' +
@@ -440,7 +483,7 @@
       'word/document.xml':
         XML_HEAD +
         `<w:document ${W} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">` +
-        `<w:body>${body}<w:sectPr><w:headerReference w:type="default" r:id="rIdHeader"/><w:footerReference w:type="default" r:id="rIdFooter"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1134" w:bottom="1417" w:left="1134" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>`,
+        `<w:body>${body}<w:sectPr><w:headerReference w:type="default" r:id="rIdHeader"/><w:footerReference w:type="default" r:id="rIdFooter"/>${pageSize()}</w:sectPr></w:body></w:document>`,
       'word/styles.xml':
         XML_HEAD +
         `<w:styles ${W}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="${bodyFont}" w:hAnsi="${bodyFont}" w:cs="${bodyFont}"/><w:sz w:val="24"/><w:szCs w:val="24"/><w:lang w:val="pt-PT"/></w:rPr></w:rPrDefault>` +
@@ -462,7 +505,8 @@
         `<Relationship Id="rIdNumbering" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>` +
         '<Relationship Id="rIdHeader" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>' +
         '<Relationship Id="rIdFooter" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>' +
-        `${rels.join('')}</Relationships>`,
+        `${extraRels.join('')}${rels.join('')}</Relationships>`,
+      ...extraParts,
       'word/header1.xml': XML_HEAD + headerXml,
       'word/footer1.xml': XML_HEAD + footerXml,
       ...media
@@ -508,8 +552,17 @@
     for (const nf of all(stylesDoc, 'numFmt')) customFormats[attr(nf, 'numFmtId')] = attr(nf, 'formatCode');
     const fonts = kids(first(stylesDoc, 'fonts'), 'font');
     const fills = kids(first(stylesDoc, 'fills'), 'fill');
+    // Bordas: cada lado com estilo definido conta como borda.
+    const borders = kids(first(stylesDoc, 'borders'), 'border').map((border) =>
+      [['top', 't'], ['bottom', 'b'], ['left', 'l'], ['right', 'r']].filter(([side]) => {
+        const style = attr(kid(border, side), 'style');
+        return style && style !== 'none';
+      }).map(([, k]) => k).join('')
+    );
     const xfs = kids(first(stylesDoc, 'cellXfs'), 'xf').map((xf) => {
       const s = {};
+      const bd = borders[Number(attr(xf, 'borderId'))];
+      if (bd) s.bd = bd;
       const font = fonts[Number(attr(xf, 'fontId'))];
       if (font && isOn(kid(font, 'b'))) s.b = 1;
       if (font && isOn(kid(font, 'i'))) s.i = 1;
@@ -584,7 +637,29 @@
           charts.push({ name: `Gráfico ${charts.length + 1}`, type: chartType, range: { r0: cat[0].r - 1, r1: cat[1].r, c0: cat[0].c, c1: val[1].c } });
         }
       }
-      importedSheets.push({ name, cells, charts });
+      // Células unidas, larguras das colunas e painéis fixos.
+      const merges = [];
+      for (const mc of all(sheet, 'mergeCell')) {
+        const [from, to] = String(attr(mc, 'ref') || '').split(':').map((x) => F.parseAddr(x));
+        if (from && to && to.r < rows && to.c < cols) merges.push({ r0: Math.min(from.r, to.r), r1: Math.max(from.r, to.r), c0: Math.min(from.c, to.c), c1: Math.max(from.c, to.c) });
+      }
+      const widths = {};
+      for (const col of all(first(sheet, 'cols'), 'col')) {
+        const w = Number(attr(col, 'width'));
+        const min = Number(attr(col, 'min'));
+        const max = Math.min(Number(attr(col, 'max')), min + 300, cols);
+        if (!Number.isFinite(w) || !Number.isInteger(min) || min < 1) continue;
+        // A largura do Excel está em carateres; cerca de 7 píxeis por caráter mais margem.
+        for (let c = min; c <= max; c++) widths[c - 1] = Math.max(24, Math.min(600, Math.round(w * 7 + 5)));
+      }
+      let freeze = null;
+      const pane = first(first(sheet, 'sheetView'), 'pane');
+      if (pane && /frozen/.test(attr(pane, 'state') || '')) {
+        const ys = Math.round(Number(attr(pane, 'ySplit')) || 0);
+        const xs = Math.round(Number(attr(pane, 'xSplit')) || 0);
+        if (ys || xs) freeze = { rows: Math.min(50, ys), cols: Math.min(20, xs) };
+      }
+      importedSheets.push({ name, cells, charts, merges, widths, freeze });
     }
     return { sheets: importedSheets, clipped };
   }
@@ -599,17 +674,47 @@
     const xfs = ['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'];
     const index = (list, item) => (list.includes(item) ? list.indexOf(item) : list.push(item) - 1);
     const NUM_FMT = { num2: 2, pct: 10, eur: 164 };
+    const borders = ['<border><left/><right/><top/><bottom/><diagonal/></border>'];
+    const borderXML = (bd) => {
+      const side = (name, k) => (bd.includes(k) ? `<${name} style="thin"><color rgb="FF1D2622"/></${name}>` : `<${name}/>`);
+      return `<border>${side('left', 'l')}${side('right', 'r')}${side('top', 't')}${side('bottom', 'b')}<diagonal/></border>`;
+    };
 
     function styleIndex(s) {
       if (!s) return 0;
       const font = index(fonts, `<font>${s.b ? '<b/>' : ''}${s.i ? '<i/>' : ''}<sz val="11"/>${s.c ? `<color rgb="FF${s.c.slice(1).toUpperCase()}"/>` : ''}<name val="Calibri"/></font>`);
       const fill = s.bg ? index(fills, `<fill><patternFill patternType="solid"><fgColor rgb="FF${s.bg.slice(1).toUpperCase()}"/><bgColor indexed="64"/></patternFill></fill>`) : 0;
       const fmt = NUM_FMT[s.f] || 0;
+      const border = s.bd ? index(borders, borderXML(s.bd)) : 0;
       return index(
         xfs,
-        `<xf numFmtId="${fmt}" fontId="${font}" fillId="${fill}" borderId="0" xfId="0"${fmt ? ' applyNumberFormat="1"' : ''}${font ? ' applyFont="1"' : ''}${fill ? ' applyFill="1"' : ''}` +
+        `<xf numFmtId="${fmt}" fontId="${font}" fillId="${fill}" borderId="${border}" xfId="0"${fmt ? ' applyNumberFormat="1"' : ''}${font ? ' applyFont="1"' : ''}${fill ? ' applyFill="1"' : ''}${border ? ' applyBorder="1"' : ''}` +
           (s.a ? ` applyAlignment="1"><alignment horizontal="${s.a}"/></xf>` : '/>')
       );
+    }
+
+    // Painéis fixos, larguras (em carateres, como no Excel) e células unidas de cada folha.
+    function sheetView(fz) {
+      if (!fz || !(fz.rows || fz.cols)) return '';
+      const cell = F.addr(fz.rows || 0, fz.cols || 0);
+      const pane = fz.rows && fz.cols ? 'bottomRight' : fz.rows ? 'bottomLeft' : 'topRight';
+      return `<sheetViews><sheetView workbookViewId="0"><pane${fz.cols ? ` xSplit="${fz.cols}"` : ''}${fz.rows ? ` ySplit="${fz.rows}"` : ''} topLeftCell="${cell}" activePane="${pane}" state="frozen"/></sheetView></sheetViews>`;
+    }
+    function colsXML(widths) {
+      const custom = Object.entries(widths || {}).map(([c, w]) => [Number(c), w]).filter(([c, w]) => Number.isInteger(c) && c >= 0 && c < 256 && Number.isFinite(w)).sort((x, y) => x[0] - y[0]);
+      const out = [];
+      let next = 0;
+      for (const [c, w] of custom) {
+        if (c > next) out.push(`<col min="${next + 1}" max="${c}" width="14" customWidth="1"/>`);
+        out.push(`<col min="${c + 1}" max="${c + 1}" width="${Math.max(1, (w - 5) / 7).toFixed(2)}" customWidth="1"/>`);
+        next = c + 1;
+      }
+      if (next < 256) out.push(`<col min="${next + 1}" max="256" width="14" customWidth="1"/>`);
+      return `<cols>${out.join('')}</cols>`;
+    }
+    function mergeXML(merges) {
+      const list = (Array.isArray(merges) ? merges : []).filter((m) => m && [m.r0, m.r1, m.c0, m.c1].every(Number.isInteger));
+      return list.length ? `<mergeCells count="${list.length}">${list.map((m) => `<mergeCell ref="${F.addr(m.r0, m.c0)}:${F.addr(m.r1, m.c1)}"/>`).join('')}</mergeCells>` : '';
     }
 
     const sheetFiles = {};
@@ -682,7 +787,7 @@
           sheetFiles[`xl/worksheets/_rels/sheet${i + 1}.xml.rels`] = XML_HEAD + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/${drawingName}.xml"/></Relationships>`;
         }
       }
-      sheetFiles[`xl/worksheets/sheet${i + 1}.xml`] = XML_HEAD + `<worksheet ${NS} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="256" width="14" customWidth="1"/></cols><sheetData>${rowsXML}</sheetData>${drawingTag}</worksheet>`;
+      sheetFiles[`xl/worksheets/sheet${i + 1}.xml`] = XML_HEAD + `<worksheet ${NS} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${sheetView(sheet.freeze)}<sheetFormatPr defaultRowHeight="15"/>${colsXML(sheet.widths)}<sheetData>${rowsXML}</sheetData>${mergeXML(sheet.merges)}${drawingTag}</worksheet>`;
       sheetParts.push(`<sheet name="${esc(safeName)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`);
       sheetRels.push(`<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`);
       sheetOverrides.push(`<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`);
@@ -710,7 +815,7 @@
         XML_HEAD +
         `<styleSheet ${NS}><numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.00\\ &quot;€&quot;"/></numFmts>` +
         `<fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills>` +
-        '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+        `<borders count="${borders.length}">${borders.join('')}</borders>` +
         '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
         `<cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`,
       ...sheetFiles,
@@ -976,6 +1081,20 @@
           parts['ppt/media/' + name] = data.bytes;
           rels.push(`<Relationship Id="rId${rels.length + 1}" Type="${REL}image" Target="../media/${name}"/>`);
           shapes += `<p:pic><p:nvPicPr><p:cNvPr id="${id}" name="Imagem ${id}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="rId${rels.length}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr>${xfrm(el)}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
+        } else if (el.type === 'table') {
+          // Tabela nativa do PowerPoint: cabeçalho na cor de destaque e linhas alternadas.
+          const rows = Array.isArray(el.rows) ? el.rows : [];
+          const cols = rows[0] ? rows[0].length : 0;
+          if (!rows.length || !cols) continue;
+          const colW = Math.round((el.w * EMU) / cols);
+          const rowH = Math.round((el.h * EMU) / rows.length);
+          const size = Math.max(800, Math.round(el.fs * 75));
+          const cell = (text, header, odd) => `<a:tc><a:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="pt-PT" sz="${size}" b="${header ? 1 : 0}" dirty="0">${fill(header ? '#ffffff' : '#1c2130')}</a:rPr><a:t>${esc(text)}</a:t></a:r></a:p></a:txBody><a:tcPr>${fill(header ? el.accent || '#1f5fbf' : odd ? '#f3f6fa' : '#ffffff')}</a:tcPr></a:tc>`;
+          shapes += `<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="${id}" name="Tabela ${id}"/><p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr><p:nvPr/></p:nvGraphicFramePr>` +
+            `<p:xfrm><a:off x="${emu(el.x)}" y="${emu(el.y)}"/><a:ext cx="${emu(el.w)}" cy="${emu(el.h)}"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr firstRow="1" bandRow="1"/>` +
+            `<a:tblGrid>${Array(cols).fill(`<a:gridCol w="${colW}"/>`).join('')}</a:tblGrid>` +
+            rows.map((row, r) => `<a:tr h="${rowH}">${row.map((text) => cell(text, r === 0, r % 2 === 1)).join('')}</a:tr>`).join('') +
+            '</a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
         } else {
           shapes += `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Forma ${id}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr>${xfrm(el)}<a:prstGeom prst="${el.type === 'ellipse' ? 'ellipse' : 'rect'}"><a:avLst/></a:prstGeom>${fill(el.fill)}<a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang="pt-PT"/></a:p></p:txBody></p:sp>`;
         }

@@ -130,7 +130,9 @@ function buildMenu() {
         { type: 'separator' },
         item('Guardar', 'save', 'CmdOrCtrl+S'),
         item('Guardar como…', 'saveAs', 'CmdOrCtrl+Shift+S'),
-        item('Exportar como PDF…', 'exportPdf', 'CmdOrCtrl+P'),
+        item('Exportar como PDF…', 'exportPdf', 'CmdOrCtrl+Shift+E'),
+        item('Pré-visualizar impressão', 'printPreview', 'CmdOrCtrl+Shift+P'),
+        item('Imprimir…', 'print', 'CmdOrCtrl+P'),
         { type: 'separator' },
         isMac ? { role: 'close', label: 'Fechar' } : { role: 'quit', label: 'Sair' }
       ]
@@ -445,6 +447,40 @@ function registerIpc() {
       return { error: 'Não foi possível criar o PDF.' };
     }
     return { path: target, name: path.basename(target) };
+  });
+
+  // Pré-visualização: o documento é convertido em PDF e mostrado numa janela com o leitor de PDF
+  // do Chromium, que permite ver as páginas, ampliar e imprimir.
+  ipcMain.handle('file:printPreview', async (event, opts) => {
+    if (!fromOurWindow(event)) return null;
+    const file = path.join(app.getPath('temp'), `myoffice-pre-visualizacao-${process.pid}-${Date.now()}.pdf`);
+    try {
+      const data = await win.webContents.printToPDF({ printBackground: true, preferCSSPageSize: true, margins: { top: 0, bottom: 0, left: 0, right: 0 } });
+      await fs.writeFile(file, data, { mode: 0o600 });
+    } catch {
+      return { error: 'Não foi possível preparar a pré-visualização.' };
+    }
+    const preview = new BrowserWindow({
+      parent: win,
+      width: 980,
+      height: 860,
+      title: `Pré-visualização — ${String((opts && opts.title) || 'Documento').slice(0, 120)}`,
+      autoHideMenuBar: true,
+      backgroundColor: '#525659',
+      // Sessão própria: o bloqueio de ficheiros da janela principal não se aplica ao PDF temporário.
+      webPreferences: { partition: 'myoffice-preview', plugins: true, sandbox: true, contextIsolation: true, nodeIntegration: false, devTools: !app.isPackaged }
+    });
+    preview.on('closed', () => fs.rm(file, { force: true }).catch(() => {}));
+    await preview.loadFile(file).catch(() => {});
+    return { ok: true };
+  });
+
+  // Imprimir diretamente: abre o diálogo de impressão do sistema.
+  ipcMain.handle('file:print', async (event) => {
+    if (!fromOurWindow(event)) return null;
+    return new Promise((resolve) => {
+      win.webContents.print({ silent: false, printBackground: true }, (ok, reason) => resolve(ok ? { ok: true } : reason === 'cancelled' ? null : { error: 'Não foi possível imprimir.' }));
+    });
   });
 }
 

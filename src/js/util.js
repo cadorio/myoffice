@@ -43,7 +43,7 @@
     'text-align', 'text-decoration', 'text-decoration-line', 'text-indent', 'line-height', 'vertical-align',
     'margin-left', 'margin-right', 'padding-left', 'list-style-type', 'width', 'height', 'max-width', 'white-space'
   ];
-  const SAFE_CLASSES = ['page-break'];
+  const SAFE_CLASSES = ['page-break', 'mo-comment', 'mo-ins', 'mo-del', 'mo-fn', 'mo-toc', 'mo-toc-title', 'mo-toc-1', 'mo-toc-2', 'mo-toc-3'];
 
   function cleanStyle(el) {
     const kept = [];
@@ -76,6 +76,9 @@
           const classes = value.split(/\s+/).filter((c) => SAFE_CLASSES.includes(c));
           if (classes.length) n.setAttribute('class', classes.join(' '));
           else keep = false;
+        } else if (name === 'data-id') {
+          // Liga comentários e notas de rodapé ao seu texto; só identificadores simples.
+          keep = /^[a-z0-9]{1,24}$/.test(value);
         } else if (name === 'style' || name === 'hidden' || name === 'tabindex' || name === 'draggable' || name.startsWith('data-') || name.startsWith('aria-')) {
           keep = name === 'style';
         }
@@ -285,6 +288,40 @@
     search: 'M10.5 4a6.5 6.5 0 1 0 .1 0zM15.5 15.5 20 20',
     pageBreak: 'M6 3v6h12V3M6 21v-6h12v6M3 12h2M8 12h2M13 12h2M18 12h3',
     lookup: 'M3 5h18v14H3zM3 10h18M9 5v14M13 14.5h5M16 12.5l2 2-2 2',
+    alignObjLeft: 'M4 3v18M8 7h10v4H8zM8 14h6v4H8z',
+    alignObjCenter: 'M12 3v18M6 7h12v4H6zM8 14h8v4H8z',
+    alignObjRight: 'M20 3v18M6 7h10v4H6zM10 14h6v4h-6z',
+    alignObjTop: 'M3 4h18M7 8h4v10H7zM14 8h4v6h-4z',
+    alignObjMiddle: 'M3 12h18M7 6h4v12H7zM14 8h4v8h-4z',
+    alignObjBottom: 'M3 20h18M7 6h4v10H7zM14 10h4v6h-4z',
+    distH: 'M3 4v16M21 4v16M8 8h3v8H8zM13 8h3v8h-3z',
+    distV: 'M4 3h16M4 21h16M8 8h8v3H8zM8 13h8v3H8z',
+    group: 'M3 3h7v7H3zM14 14h7v7h-7zM10 6h4M6 10v4M18 10v4M10 18h4',
+    ungroup: 'M3 3h7v7H3zM14 14h7v7h-7z',
+    rowAdd: 'M3 5h18v6H3zM12 15v6M9 18h6',
+    colAdd: 'M5 3h6v18H5zM15 12h6M18 9v6',
+    rowDel: 'M3 5h18v6H3zM9 18h6',
+    colDel: 'M5 3h6v18H5zM15 12h6',
+    presenter: 'M3 4h18v12H3zM8 20h8M12 16v4M6 8h7M6 11h5',
+    sorter: 'M3 4h7v6H3zM14 4h7v6h-7zM3 14h7v6H3zM14 14h7v6h-7z',
+    pageSetup: 'M6 3h9l4 4v14H6zM9 9h6M9 13h6M9 17h3',
+    toc: 'M4 6h2M9 6h11M6 11h2M11 11h9M6 16h2M11 16h9',
+    footnote: 'M5 7h10M5 11h10M5 15h6M17 4v5M15.5 5.5 17 4',
+    comment: 'M4 5h16v11H9l-5 4z',
+    track: 'M4 20l4-1 11-11-3-3L5 16zM14 6l3 3M4 20h16',
+    accept: 'M5 12l5 5L20 7',
+    reject: 'M6 6l12 12M18 6 6 18',
+    merge: 'M3 6h18v12H3zM8 12h8M13 9l3 3-3 3M11 9l-3 3 3 3',
+    unmerge: 'M3 6h7v12H3zM14 6h7v12h-7zM6 12h1M17 12h1',
+    borderAll: 'M4 4h16v16H4zM4 12h16M12 4v16',
+    borderOuter: 'M4 4h16v16H4z',
+    borderBottom: 'M4 20h16M4 4h.5M8 4h.5M12 4h.5M16 4h.5M20 4h.5M4 8h.5M4 12h.5M4 16h.5M20 8h.5M20 12h.5M20 16h.5',
+    borderNone: 'M4 4h.5M8 4h.5M12 4h.5M16 4h.5M20 4h.5M4 20h.5M8 20h.5M12 20h.5M16 20h.5M20 20h.5M4 8h.5M4 12h.5M4 16h.5M20 8h.5M20 12h.5M20 16h.5',
+    condFormat: 'M3 4h18v16H3zM3 10h18M9 4v16M13 14h5',
+    freeze: 'M3 4h18v16H3zM3 9h18M8 4v16',
+    unfreeze: 'M3 4h18v16H3zM3 9h7M8 4v5',
+    sidebar: 'M3 5h18v14H3zM15 5v14',
+    command: 'M9 6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3z',
     sun: 'M12 7.5a4.5 4.5 0 1 0 .1 0zM12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8',
     moon: 'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z'
   };

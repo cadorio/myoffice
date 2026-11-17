@@ -200,6 +200,320 @@ const cellText = (page, a) =>
     assert.equal(charts.length, 1, 'só o gráfico válido fica');
   });
 
+  // ---------------- Folhas: funções essenciais ----------------
+  const loadBook = (book) => page.evaluate((text) => MO.modules.sheets.load(text, 'mosheet'), JSON.stringify(book));
+  const sheetData = async () => JSON.parse(await page.evaluate(() => MO.modules.sheets.serialize())).sheets[0];
+  const selectRange = async (from, to) => {
+    await page.click(`.grid td[data-r="${from[0]}"][data-c="${from[1]}"]`);
+    await page.click(`.grid td[data-r="${to[0]}"][data-c="${to[1]}"]`, { modifiers: ['Shift'] });
+  };
+  const sheetsTab = (name) => page.click(`#view-sheets .ribbon-tab:has-text("${name}")`);
+
+  await test('Folhas: preenchimento automático continua séries', page, async () => {
+    await loadBook({ format: 'myoffice-sheet', version: 3, sheets: [{ name: 'S', cells: { A1: { v: '1' }, A2: { v: '2' }, B1: { v: 'Item 1' }, C1: { v: 'janeiro' }, D1: { v: '=A1*10' }, E1: { v: 'texto' } } }] });
+    await selectRange([0, 0], [1, 0]);
+    let box = await page.locator('.fill-handle').boundingBox();
+    let target = await page.locator('.grid td[data-r="4"][data-c="0"]').boundingBox();
+    await page.mouse.move(box.x + 4, box.y + 4);
+    await page.mouse.down();
+    await page.mouse.move(target.x + 10, target.y + 10, { steps: 5 });
+    await page.mouse.up();
+    assert.deepEqual([await cellText(page, 'A3'), await cellText(page, 'A4'), await cellText(page, 'A5')], ['3', '4', '5']);
+    await selectRange([0, 1], [0, 4]);
+    box = await page.locator('.fill-handle').boundingBox();
+    target = await page.locator('.grid td[data-r="2"][data-c="4"]').boundingBox();
+    await page.mouse.move(box.x + 4, box.y + 4);
+    await page.mouse.down();
+    await page.mouse.move(target.x + 10, target.y + 10, { steps: 5 });
+    await page.mouse.up();
+    assert.equal(await cellText(page, 'B3'), 'Item 3');
+    assert.equal(await cellText(page, 'C2'), 'fevereiro');
+    const d = await sheetData();
+    assert.equal(d.cells.D2.v, '=A2*10', 'fórmula com referência ajustada');
+    assert.equal(d.cells.E3.v, 'texto', 'texto simples repete-se');
+  });
+
+  await test('Folhas: bordas, células unidas e anular', page, async () => {
+    await loadBook({ format: 'myoffice-sheet', version: 3, sheets: [{ name: 'S', cells: { A1: { v: 'Título' }, B1: { v: 'apagado ao unir' } } }] });
+    await selectRange([0, 0], [1, 1]);
+    await sheetsTab('Base');
+    await page.click('button[title="Todas as bordas"]');
+    let d = await sheetData();
+    assert.equal(d.cells.A1.s.bd, 'tblr');
+    assert.equal(d.cells.B2.s.bd, 'tblr');
+    await selectRange([0, 0], [0, 2]);
+    await page.click('button[title="Unir e centrar células"]');
+    d = await sheetData();
+    assert.deepEqual(d.merges, [{ r0: 0, r1: 0, c0: 0, c1: 2 }]);
+    assert.equal(d.cells.B1.v, '', 'só fica o valor da primeira célula');
+    assert.equal(await page.getAttribute('.grid td[data-r="0"][data-c="0"]', 'colspan'), '3');
+    await page.keyboard.press('Control+Z');
+    d = await sheetData();
+    assert.deepEqual(d.merges, []);
+    assert.equal(d.cells.B1.v, 'apagado ao unir');
+  });
+
+  await test('Folhas: fixar painéis mantém a linha de títulos à vista', page, async () => {
+    const cells = { A1: { v: 'Cabeçalho' } };
+    for (let r = 2; r <= 300; r++) cells['A' + r] = { v: String(r) };
+    await loadBook({ format: 'myoffice-sheet', version: 3, sheets: [{ name: 'S', cells }] });
+    await page.click('.grid td[data-r="0"][data-c="0"]');
+    await sheetsTab('Esquema de página');
+    await page.click('button[title="Manter a primeira linha visível ao deslocar"]');
+    await page.evaluate(() => { document.querySelector('.sheet-wrap').scrollTop = 3000; });
+    await page.waitForTimeout(150);
+    const header = page.locator('.grid td[data-r="0"][data-c="0"]');
+    assert.equal(await header.textContent(), 'Cabeçalho');
+    const wrapBox = await page.locator('.sheet-wrap').boundingBox();
+    const headBox = await header.boundingBox();
+    assert.ok(headBox.y >= wrapBox.y && headBox.y < wrapBox.y + 80, 'linha fixa continua no topo');
+    assert.deepEqual((await sheetData()).freeze, { rows: 1, cols: 0 });
+    await page.click('button[title="Deixar de fixar linhas e colunas"]');
+    assert.equal((await sheetData()).freeze, null);
+    await page.evaluate(() => { document.querySelector('.sheet-wrap').scrollTop = 0; });
+    await page.waitForTimeout(100);
+  });
+
+  await test('Folhas: largura das colunas ajusta-se arrastando o cabeçalho', page, async () => {
+    await loadBook({ format: 'myoffice-sheet', version: 3, sheets: [{ name: 'S', cells: {} }] });
+    const th = await page.locator('.grid th.col-head[data-c="1"]').boundingBox();
+    await page.mouse.move(th.x + th.width - 2, th.y + th.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(th.x + th.width + 80, th.y + th.height / 2, { steps: 4 });
+    await page.mouse.up();
+    const w = (await sheetData()).widths['1'];
+    assert.ok(w >= 170 && w <= 200, 'largura nova: ' + w);
+  });
+
+  await test('Folhas: formatação condicional realça os valores', page, async () => {
+    await loadBook({ format: 'myoffice-sheet', version: 3, sheets: [{ name: 'S', cells: { A1: { v: '50' }, A2: { v: '150' }, A3: { v: '300' } } }] });
+    await selectRange([0, 0], [2, 0]);
+    await sheetsTab('Base');
+    await page.click('button[title^="Formatação condicional"]');
+    await page.selectOption('#cf-type', 'gt');
+    await page.fill('#cf-a', '100');
+    await page.click('.mo-dialog button[type=submit]');
+    const bg = (a) => page.evaluate((r) => document.querySelector(`.grid td[data-r="${r}"][data-c="0"]`).style.backgroundColor, a);
+    assert.equal(await bg(0), '');
+    assert.equal(await bg(1), 'rgb(198, 239, 206)');
+    await page.click('.grid td[data-r="0"][data-c="0"]');
+    await page.keyboard.type('500');
+    await page.keyboard.press('Enter');
+    assert.equal(await bg(0), 'rgb(198, 239, 206)', 'a regra acompanha os valores');
+  });
+
+  await test('Folhas: bordas, unir, larguras e painéis sobrevivem ao .xlsx', page, async () => {
+    await loadBook({ format: 'myoffice-sheet', version: 3, sheets: [{ name: 'S', cells: { A1: { v: 'X', s: { bd: 'tb' } } }, merges: [{ r0: 0, r1: 1, c0: 0, c1: 1 }], widths: { 2: 180 }, freeze: { rows: 1, cols: 1 } }] });
+    const back = await page.evaluate(() => MO.OOXML.importXlsx(MO.modules.sheets.exports.find((e) => e.ext === 'xlsx').get(), 100000, 256).sheets[0]);
+    assert.equal(back.cells.A1.s.bd, 'tb');
+    assert.deepEqual(back.merges, [{ r0: 0, r1: 1, c0: 0, c1: 1 }]);
+    assert.ok(Math.abs(back.widths['2'] - 180) <= 2, 'largura ' + back.widths['2']);
+    assert.deepEqual(back.freeze, { rows: 1, cols: 1 });
+  });
+
+  // ---------------- Texto ----------------
+  const writerTab = (name) => page.click(`#view-writer .ribbon-tab:has-text("${name}")`);
+  const loadDoc = (html, extra = {}) => page.evaluate((d) => MO.modules.writer.load(JSON.stringify({ format: 'myoffice-doc', version: 3, ...d }), 'modoc'), { html, ...extra });
+  const selectText = (selector, text) => page.evaluate(({ selector, text }) => {
+    const el = document.querySelector(selector);
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const i = n.nodeValue.indexOf(text);
+      if (i < 0) continue;
+      const r = document.createRange();
+      r.setStart(n, i); r.setEnd(n, i + text.length);
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      return true;
+    }
+    return false;
+  }, { selector, text });
+
+  await go(page, 'writer');
+
+  await test('Texto: comentários ficam no documento e podem ser resolvidos', page, async () => {
+    await loadDoc('<p>O orçamento aumentou bastante este ano.</p>');
+    await page.click('.page');
+    await selectText('.page', 'aumentou bastante');
+    await writerTab('Rever');
+    await page.click('button[title="Comentar o texto selecionado"]');
+    await page.fill('.mo-dialog input', 'Confirmar o valor exato');
+    await page.click('.mo-dialog button[type=submit]');
+    assert.equal(await page.textContent('.page mark.mo-comment'), 'aumentou bastante');
+    assert.match(await page.textContent('.comments-box'), /Confirmar o valor exato/);
+    const saved = JSON.parse(await page.evaluate(() => MO.modules.writer.serialize()));
+    assert.equal(Object.values(saved.comments)[0].text, 'Confirmar o valor exato');
+    await page.click('.comment-card button:has-text("Resolver")');
+    assert.equal(await page.locator('.page mark.mo-comment').count(), 0);
+    assert.equal(await page.textContent('.page'), 'O orçamento aumentou bastante este ano.');
+  });
+
+  await test('Texto: controlar alterações marca inserções e eliminações', page, async () => {
+    await loadDoc('<p>Reunião na segunda-feira.</p>');
+    await writerTab('Rever');
+    await page.click('button[title="Ligar ou desligar o controlo de alterações"]');
+    await page.click('.page');
+    await selectText('.page', 'segunda');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('terça');
+    assert.equal(await page.textContent('.page del.mo-del'), 'segunda');
+    assert.equal(await page.textContent('.page ins.mo-ins'), 'terça');
+    await page.click('button[title="Aceitar todas as alterações controladas"]');
+    assert.equal(await page.textContent('.page'), 'Reunião na terça-feira.');
+    await page.click('button[title="Ligar ou desligar o controlo de alterações"]');
+    assert.equal(await page.evaluate(() => MO.modules.writer.review.tracking), false);
+  });
+
+  await test('Texto: rejeitar alterações repõe o original', page, async () => {
+    await loadDoc('<p>Prazo: março.</p>');
+    await page.click('button[title="Ligar ou desligar o controlo de alterações"]');
+    await page.click('.page');
+    await selectText('.page', 'março');
+    await page.keyboard.type('abril');
+    await page.click('button[title="Rejeitar todas as alterações controladas"]');
+    assert.equal(await page.textContent('.page'), 'Prazo: março.');
+    await page.click('button[title="Ligar ou desligar o controlo de alterações"]');
+  });
+
+  await test('Texto: notas de rodapé numeradas e índice a partir dos títulos', page, async () => {
+    await loadDoc('<h1>Relatório</h1><p>Dados oficiais.</p><h2>Vendas</h2><p>Subiram.</p><h2>Custos</h2>');
+    await page.click('.page');
+    await selectText('.page', 'oficiais');
+    await page.keyboard.press('ArrowRight');
+    await writerTab('Inserir');
+    await page.click('button[title="Inserir nota de rodapé no cursor"]');
+    await page.fill('.mo-dialog input', 'Fonte: INE, 2025.');
+    await page.click('.mo-dialog button[type=submit]');
+    assert.equal(await page.textContent('.page sup.mo-fn'), '1');
+    assert.match(await page.textContent('.page-notes'), /Fonte: INE, 2025\./);
+    await page.evaluate(() => { const p = document.querySelector('.page h1'); const r = document.createRange(); r.setStartBefore(p); r.collapse(true); getSelection().removeAllRanges(); getSelection().addRange(r); });
+    await page.click('button[title="Inserir ou atualizar o índice a partir dos títulos"]');
+    const toc = await page.locator('.page .mo-toc p').allTextContents();
+    assert.deepEqual(toc, ['Índice', 'Relatório', 'Vendas', 'Custos']);
+  });
+
+  await test('Texto: configurar página muda o tamanho no ecrã e fica guardado', page, async () => {
+    await writerTab('Estrutura');
+    await page.click('button[title="Tamanho do papel, orientação e margens"]');
+    await page.selectOption('#page-orient', 'landscape');
+    await page.selectOption('#page-margin', 'narrow');
+    await page.click('.mo-dialog button[type=submit]');
+    const w = await page.evaluate(() => document.querySelector('.page').style.width);
+    assert.equal(w, '297mm');
+    const saved = JSON.parse(await page.evaluate(() => MO.modules.writer.serialize()));
+    assert.deepEqual(saved.page, { size: 'A4', orient: 'landscape', margin: 'narrow' });
+  });
+
+  await test('Texto: Word exportado inclui comentários, alterações, notas e página', page, async () => {
+    await loadDoc('<p>A <mark class="mo-comment" data-id="c1">meta</mark> é <del class="mo-del">10%</del><ins class="mo-ins">12%</ins><sup class="mo-fn" data-id="n1">1</sup>.</p>', { comments: { c1: { text: 'Rever meta', date: '2026-11-17T10:00:00Z' } }, notes: { n1: 'Plano 2027' }, page: { size: 'A4', orient: 'landscape', margin: 'normal' } });
+    const parts = await page.evaluate(() => {
+      const bytes = MO.modules.writer.exports.find((e) => e.ext === 'docx').get();
+      const files = fflate.unzipSync(bytes);
+      const text = (name) => (files[name] ? new TextDecoder().decode(files[name]) : '');
+      const ok = (name) => !new DOMParser().parseFromString(text(name), 'application/xml').querySelector('parsererror');
+      return { doc: text('word/document.xml'), comments: text('word/comments.xml'), notes: text('word/footnotes.xml'), valid: ['word/document.xml', 'word/comments.xml', 'word/footnotes.xml', '[Content_Types].xml', 'word/_rels/document.xml.rels'].every(ok) };
+    });
+    assert.ok(parts.valid, 'XML bem formado');
+    assert.match(parts.doc, /<w:commentRangeStart w:id="0"\/>/);
+    assert.match(parts.doc, /<w:del [^>]*>.*<w:delText[^>]*>10%<\/w:delText>/);
+    assert.match(parts.doc, /<w:ins [^>]*>.*12%/);
+    assert.match(parts.doc, /<w:footnoteReference w:id="1"\/>/);
+    assert.match(parts.doc, /w:orient="landscape"/);
+    assert.match(parts.comments, /Rever meta/);
+    assert.match(parts.notes, /Plano 2027/);
+  });
+
+  // ---------------- Diapositivos ----------------
+  const slidesTab = (name) => page.click(`#view-slides .ribbon-tab:has-text("${name}")`);
+  const deck = async () => JSON.parse(await page.evaluate(() => MO.modules.slides.serialize())).slides;
+  const loadDeck = (slides) => page.evaluate((d) => MO.modules.slides.load(JSON.stringify({ format: 'myoffice-slides', version: 1, slides: d }), 'moslides'), slides);
+  const box = (x, y, w, hh, extra = {}) => ({ type: 'rect', x, y, w, h: hh, fill: '#4f5bd5', ...extra });
+
+  await go(page, 'slides');
+
+  await test('Diapositivos: tabela com edição de células e linhas/colunas', page, async () => {
+    await loadDeck([{ bg: '#ffffff', els: [] }]);
+    await slidesTab('Inserir');
+    await page.click('button[title="Inserir tabela no diapositivo"]');
+    await page.fill('.mo-dialog input >> nth=0', '3');
+    await page.fill('.mo-dialog input >> nth=1', '2');
+    await page.click('.mo-dialog button[type=submit]');
+    await page.waitForSelector('.stage table.el-table', { timeout: 3000 });
+    assert.equal(await page.locator('.stage table.el-table tr').count(), 3);
+    await page.dblclick('.stage .el-table td[data-r="1"][data-c="0"]');
+    await page.keyboard.type('Lisboa');
+    await page.keyboard.press('Enter');
+    await page.click('button[title="Acrescentar coluna à tabela"]');
+    await page.click('button[title="Acrescentar linha à tabela"]');
+    const t = (await deck())[0].els[0];
+    assert.equal(t.type, 'table');
+    assert.equal(t.rows[1][0], 'Lisboa');
+    assert.equal(t.rows.length, 4);
+    assert.equal(t.rows[0].length, 3);
+  });
+
+  await test('Diapositivos: alinhar, distribuir e agrupar vários elementos', page, async () => {
+    await loadDeck([{ bg: '#ffffff', els: [box(100, 50, 100, 50), box(300, 200, 100, 50), box(700, 120, 100, 50)] }]);
+    const els = page.locator('.stage .el');
+    await els.nth(0).click();
+    await els.nth(1).click({ modifiers: ['Shift'] });
+    await els.nth(2).click({ modifiers: ['Shift'] });
+    await slidesTab('Base');
+    await page.click('button[title="Alinhar acima (elementos)"]');
+    let d = (await deck())[0].els;
+    assert.deepEqual(d.map((e) => e.y), [50, 50, 50]);
+    await page.click('button[title="Distribuir na horizontal"]');
+    d = (await deck())[0].els;
+    assert.deepEqual(d.map((e) => e.x), [100, 400, 700]);
+    await page.click('button[title="Agrupar elementos"]');
+    d = (await deck())[0].els;
+    assert.ok(d[0].group && d.every((e) => e.group === d[0].group), 'todos no mesmo grupo');
+    // Clicar num elemento do grupo e arrastar move o grupo inteiro.
+    await page.click('.stage-box', { position: { x: 5, y: 5 } });
+    const b = await els.nth(1).boundingBox();
+    await page.mouse.move(b.x + 20, b.y + 20);
+    await page.mouse.down();
+    await page.mouse.move(b.x + 20, b.y + 80, { steps: 5 });
+    await page.mouse.up();
+    d = (await deck())[0].els;
+    assert.ok(d.every((e) => e.y > 80), 'o grupo moveu-se junto: ' + d.map((e) => e.y));
+  });
+
+  await test('Diapositivos: organizar reordena arrastando', page, async () => {
+    await loadDeck(['A', 'B', 'C'].map((t) => ({ bg: '#ffffff', els: [{ type: 'text', x: 60, y: 40, w: 840, h: 80, html: t, fs: 40, color: '#1c2130', align: 'left' }] })));
+    await slidesTab('Apresentação');
+    await page.click('button[title^="Ver todos os diapositivos em grelha"]');
+    assert.equal(await page.locator('.sorter-card').count(), 3);
+    await page.dragAndDrop('.sorter-card[data-index="2"]', '.sorter-card[data-index="0"]');
+    const order = (await deck()).map((sl) => sl.els[0].html);
+    assert.deepEqual(order, ['C', 'A', 'B']);
+    await page.click('.sorter-head button');
+    assert.equal(await page.locator('.slide-sorter').count(), 0);
+  });
+
+  await test('Diapositivos: vista do apresentador mostra notas, seguinte e tempo', page, async () => {
+    await loadDeck([{ bg: '#ffffff', notes: 'Cumprimentar a direção', els: [] }, { bg: '#eeeeee', els: [] }]);
+    await slidesTab('Apresentação');
+    await page.click('button[title^="Apresentar com notas"]');
+    await page.waitForSelector('.present.presenter .pv');
+    assert.match(await page.textContent('.pv-notes'), /Cumprimentar a direção/);
+    assert.equal(await page.locator('.pv-side .pv-frame').count(), 1, 'mostra o diapositivo seguinte');
+    assert.match(await page.textContent('.pv-clock'), /^\d\d:\d\d$/);
+    await page.keyboard.press('ArrowRight');
+    assert.match(await page.textContent('.pv-end'), /Fim/);
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('.present').count(), 0);
+  });
+
+  await test('Diapositivos: tabela exportada como tabela nativa do PowerPoint', page, async () => {
+    await loadDeck([{ bg: '#ffffff', els: [{ type: 'table', x: 80, y: 140, w: 800, h: 160, rows: [['Região', 'Vendas'], ['Norte', '82']], fs: 20, accent: '#1f5fbf' }] }]);
+    const xml = await page.evaluate(() => {
+      const files = fflate.unzipSync(MO.modules.slides.exports.find((e) => e.ext === 'pptx').get());
+      return new TextDecoder().decode(files['ppt/slides/slide1.xml']);
+    });
+    assert.match(xml, /<a:tbl>/);
+    assert.match(xml, /Norte/);
+  });
+
   await test('Sem erros na consola da página', page, async () => {
     assert.deepEqual(errors, []);
   });
