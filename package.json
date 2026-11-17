@@ -97,7 +97,12 @@
       "shortcutName": "MyOffice",
       "artifactName": "MyOffice-Setup-${version}.${ext}",
       "include": "build/installer.nsh",
-      "license": "LICENSE"
+      "license": "LICENSE",
+      "language": "2070",
+      "installerLanguages": ["pt_PT"],
+      "multiLanguageInstaller": false,
+      "uninstallDisplayName": "MyOffice ${version}",
+      "deleteAppDataOnUninstall": false
     },
     "electronFuses": {
       "runAsNode": false,
