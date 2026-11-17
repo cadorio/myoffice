@@ -1,6 +1,6 @@
 {
   "name": "myoffice",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "private": true,
   "description": "Suite de escritório local com texto, folhas de cálculo, apresentações, desenho vetorial e assistente independente.",
   "main": "main.js",
@@ -98,8 +98,24 @@
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "msi",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
         }
-      ]
+      ],
+      "legalTrademarks": "MyOffice",
+      "requestedExecutionLevel": "asInvoker",
+      "signAndEditExecutable": true,
+      "artifactName": "MyOffice-${version}-${arch}-portatil.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -124,6 +140,18 @@
       "enableNodeOptionsEnvironmentVariable": false,
       "enableNodeCliInspectArguments": false,
       "onlyLoadAppFromAsar": true
+    },
+    "copyright": "Copyright © 2025-2026 MyOffice. Licença Apache 2.0.",
+    "msi": {
+      "oneClick": true,
+      "perMachine": true,
+      "upgradeCode": "7d3c5a1e-4b2f-4e8a-9c61-2f0b8e5d4a37",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MyOffice",
+      "menuCategory": "MyOffice",
+      "runAfterFinish": false,
+      "artifactName": "MyOffice-${version}-x64.msi"
     }
   },
   "devDependencies": {
