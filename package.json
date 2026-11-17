@@ -9,7 +9,7 @@
     "email": "cadorio@users.noreply.github.com"
   },
   "homepage": "https://github.com/cadorio/myoffice",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "scripts": {
     "start": "electron .",
     "test": "node test/formula.test.js && node test/assistant.test.js && node test/license.test.js",
@@ -36,6 +36,8 @@
       "src/**/*",
       "build/icon.png",
       "THIRD-PARTY-NOTICES.md",
+      "LICENSE",
+      "NOTICE",
       "package.json"
     ],
     "fileAssociations": [
@@ -94,7 +96,8 @@
       "createStartMenuShortcut": true,
       "shortcutName": "MyOffice",
       "artifactName": "MyOffice-Setup-${version}.${ext}",
-      "include": "build/installer.nsh"
+      "include": "build/installer.nsh",
+      "license": "LICENSE"
     },
     "electronFuses": {
       "runAsNode": false,
