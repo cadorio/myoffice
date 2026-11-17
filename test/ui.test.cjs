@@ -494,7 +494,7 @@ const cellText = (page, a) =>
     const w = await page.evaluate(() => document.querySelector('.page').style.width);
     assert.equal(w, '297mm');
     const saved = JSON.parse(await page.evaluate(() => MO.modules.writer.serialize()));
-    assert.deepEqual(saved.page, { size: 'A4', orient: 'landscape', margin: 'narrow' });
+    assert.deepEqual(saved.page, { size: 'A4', orient: 'landscape', margin: 'narrow', columns: 1 });
   });
 
   await test('Texto: Word exportado inclui comentários, alterações, notas e página', page, async () => {
@@ -621,7 +621,7 @@ const cellText = (page, a) =>
     assert.match(doc.html, /<td colspan="2">A<\/td><td rowspan="2">C<\/td>/);
     assert.ok(Object.values(doc.comments).some((c) => c.text.endsWith('Rever')));
     assert.equal(doc.notes.f1, 'Fonte');
-    assert.deepEqual(doc.page, { size: 'A4', orient: 'landscape', margin: 'narrow' });
+    assert.deepEqual(doc.page, { size: 'A4', orient: 'landscape', margin: 'narrow', columns: 1 });
     assert.equal(doc.footer, '');
   });
 
@@ -836,6 +836,102 @@ const cellText = (page, a) =>
     const t = await page.evaluate(() => MO.modules.db._debug.tables());
     assert.deepEqual(t, ['livro', 'vendas']);
     assert.equal((await page.evaluate(() => MO.modules.db._debug.sql('SELECT SUM("Valor") AS s FROM "livro"')))[0].s, 2180.5);
+  });
+
+  await test('Texto: espaçamentos, expoente, maiúsculas e colunas vão para o Word', page, async () => {
+    await page.click('#rail [data-view="writer"]');
+    await page.evaluate(() => MO.modules.writer.load('<h1>Relatório</h1><p>A fórmula da água é H2O e a área é 10 m2.</p><p>segundo parágrafo em minúsculas</p>', 'html'));
+    const selectIn = async (selector, from, to) => page.evaluate(([sel, a, b]) => {
+      const el = document.querySelector('#view-writer .page ' + sel);
+      const text = el.firstChild;
+      const r = document.createRange();
+      r.setStart(text, a); r.setEnd(text, b);
+      const s = document.getSelection(); s.removeAllRanges(); s.addRange(r);
+      el.closest('.page').focus();
+    }, [selector, from, to]);
+    // Espaçamento 1,5 e 12 pt depois no 1.º parágrafo
+    await selectIn('p', 2, 4);
+    await page.click('#view-writer .ribbon-tab:has-text("Base")');
+    await page.selectOption('#view-writer select[title="Espaçamento entre linhas"]', '1.5');
+    await selectIn('p', 2, 4);
+    await page.selectOption('#view-writer select[title="Espaço depois do parágrafo"]', '12pt');
+    // Expoente no "2" de m2
+    const text = await page.textContent('#view-writer .page p');
+    await selectIn('p', text.indexOf('m2') + 1, text.indexOf('m2') + 2);
+    await page.click('#view-writer button[title^="Expoente"]');
+    // Maiúsculas no 2.º parágrafo
+    await page.evaluate(() => {
+      const el = document.querySelectorAll('#view-writer .page p')[1];
+      const r = document.createRange(); r.selectNodeContents(el);
+      const s = document.getSelection(); s.removeAllRanges(); s.addRange(r);
+    });
+    await page.selectOption('#view-writer select[title="Maiúsculas e minúsculas"]', 'title');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#view-writer .page p')[1].textContent), 'Segundo Parágrafo Em Minúsculas');
+    // Duas colunas
+    await page.click('#view-writer .ribbon-tab:has-text("Estrutura")');
+    await page.selectOption('#view-writer select[title="Colunas de texto"]', '2');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('#view-writer .page')).columnCount), '2');
+    const xml = await page.evaluate(() => {
+      const files = fflate.unzipSync(MO.modules.writer.exports.find((e) => e.ext === 'docx').get());
+      return new TextDecoder().decode(files['word/document.xml']);
+    });
+    assert.match(xml, /<w:spacing w:after="240" w:line="360" w:lineRule="auto"\/>/);
+    assert.match(xml, /<w:vertAlign w:val="superscript"\/><\/w:rPr><w:t xml:space="preserve">2<\/w:t>/);
+    assert.match(xml, /<w:cols w:num="2" w:space="567"\/>/);
+    const back = await page.evaluate(() => MO.OOXML.importDocx(MO.modules.writer.exports.find((e) => e.ext === 'docx').get()));
+    assert.match(back.html, /line-height: 1.5; margin-bottom: 12pt/);
+    assert.match(back.html, /<sup>2<\/sup>/);
+    assert.equal(back.page.columns, 2);
+  });
+
+  await test('Texto: tabelas (linhas, colunas, unir, cabeçalho, cor) e símbolos', page, async () => {
+    await page.evaluate(() => MO.modules.writer.load('<p>Antes</p><table><tbody><tr><td>A</td><td>B</td></tr><tr><td>C</td><td>D</td></tr></tbody></table>', 'html'));
+    const caretIn = (text) => page.evaluate((t) => {
+      const td = [...document.querySelectorAll('#view-writer .page td, #view-writer .page th')].find((c) => c.textContent.trim() === t);
+      const r = document.createRange(); r.setStart(td.firstChild, 0); r.collapse(true);
+      const s = document.getSelection(); s.removeAllRanges(); s.addRange(r);
+      td.closest('.page').focus();
+    }, text);
+    await page.click('#view-writer .ribbon-tab:has-text("Inserir")');
+    await caretIn('A');
+    await page.click('#view-writer button[title="Inserir linha abaixo"]');
+    await caretIn('A');
+    await page.click('#view-writer button[title="Inserir coluna à direita"]');
+    const shape = () => page.evaluate(() => [...document.querySelectorAll('#view-writer .page table tr')].map((tr) => tr.cells.length));
+    assert.deepEqual(await shape(), [3, 3, 3]);
+    await caretIn('C');
+    await page.click('#view-writer button[title="Unir com a célula à direita"]');
+    assert.equal(await page.evaluate(() => document.querySelector('#view-writer .page table tr:nth-child(3) td').colSpan), 2);
+    await caretIn('A');
+    await page.click('#view-writer button[title^="Primeira linha como cabeçalho"]');
+    assert.equal(await page.locator('#view-writer .page table th').count(), 3);
+    await caretIn('A');
+    await page.evaluate(() => { const i = document.querySelector('#view-writer input[title="Cor de fundo das células"]'); i.value = '#ffe9a8'; i.dispatchEvent(new Event('input')); });
+    // Símbolo
+    await page.evaluate(() => { const p = document.querySelector('#view-writer .page p'); const r = document.createRange(); r.selectNodeContents(p); r.collapse(false); const s = document.getSelection(); s.removeAllRanges(); s.addRange(r); p.closest('.page').focus(); });
+    await page.click('#view-writer button[title^="Inserir símbolo"]');
+    await page.click('.symbol-dialog .symbol:has-text("€")');
+    assert.match(await page.textContent('#view-writer .page p'), /Antes€/);
+    const xml = await page.evaluate(() => new TextDecoder().decode(fflate.unzipSync(MO.modules.writer.exports.find((e) => e.ext === 'docx').get())['word/document.xml']));
+    assert.match(xml, /<w:tblHeader\/>/);
+    assert.match(xml, /<w:shd w:val="clear" w:color="auto" w:fill="FFE9A8"\/>/);
+    assert.match(xml, /<w:gridSpan w:val="2"\/>/);
+  });
+
+  await test('Texto: mala direta cria uma cópia por registo', page, async () => {
+    await page.evaluate(() => MO.modules.writer.load('<p>Caro(a) «Nome»,</p><p>A sua encomenda de «Valor» € foi enviada para «Cidade».</p>', 'html'));
+    await page.click('#view-writer .ribbon-tab:has-text("Correspondência")');
+    const chooser = page.waitForEvent('filechooser');
+    await page.click('#view-writer button[title^="Escolher a lista de destinatários"]');
+    await (await chooser).setFiles({ name: 'clientes.csv', mimeType: 'text/csv', buffer: Buffer.from('Nome;Cidade;Valor\nAna;Lisboa;120\nRui;Porto;80\nInês <b>;Braga;15\n') });
+    await page.waitForFunction(() => document.querySelectorAll('#view-writer select[aria-label="Inserir campo da lista"] option').length === 4);
+    await page.click('#view-writer button[title^="Criar um documento com uma cópia"]');
+    await page.click('dialog[open]:has-text("Concluir a mala direta") button[type=submit]');
+    await page.waitForFunction(() => document.querySelector('#view-writer .page').innerHTML.includes('page-break'), null, { timeout: 5000 });
+    const html = await page.evaluate(() => document.querySelector('#view-writer .page').innerHTML);
+    assert.equal((html.match(/page-break/g) || []).length, 2, html.slice(0, 200) + ' | toast: ' + (await page.textContent('#toast')) + ' | dialogs: ' + (await page.locator('dialog').count()));
+    assert.match(html, /Caro\(a\) Ana,[\s\S]*120 € foi enviada para Lisboa[\s\S]*Caro\(a\) Rui[\s\S]*Inês &lt;b&gt;/);
+    assert.doesNotMatch(html, /«/);
   });
 
   await test('Sem erros na consola da página', page, async () => {

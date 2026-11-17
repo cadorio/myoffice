@@ -41,8 +41,11 @@
   const SAFE_STYLES = [
     'color', 'background-color', 'font-family', 'font-size', 'font-weight', 'font-style', 'font-variant',
     'text-align', 'text-decoration', 'text-decoration-line', 'text-indent', 'line-height', 'vertical-align',
-    'margin-left', 'margin-right', 'padding-left', 'list-style-type', 'width', 'height', 'max-width', 'white-space'
+    'margin-left', 'margin-right', 'margin-top', 'margin-bottom', 'padding-left', 'list-style-type', 'width', 'height', 'max-width', 'white-space',
+    'float', 'display'
   ];
+  // Valores permitidos para propriedades que podiam esconder ou deslocar conteúdo.
+  const LIMITED = { float: /^(left|right|none)$/, display: /^(block|inline|inline-block)$/ };
   const SAFE_CLASSES = ['page-break', 'mo-comment', 'mo-ins', 'mo-del', 'mo-fn', 'mo-toc', 'mo-toc-title', 'mo-toc-1', 'mo-toc-2', 'mo-toc-3'];
 
   function cleanStyle(el) {
@@ -50,6 +53,7 @@
     for (const prop of SAFE_STYLES) {
       const value = el.style.getPropertyValue(prop);
       if (!value || value.length > 200 || /url\s*\(|expression|var\s*\(|[<>{}\\]/i.test(value)) continue;
+      if (LIMITED[prop] && !LIMITED[prop].test(value)) continue;
       if (/^(width|height|max-width|margin-|padding-|text-indent)/.test(prop) && /-\d|\d{5,}/.test(value)) continue;
       kept.push(`${prop}: ${value}`);
     }

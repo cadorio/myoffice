@@ -58,6 +58,12 @@ O ecrã inicial tem seis **modelos prontos a usar** (relatório, ata de reunião
 - Localizar e substituir, quebras de página e contagem de palavras com tempo de leitura.
 - Revisão ortográfica em português, quando o Windows a disponibiliza.
 - **Gráficos** (Inserir › Gráfico): escolha o tipo e escreva ou cole os dados.
+- **Parágrafo**: espaçamento entre linhas (1,0 a 3,0), espaço antes e depois, avanço da primeira linha e **colunas** de texto (2 ou 3).
+- **Letra**: expoente e índice (x², H₂O), MAIÚSCULAS / minúsculas / Primeira Letra Maiúscula e **pincel de formatação**.
+- **Tabelas**: inserir e eliminar linhas e colunas, unir e separar células, linha de cabeçalho (repete-se em cada página no Word) e cor de fundo das células.
+- **Imagens**: clique numa imagem para mudar o tamanho (25 % a 100 %), alinhar ou pôr o texto à volta.
+- **Inserir** símbolos (©, €, →, ✓…) e a data de hoje.
+- **Mala direta** (separador Correspondência): escolha uma lista do Excel ou CSV, insira os campos «Nome», «Cidade»… e crie uma carta por destinatário.
 - **Rever**: comentários, controlo de alterações (aceitar ou rejeitar), notas de rodapé e índice automático.
 - **Configurar página**: tamanho (A4, Carta, A5), orientação e margens.
 
