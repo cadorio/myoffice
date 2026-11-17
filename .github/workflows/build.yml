@@ -87,13 +87,42 @@ jobs:
             echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "$GITHUB_ENV"
             echo "Sem certificado: o instalador não será assinado."
           fi
-      - name: Criar instalador Windows x64
-        run: npx electron-builder --win --x64 --publish never
+      # Azure Trusted Signing (opcional): ativo quando os segredos AZURE_* existem.
+      - name: Criar instaladores Windows x64 (NSIS, MSI e ZIP portátil)
+        shell: bash
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SIGN_ENDPOINT: ${{ secrets.AZURE_SIGN_ENDPOINT }}
+          AZURE_SIGN_ACCOUNT: ${{ secrets.AZURE_SIGN_ACCOUNT }}
+          AZURE_SIGN_PROFILE: ${{ secrets.AZURE_SIGN_PROFILE }}
+          AZURE_SIGN_PUBLISHER: ${{ secrets.AZURE_SIGN_PUBLISHER }}
+        run: |
+          args=()
+          if [ -n "$AZURE_CLIENT_SECRET" ] && [ -n "$AZURE_SIGN_ENDPOINT" ]; then
+            echo "A assinar com Azure Trusted Signing."
+            args+=("-c.win.azureSignOptions.endpoint=$AZURE_SIGN_ENDPOINT")
+            args+=("-c.win.azureSignOptions.codeSigningAccountName=$AZURE_SIGN_ACCOUNT")
+            args+=("-c.win.azureSignOptions.certificateProfileName=$AZURE_SIGN_PROFILE")
+            args+=("-c.win.azureSignOptions.publisherName=$AZURE_SIGN_PUBLISHER")
+          fi
+          npx electron-builder --win --x64 --publish never "${args[@]}"
+      - name: Somas SHA-256
+        shell: bash
+        run: |
+          cd dist
+          sha256sum *.exe *.msi *.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: MyOffice-Windows
           if-no-files-found: error
-          path: dist/*.exe
+          path: |
+            dist/*.exe
+            dist/*.msi
+            dist/*.zip
+            dist/SHA256SUMS.txt
 
   release:
     name: Publicar Release Windows
