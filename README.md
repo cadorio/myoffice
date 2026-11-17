@@ -11,11 +11,15 @@ O MyOffice reúne quatro áreas numa única aplicação: **Texto**, **Folhas**, 
 
 ## Capturas de ecrã
 
-As imagens abaixo são capturas da interface real do MyOffice Horizon 1.4.0, geradas pelo workflow de pré-visualização. Clica numa imagem para a abrir em tamanho completo.
+As capturas mostram a interface atual do MyOffice, com a nova identidade visual verde e o espaço de trabalho redesenhado.
 
-### Ecrã inicial
+### Novo espaço de trabalho
 
-![Ecrã inicial do MyOffice](docs/screenshots/inicio.png)
+![Novo ecrã inicial do MyOffice](docs/screenshots/inicio.png)
+
+### Ferramentas, modelos e ficheiros recentes
+
+![Vista completa do novo espaço de trabalho MyOffice](docs/screenshots/inicio-completo.png)
 
 ### MyOffice Texto
 
@@ -48,7 +52,7 @@ O Assistente IA tem uma área própria, com conversa e atalhos para obter ajuda 
 
 ### Funcionalidades principais
 
-- **Espaço de trabalho MyOffice Horizon** — página inicial renovada com acesso direto às ferramentas, modelos editáveis e pesquisa de ficheiros recentes.
+- **Novo espaço de trabalho MyOffice** — identidade visual própria, navegação lateral, acesso direto às ferramentas, modelos editáveis e pesquisa de ficheiros recentes.
 - **Seis modelos prontos a usar** — relatório, ata de reunião, orçamento mensal com fórmulas, gestor de tarefas, apresentação de projeto e apresentação de aula.
 - **Gráficos em Folhas** — pré-visualização de gráficos de colunas e linhas a partir de dados selecionados, com exportação SVG.
 - **Análise estatística em Folhas** — fórmulas para mediana, moda, desvio padrão e variância, além de soma, média e contagem.
@@ -125,7 +129,7 @@ Este motor é intencionalmente transparente e não é um modelo generativo: não
 
 ## Aparência e produtividade
 
-- **Identidade visual MyOffice Horizon** — espaço de trabalho com hierarquia visual própria, modelos editáveis, pesquisa de ficheiros e acesso rápido às três ferramentas.
+- **Identidade visual MyOffice** — paleta verde, navegação lateral e cartões de acesso rápido às ferramentas e aos modelos.
 - **Desempenho** — interface sem animações decorativas obrigatórias e com efeitos visuais reduzidos para favorecer computadores modestos.
 - **Modo claro e escuro** — acompanha a preferência do sistema, com possibilidade de alteração na aplicação.
 - **13 temas de documento** — Escritório, Executivo, Oceano, Floresta, Pôr do sol, Coral, Menta, Lavanda, Areia, Grafite, Noite, Técnico e Contraste.
