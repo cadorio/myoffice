@@ -134,6 +134,9 @@
       let m;
       if ((m = /^(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?/.exec(rest))) {
         out.push({ t: 'num', v: Number(m[0]) });
+      } else if ((m = /^(?:'((?:[^']|'')+)'|([A-Za-zÀ-ÿ_][A-Za-zÀ-ÿ0-9_.]*))!\$?([A-Za-z]{1,2})\$?(\d+)(?![A-Za-zÀ-ÿ0-9_.(])/.exec(rest))) {
+        // Referência a outra folha: Folha2!A1 ou 'Vendas 2026'!B3
+        out.push({ t: 'ref', sheet: (m[1] != null ? m[1].replace(/''/g, "'") : m[2]).toLowerCase(), c: colIndex(m[3]), r: Number(m[4]) - 1 });
       } else if ((m = /^\$?([A-Za-z]{1,2})\$?(\d+)(?![A-Za-zÀ-ÿ0-9_.(])/.exec(rest))) {
         out.push({ t: 'ref', c: colIndex(m[1]), r: Number(m[2]) - 1 });
       } else if ((m = /^[A-Za-zÀ-ÿ_][A-Za-zÀ-ÿ0-9_.]*/.exec(rest))) {
@@ -179,10 +182,10 @@
         if (isOp(':')) {
           p++;
           const to = toks[p++];
-          if (!to || to.t !== 'ref') throw new FError('#ERRO!');
-          return { k: 'range', a: tok, b: to };
+          if (!to || to.t !== 'ref' || (to.sheet && to.sheet !== tok.sheet)) throw new FError('#ERRO!');
+          return { k: 'range', a: tok, b: to, sheet: tok.sheet };
         }
-        return { k: 'ref', c: tok.c, r: tok.r };
+        return { k: 'ref', c: tok.c, r: tok.r, sheet: tok.sheet };
       }
       if (tok.t === 'id') {
         if (isOp('(')) {
@@ -513,14 +516,14 @@
       case 'lit':
         return n.v;
       case 'ref':
-        return ctx.get(n.c, n.r);
+        return ctx.get(n.c, n.r, n.sheet);
       case 'range': {
         const out = [];
         const r0 = Math.min(n.a.r, n.b.r);
         const r1 = Math.max(n.a.r, n.b.r);
         const c0 = Math.min(n.a.c, n.b.c);
         const c1 = Math.max(n.a.c, n.b.c);
-        for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) out.push(ctx.get(c, r));
+        for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) out.push(ctx.get(c, r, n.sheet));
         out.cols = c1 - c0 + 1;
         return out;
       }
@@ -607,45 +610,58 @@
 
   // Calcula o valor de todas as células. Devolve um Map endereço -> valor
   // (número, texto, booleano ou FError).
-  function compute(cells, rows = 100, cols = 26) {
+  // book (opcional): { 'nome da folha em minúsculas': cells } para as referências a outras folhas.
+  function compute(cells, rows = 100, cols = 26, book = null) {
     const cache = new Map();
     const visiting = new Set();
 
-    function valueAt(a) {
-      if (cache.has(a)) return cache.get(a);
-      const cell = cells[a];
+    function valueAt(sheet, a) {
+      const key = sheet + '|' + a;
+      if (cache.has(key)) return cache.get(key);
+      const source = sheet ? book && Object.prototype.hasOwnProperty.call(book, sheet) ? book[sheet] : null : cells;
+      if (!source) return new FError('#REF!');
+      const cell = source[a];
       if (!cell || cell.v == null || cell.v === '') return null;
       const raw = String(cell.v);
       let val;
       if (raw[0] === '=' && raw.length > 1) {
-        if (visiting.has(a)) return new FError('#CICLO!');
-        visiting.add(a);
+        if (visiting.has(key) || visiting.size > 5000) return new FError('#CICLO!');
+        visiting.add(key);
         try {
-          val = scalar(evaluate(parseCached(raw.slice(1)), ctx));
+          val = scalar(evaluate(parseCached(raw.slice(1)), contextFor(sheet)));
           if (val === null) val = 0;
           if (typeof val === 'number' && !Number.isFinite(val)) val = new FError('#NUM!');
         } catch (e) {
           val = e instanceof FError ? e : new FError('#ERRO!');
         }
-        visiting.delete(a);
+        visiting.delete(key);
       } else {
         val = parseLiteral(raw);
       }
-      cache.set(a, val);
+      cache.set(key, val);
       return val;
     }
 
-    const ctx = {
-      get(c, r) {
-        if (c < 0 || r < 0 || c >= cols || r >= rows) throw new FError('#REF!');
-        const v = valueAt(addr(r, c));
-        if (v instanceof FError) throw v;
-        return v;
+    // As referências sem folha dizem respeito à folha onde a fórmula está.
+    const contexts = new Map();
+    function contextFor(home) {
+      if (!contexts.has(home)) {
+        contexts.set(home, {
+          get(c, r, sheet) {
+            if (c < 0 || r < 0 || c >= cols || r >= rows) throw new FError('#REF!');
+            const target = sheet != null ? sheet : home;
+            if (target && !(book && Object.prototype.hasOwnProperty.call(book, target))) throw new FError('#REF!');
+            const v = valueAt(target, addr(r, c));
+            if (v instanceof FError) throw v;
+            return v;
+          }
+        });
       }
-    };
+      return contexts.get(home);
+    }
 
     const out = new Map();
-    for (const a of Object.keys(cells)) out.set(a, valueAt(a));
+    for (const a of Object.keys(cells)) out.set(a, valueAt('', a));
     return out;
   }
 

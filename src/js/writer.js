@@ -751,8 +751,10 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
         docNotes = cleanTextMap(data.notes, 'note');
         docPage = cleanPage(data.page);
       } else if (ext === 'docx') {
-        docComments = {}; docNotes = {}; docPage = cleanPage(null);
         const doc = MO.OOXML.importDocx(text);
+        docComments = cleanTextMap(doc.comments, 'comment');
+        docNotes = cleanTextMap(doc.notes, 'note');
+        docPage = cleanPage(doc.page);
         html = doc.html;
         docHeader = String(doc.header || '').slice(0, 180);
         docFooter = String(doc.footer || '').slice(0, 180);

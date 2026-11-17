@@ -80,6 +80,8 @@
   }
 
   // Propriedades da folha ativa que não são células: células unidas, larguras, painéis fixos, regras.
+  // Células de todas as folhas, pelo nome em minúsculas, para fórmulas como Folha2!A1.
+  const bookCells = () => Object.fromEntries(sheetList.map((sheet, i) => [String(sheet.name).toLowerCase(), i === activeSheet ? cells : sheet.cells]));
   const meta = () => sheetList[activeSheet] || (sheetList[activeSheet] = { name: 'Folha1', cells });
   const DEFAULT_WIDTH = 104;
   const widthOf = (c) => (meta().widths && meta().widths[c]) || DEFAULT_WIDTH;
@@ -440,7 +442,7 @@
 
   function refresh() {
     rebuildPivotTables();
-    values = F.compute(cells, ROWS, COLS);
+    values = F.compute(cells, ROWS, COLS, bookCells());
     computeRuleStats();
     applyColumnWidths();
     cellsByRow = new Map();
@@ -461,7 +463,7 @@
   function rebuildPivotTables() {
     const configs = sheetList[activeSheet]?.pivots || [];
     if (!configs.length) return;
-    const sourceValues = F.compute(cells, ROWS, COLS);
+    const sourceValues = F.compute(cells, ROWS, COLS, bookCells());
     for (const pivot of configs) {
       const { r0, r1, c0, c1 } = pivot.range;
       const categories = new Map();
@@ -1747,7 +1749,7 @@
         get: () => {
           if (editing) stopEdit(true);
           sheetList[activeSheet].cells = cells;
-          return MO.OOXML.exportXlsx(sheetList.map((sheet) => ({ name: sheet.name, cells: sheet.cells, charts: sheet.charts, merges: sheet.merges, widths: sheet.widths, freeze: sheet.freeze, values: F.compute(sheet.cells, ROWS, COLS) })));
+          return MO.OOXML.exportXlsx(sheetList.map((sheet) => ({ name: sheet.name, cells: sheet.cells, charts: sheet.charts, merges: sheet.merges, widths: sheet.widths, freeze: sheet.freeze, rules: sheet.rules, values: F.compute(sheet.cells, ROWS, COLS, bookCells()) })));
         }
       },
       { label: 'Valores separados por ; (.csv)', ext: 'csv', filterName: 'CSV', mime: 'text/csv', get: toCSV }

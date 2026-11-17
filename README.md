@@ -123,9 +123,9 @@ A conversão cobre o conteúdo e a formatação mais comuns, mas **não substitu
 
 | Formato | É convertido | Perde-se |
 | --- | --- | --- |
-| **DOCX** | Títulos, parágrafos e alinhamento, formatação de caracteres, listas, tabelas, ligações, imagens, quebras de página, cabeçalho, rodapé e campos de página | Ao abrir: notas, comentários e revisões, colunas, caixas de texto, células unidas (ao exportar, comentários, revisões, notas e configuração da página seguem para o Word); cabeçalhos e rodapés complexos |
-| **XLSX** | Até 100 folhas: valores, fórmulas, estilos básicos, alinhamento, formatos de número e moeda, gráficos simples de colunas e linhas, bordas, células unidas, larguras de coluna e painéis fixos | Tabelas dinâmicas, gráficos avançados, alguns estilos; fórmulas entre folhas e funções não suportadas mostram `#NOME?` |
-| **PPTX** | Texto e posição das caixas, listas, imagens, retângulos e elipses, fundo, notas do orador, transições e efeitos de entrada simples | Animações complexas, gráficos, tabelas (as tabelas criadas no MyOffice exportam para PPTX), SmartArt, fundos com imagem, cores do tema do PowerPoint |
+| **DOCX** | Títulos, parágrafos e alinhamento, formatação de caracteres, listas, tabelas com células unidas, ligações, imagens, quebras de página, cabeçalho, rodapé, campos de página, **comentários, notas de rodapé, alterações controladas e configuração da página** (nos dois sentidos) | Colunas, caixas de texto, formas; cabeçalhos e rodapés complexos; a formatação dos comentários e das notas (fica só o texto) |
+| **XLSX** | Até 100 folhas: valores, fórmulas (incluindo **referências a outras folhas**, como `Dados!A1`), estilos básicos, alinhamento, formatos de número e moeda, gráficos simples de colunas e linhas, bordas, células unidas, larguras de coluna, painéis fixos e **formatação condicional** (maior/menor que, entre, igual, contém texto, escala de cores) | Tabelas dinâmicas, gráficos avançados, alguns estilos, regras condicionais com fórmulas; funções não suportadas mostram `#NOME?` |
+| **PPTX** | Texto e posição das caixas, listas, imagens, retângulos e elipses, **tabelas**, **cores do tema** do PowerPoint, fundo de cor ou **imagem**, notas do orador, transições e efeitos de entrada simples | Animações complexas, gráficos, SmartArt, células unidas e formatação dentro das tabelas |
 
 As imagens WebP são convertidas para PNG, para poderem seguir em DOCX e PPTX. Os ficheiros exportados foram verificados com o LibreOffice e com as bibliotecas python-docx, openpyxl e python-pptx; **ainda não foram testados no Microsoft Office**.
 
@@ -178,7 +178,6 @@ Também existem funções de estatística (mediana, moda, desvio padrão e vari�
 
 - Tabelas dinâmicas compatíveis com o Excel (o resumo dinâmico é a alternativa).
 - Animações complexas.
-- Formatação condicional no XLSX exportado.
 - Coautoria em tempo real e armazenamento na nuvem.
 - Correio eletrónico e calendário.
 - Versões para macOS e Linux distribuídas oficialmente (o código suporta-as, mas só o instalador Windows é publicado).
