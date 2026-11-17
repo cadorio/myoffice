@@ -79,8 +79,30 @@
     if (!cell.s && cell.v === '') delete cells[a];
   }
 
+  // Propriedades da folha ativa que não são células: células unidas, larguras, painéis fixos, regras.
+  const meta = () => sheetList[activeSheet] || (sheetList[activeSheet] = { name: 'Folha1', cells });
+  const DEFAULT_WIDTH = 104;
+  const widthOf = (c) => (meta().widths && meta().widths[c]) || DEFAULT_WIDTH;
+
+  function snapshotState() {
+    const m = meta();
+    return JSON.stringify({ cells, pivots: m.pivots || [], merges: m.merges || [], widths: m.widths || {}, freeze: m.freeze || null, rules: m.rules || [] });
+  }
+
+  function restoreState(state) {
+    cells = state.cells || state;
+    const m = meta();
+    if (!state.cells) return;
+    m.pivots = state.pivots || [];
+    m.merges = state.merges || [];
+    m.widths = state.widths || {};
+    m.freeze = state.freeze || null;
+    m.rules = state.rules || [];
+    applyColumnWidths();
+  }
+
   function mutate(fn) {
-    undoStack.push(JSON.stringify({ cells, pivots: sheetList[activeSheet]?.pivots || [] }));
+    undoStack.push(snapshotState());
     if (undoStack.length > MAX_UNDO) undoStack.shift();
     redoStack = [];
     fn();
@@ -90,10 +112,8 @@
 
   function timeTravel(from, to) {
     if (!from.length) return;
-    to.push(JSON.stringify({ cells, pivots: sheetList[activeSheet]?.pivots || [] }));
-    const state = JSON.parse(from.pop());
-    cells = state.cells || state;
-    if (state.cells && sheetList[activeSheet]) sheetList[activeSheet].pivots = state.pivots || [];
+    to.push(snapshotState());
+    restoreState(JSON.parse(from.pop()));
     refresh();
     ctx.dirty();
   }
@@ -113,6 +133,7 @@
         if (MO.HEX.test(cell.s.bg)) s.bg = cell.s.bg;
         if (MO.HEX.test(cell.s.c)) s.c = cell.s.c;
         if (Object.hasOwn(NUMBER_FORMATS, cell.s.f)) s.f = cell.s.f;
+        if (typeof cell.s.bd === 'string' && /^[tblr]{1,4}$/.test(cell.s.bd)) s.bd = cell.s.bd;
         if (Object.keys(s).length) clean.s = s;
       }
       if (clean.v !== '' || clean.s) out[a] = clean;
@@ -132,7 +153,10 @@
     const s = (cell && cell.s) || {};
     const text = typeof v === 'number' && Object.hasOwn(NUMBER_FORMATS, s.f) ? NUMBER_FORMATS[s.f].format(v) : F.format(v);
     const kind = typeof v === 'number' ? 'n' : typeof v === 'boolean' ? 'b' : v instanceof F.FError ? 'e' : '';
-    const key = `${text}\u0000${kind}\u0000${s.b || ''}${s.i || ''}\u0000${s.a || ''}\u0000${s.bg || ''}\u0000${s.c || ''}`;
+    const rule = ruleStyle(pos.r, pos.c, v);
+    const bg = rule.bg || s.bg || '';
+    const color = rule.c || s.c || '';
+    const key = `${text}\u0000${kind}\u0000${s.b || ''}${s.i || ''}\u0000${s.a || ''}\u0000${bg}\u0000${color}\u0000${s.bd || ''}`;
     if (drawn.get(a) === key) return;
     if (cell) drawn.set(a, key);
     else drawn.delete(a);
@@ -143,13 +167,282 @@
     td.style.fontWeight = s.b ? '700' : '';
     td.style.fontStyle = s.i ? 'italic' : '';
     td.style.textAlign = s.a || '';
-    td.style.backgroundColor = s.bg || '';
-    td.style.color = s.c || '';
+    td.style.backgroundColor = bg;
+    td.style.color = color;
+    // As bordas são sombras interiores, para não mudarem o tamanho da célula nem esconderem a seleção.
+    const side = { t: 'inset 0 1.5px 0 var(--cell-border)', b: 'inset 0 -1.5px 0 var(--cell-border)', l: 'inset 1.5px 0 0 var(--cell-border)', r: 'inset -1.5px 0 0 var(--cell-border)' };
+    if (s.bd) td.style.setProperty('--bd', [...s.bd].map((k) => side[k]).join(', '));
+    else td.style.removeProperty('--bd');
+  }
+
+  // ---------- Formatação condicional ----------
+
+  const RULE_TYPES = { gt: 'Maior que', lt: 'Menor que', between: 'Entre', eq: 'Igual a', text: 'O texto contém', scale: 'Escala de cores' };
+  const RULE_COLORS = {
+    green: { name: 'Verde', bg: '#c6efce', c: '#006100' },
+    red: { name: 'Vermelho', bg: '#ffc7ce', c: '#9c0006' },
+    yellow: { name: 'Amarelo', bg: '#ffeb9c', c: '#9c5700' },
+    blue: { name: 'Azul', bg: '#dbe8fb', c: '#1f4e8c' }
+  };
+  let ruleStats = [];
+
+  const inRange = (rg, r, c) => r >= rg.r0 && r <= rg.r1 && c >= rg.c0 && c <= rg.c1;
+  const toNum = (x) => F.parseNumber(String(x ?? ''));
+
+  // Mínimo e máximo de cada escala de cores, calculados uma vez por atualização.
+  function computeRuleStats() {
+    ruleStats = (meta().rules || []).map((rule) => {
+      if (rule.type !== 'scale') return null;
+      let min = Infinity;
+      let max = -Infinity;
+      for (const a of Object.keys(cells)) {
+        const pos = F.parseAddr(a);
+        const v = values.get(a);
+        if (!pos || typeof v !== 'number' || !inRange(rule.range, pos.r, pos.c)) continue;
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      return { min, max };
+    });
+  }
+
+  const mixHex = (x, y, t) => '#' + [1, 3, 5].map((i) => Math.round(parseInt(x.slice(i, i + 2), 16) + (parseInt(y.slice(i, i + 2), 16) - parseInt(x.slice(i, i + 2), 16)) * t).toString(16).padStart(2, '0')).join('');
+
+  // Cores impostas pelas regras para uma célula; a primeira regra que se aplica ganha.
+  function ruleStyle(r, c, v) {
+    const rules = meta().rules;
+    if (!rules || !rules.length) return {};
+    for (const [i, rule] of rules.entries()) {
+      if (!inRange(rule.range, r, c) || v == null || v === '') continue;
+      const n = typeof v === 'number' ? v : null;
+      const a = toNum(rule.a);
+      const b = toNum(rule.b);
+      let hit = false;
+      if (rule.type === 'scale') {
+        const st = ruleStats[i];
+        if (n === null || !st || !(st.max > st.min)) continue;
+        const t = (n - st.min) / (st.max - st.min);
+        return { bg: t < 0.5 ? mixHex('#f8696b', '#ffeb84', t * 2) : mixHex('#ffeb84', '#63be7b', (t - 0.5) * 2) };
+      }
+      if (rule.type === 'gt') hit = n !== null && a !== null && n > a;
+      else if (rule.type === 'lt') hit = n !== null && a !== null && n < a;
+      else if (rule.type === 'between') hit = n !== null && a !== null && b !== null && n >= Math.min(a, b) && n <= Math.max(a, b);
+      else if (rule.type === 'eq') hit = n !== null && a !== null ? n === a : F.format(v).toLocaleLowerCase('pt-PT') === String(rule.a).toLocaleLowerCase('pt-PT');
+      else if (rule.type === 'text') hit = Boolean(rule.a) && F.format(v).toLocaleLowerCase('pt-PT').includes(String(rule.a).toLocaleLowerCase('pt-PT'));
+      if (hit) return { bg: rule.bg, c: rule.c };
+    }
+    return {};
+  }
+
+  function conditionalDialog() {
+    const sel = range();
+    const type = h('select', { id: 'cf-type' }, Object.entries(RULE_TYPES).map(([value, label]) => h('option', { value }, label)));
+    const a = h('input', { id: 'cf-a', type: 'text', placeholder: 'Ex.: 100' });
+    const b = h('input', { id: 'cf-b', type: 'text', placeholder: 'Ex.: 500' });
+    const color = h('select', { id: 'cf-color' }, Object.entries(RULE_COLORS).map(([value, item]) => h('option', { value }, item.name)));
+    const labelB = h('label', null, h('span', null, 'E'), b);
+    const labelA = h('label', null, h('span', null, 'Valor'), a);
+    const labelColor = h('label', null, h('span', null, 'Cor'), color);
+    const sync = () => {
+      labelB.hidden = type.value !== 'between';
+      labelA.hidden = type.value === 'scale';
+      labelColor.hidden = type.value === 'scale';
+    };
+    type.addEventListener('change', sync);
+    const dlg = h('dialog', { class: 'mo-dialog' },
+      h('form', { method: 'dialog' },
+        h('h2', null, 'Formatação condicional'),
+        h('p', null, `Realçar células em ${F.addr(sel.r0, sel.c0)}:${F.addr(sel.r1, sel.c1)} conforme o valor.`),
+        h('label', null, h('span', null, 'Regra'), type), labelA, labelB, labelColor,
+        h('div', { class: 'dialog-actions' },
+          h('button', { type: 'button', class: 'btn', onclick: () => dlg.close() }, 'Cancelar'),
+          h('button', { type: 'submit', class: 'btn primary' }, 'Aplicar'))));
+    dlg.querySelector('form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (type.value !== 'scale' && !a.value.trim()) return a.focus();
+      const preset = RULE_COLORS[color.value];
+      const rule = { range: sel, type: type.value, a: a.value.trim(), b: b.value.trim() };
+      if (type.value !== 'scale') Object.assign(rule, { bg: preset.bg, c: preset.c });
+      mutate(() => (meta().rules = [...(meta().rules || []), rule]));
+      dlg.close();
+      MO.toast('Regra aplicada.');
+    });
+    dlg.addEventListener('close', () => dlg.remove());
+    document.body.append(dlg);
+    sync();
+    dlg.showModal();
+  }
+
+  function clearRules() {
+    const sel = range();
+    const overlaps = (rg) => !(rg.r1 < sel.r0 || rg.r0 > sel.r1 || rg.c1 < sel.c0 || rg.c0 > sel.c1);
+    const before = (meta().rules || []).length;
+    mutate(() => (meta().rules = (meta().rules || []).filter((rule) => !overlaps(rule.range))));
+    MO.toast(before === (meta().rules || []).length ? 'A seleção não tem regras.' : 'Regras removidas da seleção.');
+  }
+
+  // ---------- Bordas ----------
+
+  function applyBorders(kind) {
+    const { r0, r1, c0, c1 } = range();
+    if ((r1 - r0 + 1) * (c1 - c0 + 1) > 200000) return MO.toast('Selecione uma área mais pequena.');
+    mutate(() => eachInRange((r, c, a) => {
+      const now = new Set((cells[a] && cells[a].s && cells[a].s.bd) || '');
+      if (kind === 'none') now.clear();
+      else if (kind === 'all') ['t', 'b', 'l', 'r'].forEach((k) => now.add(k));
+      else if (kind === 'bottom') { if (r === r1) now.add('b'); }
+      else if (kind === 'outer') {
+        if (r === r0) now.add('t');
+        if (r === r1) now.add('b');
+        if (c === c0) now.add('l');
+        if (c === c1) now.add('r');
+      }
+      const bd = ['t', 'b', 'l', 'r'].filter((k) => now.has(k)).join('');
+      if (bd || (cells[a] && cells[a].s && cells[a].s.bd)) setStyle(a, 'bd', bd);
+    }));
+  }
+
+  // ---------- Unir células ----------
+
+  const mergeAt = (r, c) => (meta().merges || []).find((m) => inRange(m, r, c)) || null;
+
+  function mergeCells(center) {
+    const sel = range();
+    if (sel.r0 === sel.r1 && sel.c0 === sel.c1) return MO.toast('Selecione duas ou mais células para unir.');
+    const lost = [];
+    eachInRange((r, c, a) => {
+      if ((r !== sel.r0 || c !== sel.c0) && rawOf(a) !== '') lost.push(a);
+    });
+    mutate(() => {
+      // Como no Excel, só fica o valor da célula do canto superior esquerdo.
+      for (const a of lost) setRaw(a, '');
+      const overlaps = (m) => !(m.r1 < sel.r0 || m.r0 > sel.r1 || m.c1 < sel.c0 || m.c0 > sel.c1);
+      meta().merges = [...(meta().merges || []).filter((m) => !overlaps(m)), { ...sel }];
+      if (center) setStyle(F.addr(sel.r0, sel.c0), 'a', 'center');
+    });
+    end = { ...cur };
+    if (lost.length) MO.toast('Só foi mantido o valor da primeira célula. Pode anular com Ctrl+Z.');
+  }
+
+  function unmergeCells() {
+    const sel = range();
+    const overlaps = (m) => !(m.r1 < sel.r0 || m.r0 > sel.r1 || m.c1 < sel.c0 || m.c0 > sel.c1);
+    if (!(meta().merges || []).some(overlaps)) return MO.toast('A seleção não tem células unidas.');
+    mutate(() => (meta().merges = (meta().merges || []).filter((m) => !overlaps(m))));
+  }
+
+  // ---------- Fixar painéis ----------
+
+  function setFreeze(rows, cols) {
+    mutate(() => (meta().freeze = rows || cols ? { rows: Math.min(50, rows), cols: Math.min(20, cols) } : null));
+    MO.toast(rows || cols ? `Fixad${rows && cols ? 'as' : rows ? (rows === 1 ? 'a' : 'as') : (cols === 1 ? 'a' : 'as')} ${[rows ? `${rows} linha${rows > 1 ? 's' : ''}` : '', cols ? `${cols} coluna${cols > 1 ? 's' : ''}` : ''].filter(Boolean).join(' e ')}.` : 'Painéis libertados.');
+  }
+
+  // ---------- Largura das colunas ----------
+
+  let colEls = [];
+  let tableEl = null;
+
+  function applyColumnWidths() {
+    if (!tableEl) return;
+    let total = 46;
+    for (let c = 0; c < COLS; c++) {
+      const w = widthOf(c);
+      total += w;
+      if (colEls[c]) colEls[c].style.width = w + 'px';
+    }
+    tableEl.style.width = total + 'px';
+  }
+
+  // Ajusta a largura da coluna ao conteúdo mais comprido (duplo clique na margem do cabeçalho).
+  function autofitColumn(c) {
+    const probe = h('span', { style: { position: 'absolute', visibility: 'hidden', whiteSpace: 'nowrap', font: getComputedStyle(tableEl).font } });
+    document.body.append(probe);
+    let best = 40;
+    for (const a of Object.keys(cells)) {
+      const pos = F.parseAddr(a);
+      if (!pos || pos.c !== c) continue;
+      probe.textContent = F.format(values.get(a));
+      best = Math.max(best, probe.offsetWidth + 18);
+    }
+    probe.remove();
+    mutate(() => {
+      meta().widths = { ...(meta().widths || {}) };
+      meta().widths[c] = Math.min(600, best);
+    });
+  }
+
+  // ---------- Preenchimento automático (arrastar a pega da seleção) ----------
+
+  const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  const MONTHS_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const DAYS = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
+  const NAME_LISTS = [MONTHS, MONTHS_SHORT, DAYS];
+  const fmtNum = (n) => String(Number(n.toFixed(10))).replace('.', ',');
+
+  // Gera os valores seguintes de uma série: números, «Item 1», meses, dias da semana; o resto repete-se.
+  function seriesNext(src, k) {
+    const raws = src.map((x) => x.raw);
+    const plainText = raws.every((v) => v !== '' && v[0] !== '=');
+    if (plainText) {
+      const nums = raws.map((v) => F.parseNumber(v));
+      if (src.length >= 2 && nums.every((n) => n !== null)) {
+        const step = (nums[nums.length - 1] - nums[0]) / (nums.length - 1);
+        return fmtNum(nums[nums.length - 1] + step * (k + 1));
+      }
+      const tails = raws.map((v) => /^(.*?)(\d+)$/.exec(v));
+      if (tails.every((m) => m && m[1] === tails[0][1] && m[1] !== '')) {
+        const ns = tails.map((m) => Number(m[2]));
+        const step = ns.length >= 2 ? (ns[ns.length - 1] - ns[0]) / (ns.length - 1) : 1;
+        return tails[0][1] + Math.round(ns[ns.length - 1] + step * (k + 1));
+      }
+      for (const list of NAME_LISTS) {
+        const idx = raws.map((v) => list.indexOf(v.toLocaleLowerCase('pt-PT')));
+        if (idx.every((i) => i >= 0)) {
+          const name = list[(idx[idx.length - 1] + k + 1) % list.length];
+          const first = raws[raws.length - 1];
+          return first[0] === first[0].toLocaleUpperCase('pt-PT') ? name[0].toLocaleUpperCase('pt-PT') + name.slice(1) : name;
+        }
+      }
+    }
+    return null;
+  }
+
+  function applyFill(src, target) {
+    const down = target.r1 > src.r1;
+    const count = down ? target.r1 - src.r1 : target.c1 - src.c1;
+    if (count <= 0) return;
+    if (count * (down ? src.c1 - src.c0 + 1 : src.r1 - src.r0 + 1) > 200000) return MO.toast('Área demasiado grande para preencher.');
+    mutate(() => {
+      const lanes = down ? src.c1 - src.c0 + 1 : src.r1 - src.r0 + 1;
+      for (let lane = 0; lane < lanes; lane++) {
+        const seq = [];
+        const len = down ? src.r1 - src.r0 + 1 : src.c1 - src.c0 + 1;
+        for (let i = 0; i < len; i++) {
+          const r = down ? src.r0 + i : src.r0 + lane;
+          const c = down ? src.c0 + lane : src.c0 + i;
+          const a = F.addr(r, c);
+          seq.push({ r, c, raw: rawOf(a), s: cells[a] && cells[a].s });
+        }
+        for (let k = 0; k < count; k++) {
+          const r = down ? src.r1 + 1 + k : src.r0 + lane;
+          const c = down ? src.c0 + lane : src.c1 + 1 + k;
+          const base = seq[k % seq.length];
+          const next = seriesNext(seq, k);
+          const raw = next !== null ? next : base.raw[0] === '=' ? F.shiftFormula(base.raw, r - base.r, c - base.c, ROWS, COLS) : base.raw;
+          const a = F.addr(r, c);
+          if (raw === '' && !base.s) delete cells[a];
+          else cells[a] = base.s ? { v: raw, s: { ...base.s } } : { v: raw };
+        }
+      }
+    });
   }
 
   function refresh() {
     rebuildPivotTables();
     values = F.compute(cells, ROWS, COLS);
+    computeRuleStats();
+    applyColumnWidths();
     cellsByRow = new Map();
     for (const a of Object.keys(cells)) {
       const pos = F.parseAddr(a);
@@ -229,34 +522,66 @@
 
   function renderWindow() {
     if (!tbodyEl || !wrap) return;
-    const start = visibleStart();
+    const fz = meta().freeze || { rows: 0, cols: 0 };
+    const fr = Math.min(fz.rows || 0, ROWS);
+    const fc = Math.min(fz.cols || 0, COLS);
+    const start = Math.max(visibleStart(), fr);
     const count = visibleCount();
     const endRow = Math.min(ROWS, start + count);
     tds.clear(); rowHeads.clear();
     const children = [];
-    topSpacer.firstChild.style.height = `${start * ROW_HEIGHT}px`;
-    children.push(topSpacer);
-    for (let r = start; r < endRow; r++) {
+    const headH = tableEl && tableEl.tHead ? tableEl.tHead.offsetHeight : ROW_HEIGHT;
+    // Posição horizontal fixa de cada coluna congelada.
+    const lefts = [];
+    let x = 46;
+    for (let c = 0; c < fc; c++) { lefts.push(x); x += widthOf(c); }
+    colHeads.forEach((th, c) => {
+      th.classList.toggle('frz-c', c < fc);
+      th.style.left = c < fc ? lefts[c] + 'px' : '';
+    });
+    const makeRow = (r, frozen) => {
       const th = h('th', { class: 'row-head', 'data-r': r }, r + 1);
       rowHeads.set(r, th);
-      const tr = h('tr', { 'data-r': r }, th);
+      const tr = h('tr', { 'data-r': r, class: frozen ? 'frz-r' : null }, th);
+      if (frozen) tr.style.setProperty('--frz-top', headH + r * ROW_HEIGHT + 'px');
       const rowTds = [];
       for (let c = 0; c < COLS; c++) {
         const td = h('td', { 'data-r': r, 'data-c': c });
+        if (c < fc) { td.classList.add('frz-c'); td.style.left = lefts[c] + 'px'; }
         rowTds.push(td); tr.append(td);
       }
       tds.set(r, rowTds);
-      children.push(tr);
-    }
+      return tr;
+    };
+    for (let r = 0; r < fr; r++) children.push(makeRow(r, true));
+    topSpacer.firstChild.style.height = `${(start - fr) * ROW_HEIGHT}px`;
+    children.push(topSpacer);
+    for (let r = start; r < endRow; r++) children.push(makeRow(r, false));
     bottomSpacer.firstChild.style.height = `${Math.max(0, ROWS - endRow) * ROW_HEIGHT}px`;
     children.push(bottomSpacer);
     tbodyEl.replaceChildren(...children);
     // Pinta apenas células ocupadas dentro da janela atualmente visível.
-    for (let r = start; r < endRow; r++) for (const a of cellsByRow.get(r) || []) { drawn.delete(a); paintCell(a); }
+    for (const r of tds.keys()) for (const a of cellsByRow.get(r) || []) { drawn.delete(a); paintCell(a); }
     for (const r of filteredRows) {
       const row = tds.get(r);
       if (row) row[0].parentElement.hidden = true;
     }
+    // Células unidas: a do canto ocupa o espaço das outras dentro das linhas desenhadas.
+    for (const m of meta().merges || []) {
+      const anchorRow = tds.get(m.r0);
+      if (!anchorRow) continue;
+      const lastRow = m.r0 < fr ? Math.min(m.r1, fr - 1) : Math.min(m.r1, endRow - 1);
+      const anchor = anchorRow[m.c0];
+      anchor.colSpan = m.c1 - m.c0 + 1;
+      anchor.rowSpan = lastRow - m.r0 + 1;
+      anchor.classList.add('merged');
+      for (let r = m.r0; r <= lastRow; r++) {
+        const row = tds.get(r);
+        if (!row) continue;
+        for (let c = m.c0; c <= m.c1; c++) if (r !== m.r0 || c !== m.c0) row[c].hidden = true;
+      }
+    }
+    placeFillHandle();
   }
 
   function paintSelection(scroll) {
@@ -296,6 +621,7 @@
       }
     }
     updateStatus(single);
+    placeFillHandle();
     const active = cells[F.addr(cur.r, cur.c)];
     const st = (active && active.s) || {};
     showStates((key) => (key === 'b' || key === 'i' ? st[key] : st.a === key));
@@ -328,6 +654,8 @@
   const clampC = (c) => Math.max(0, Math.min(COLS - 1, c));
 
   function select(r, c, extend) {
+    const m = !extend && mergeAt(r, c);
+    if (m) { r = m.r0; c = m.c0; }
     if (extend) {
       end = { r: clampR(r), c: clampC(c) };
     } else {
@@ -920,7 +1248,24 @@
         if (!r || ![r.r0, r.r1, r.c0, r.c1, pivot.outCol, pivot.outRow, pivot.rows].every(Number.isInteger) || r.r0 < 0 || r.c0 < 0 || r.r1 <= r.r0 || r.c1 <= r.c0 || r.r1 >= ROWS || r.c1 >= COLS || pivot.outCol < 0 || pivot.outCol + 3 >= COLS || pivot.outRow < 0 || pivot.outRow >= ROWS) return [];
         return [{ range: { r0: r.r0, r1: r.r1, c0: r.c0, c1: r.c1 }, outCol: pivot.outCol, outRow: pivot.outRow, rows: Math.max(0, Math.min(ROWS - pivot.outRow, pivot.rows)) }];
       });
-      return { name, cells: cleanCells(sheet && sheet.cells), charts, pivots };
+      const okRange = (r) => r && [r.r0, r.r1, r.c0, r.c1].every(Number.isInteger) && r.r0 >= 0 && r.c0 >= 0 && r.r1 >= r.r0 && r.c1 >= r.c0 && r.r1 < ROWS && r.c1 < COLS;
+      const merges = (Array.isArray(sheet && sheet.merges) ? sheet.merges : []).slice(0, 2000)
+        .filter((m) => okRange(m) && (m.r1 > m.r0 || m.c1 > m.c0) && (m.r1 - m.r0 + 1) * (m.c1 - m.c0 + 1) <= 100000)
+        .map((m) => ({ r0: m.r0, r1: m.r1, c0: m.c0, c1: m.c1 }));
+      const widths = {};
+      for (const [c, w] of Object.entries((sheet && sheet.widths) || {})) {
+        if (/^\d+$/.test(c) && Number(c) < COLS && Number.isFinite(w)) widths[c] = Math.max(24, Math.min(600, Math.round(w)));
+      }
+      const fz = sheet && sheet.freeze;
+      const freeze = fz && Number.isInteger(fz.rows) && Number.isInteger(fz.cols) && (fz.rows || fz.cols) ? { rows: Math.max(0, Math.min(50, fz.rows)), cols: Math.max(0, Math.min(20, fz.cols)) } : null;
+      const rules = (Array.isArray(sheet && sheet.rules) ? sheet.rules : []).slice(0, 50).flatMap((rule) => {
+        if (!rule || !okRange(rule.range) || !Object.hasOwn(RULE_TYPES, rule.type)) return [];
+        const clean = { range: { r0: rule.range.r0, r1: rule.range.r1, c0: rule.range.c0, c1: rule.range.c1 }, type: rule.type, a: String(rule.a ?? '').slice(0, 100), b: String(rule.b ?? '').slice(0, 100) };
+        if (MO.HEX.test(rule.bg)) clean.bg = rule.bg;
+        if (MO.HEX.test(rule.c)) clean.c = rule.c;
+        return [clean];
+      });
+      return { name, cells: cleanCells(sheet && sheet.cells), charts, pivots, merges, widths, freeze, rules };
     });
   }
 
@@ -937,7 +1282,33 @@
     topSpacer = h('tr', { class: 'sheet-spacer' }, h('td', { colspan: COLS + 1 }));
     bottomSpacer = h('tr', { class: 'sheet-spacer' }, h('td', { colspan: COLS + 1 }));
     tbodyEl.append(topSpacer, bottomSpacer);
-    return h('table', { class: 'grid' }, h('thead', null, headRow), tbodyEl);
+    colEls = Array.from({ length: COLS }, () => h('col'));
+    const colgroup = h('colgroup', null, h('col', { style: { width: '46px' } }), colEls);
+    tableEl = h('table', { class: 'grid' }, colgroup, h('thead', null, headRow), tbodyEl);
+    return tableEl;
+  }
+
+  let fillHandle = null;
+  let fillDrag = null;
+  let resizing = null;
+
+  function placeFillHandle() {
+    if (!fillHandle) return;
+    const { r1, c1 } = range();
+    const m = mergeAt(r1, c1);
+    const td = tds.get(m ? m.r0 : r1)?.[m ? m.c0 : c1];
+    if (!td || td.hidden || editing) {
+      fillHandle.hidden = true;
+      return;
+    }
+    fillHandle.hidden = false;
+    fillHandle.style.left = td.offsetLeft + td.offsetWidth - 5 + 'px';
+    fillHandle.style.top = td.offsetTop + td.offsetHeight - 5 + 'px';
+  }
+
+  function nearColumnEdge(th, e) {
+    const box = th.getBoundingClientRect();
+    return box.right - e.clientX <= 6;
   }
 
   function onMouseDown(e) {
@@ -950,6 +1321,12 @@
       cur = { r: 0, c: 0 };
       end = { r: ROWS - 1, c: COLS - 1 };
       paintSelection(false);
+    } else if (cell.classList.contains('col-head') && nearColumnEdge(cell, e)) {
+      const c = Number(cell.dataset.c);
+      undoStack.push(snapshotState());
+      redoStack = [];
+      resizing = { c, x0: e.clientX, w0: widthOf(c) };
+      document.body.classList.add('col-resizing');
     } else if (cell.classList.contains('col-head')) {
       const c = Number(cell.dataset.c);
       cur = { r: 0, c };
@@ -1055,6 +1432,30 @@
                   iconButton('alignLeft', 'Alinhar à esquerda', () => applyStyle('a', 'left')),
                   iconButton('alignCenter', 'Centrar', () => applyStyle('a', 'center')),
                   iconButton('alignRight', 'Alinhar à direita', () => applyStyle('a', 'right'))
+                ],
+                [
+                  iconButton('merge', 'Unir e centrar células', () => mergeCells(true), 'Unir e centrar'),
+                  iconButton('unmerge', 'Separar células unidas', unmergeCells, 'Separar')
+                ]
+              ]
+            },
+            {
+              label: 'Bordas',
+              rows: [
+                [
+                  iconButton('borderAll', 'Todas as bordas', () => applyBorders('all')),
+                  iconButton('borderOuter', 'Bordas exteriores', () => applyBorders('outer')),
+                  iconButton('borderBottom', 'Borda inferior', () => applyBorders('bottom')),
+                  iconButton('borderNone', 'Sem bordas', () => applyBorders('none'))
+                ]
+              ]
+            },
+            {
+              label: 'Formatação condicional',
+              rows: [
+                [
+                  bigButton('condFormat', 'Realçar células', 'Formatação condicional: realçar células conforme o valor', conditionalDialog),
+                  bigButton('eraser', 'Limpar regras', 'Remover as regras de formatação condicional da seleção', clearRules)
                 ]
               ]
             },
@@ -1073,7 +1474,20 @@
         },
         {
           label: 'Esquema de página',
-          groups: [{ label: 'Temas', rows: [themeRow] }]
+          groups: [
+            {
+              label: 'Fixar painéis',
+              rows: [
+                [
+                  bigButton('freeze', 'Fixar linha superior', 'Manter a primeira linha visível ao deslocar', () => setFreeze(1, 0)),
+                  bigButton('freeze', 'Fixar primeira coluna', 'Manter a primeira coluna visível ao deslocar', () => setFreeze(0, 1)),
+                  bigButton('freeze', 'Fixar até à célula ativa', 'Fixar as linhas acima e as colunas à esquerda da célula ativa', () => setFreeze(cur.r, cur.c)),
+                  bigButton('unfreeze', 'Libertar painéis', 'Deixar de fixar linhas e colunas', () => setFreeze(0, 0))
+                ]
+              ]
+            },
+            { label: 'Temas', rows: [themeRow] }
+          ]
         },
         {
           label: 'Fórmulas',
@@ -1150,7 +1564,15 @@
       editorEl = h('input', { class: 'cell-editor', type: 'text', spellcheck: 'false', 'aria-label': 'Editar célula' });
       const table = buildGrid();
       gridEl = table;
-      wrap = h('div', { class: 'sheet-wrap', tabindex: '0', 'aria-label': 'Folha de cálculo' }, h('div', { class: 'sheet-inner' }, table, editorEl));
+      fillHandle = h('span', { class: 'fill-handle', title: 'Arraste para preencher', hidden: true });
+      wrap = h('div', { class: 'sheet-wrap', tabindex: '0', 'aria-label': 'Folha de cálculo' }, h('div', { class: 'sheet-inner' }, table, editorEl, fillHandle));
+      fillHandle.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (editing) stopEdit(true);
+        fillDrag = { src: range() };
+      });
       statusEl = h('span', { class: 'status-text' });
       const ribbon = buildRibbon();
       const inner = wrap.firstChild;
@@ -1168,12 +1590,49 @@
 
       table.addEventListener('mousedown', onMouseDown);
       table.addEventListener('mouseover', (e) => {
+        const td = e.target.closest('td[data-c]');
+        if (fillDrag && td) {
+          // Pré-visualiza a área a preencher: para baixo ou para a direita, conforme o maior movimento.
+          const { src } = fillDrag;
+          const dr = Number(td.dataset.r) - src.r1;
+          const dc = Number(td.dataset.c) - src.c1;
+          cur = { r: src.r0, c: src.c0 };
+          end = dr >= dc && dr > 0 ? { r: Number(td.dataset.r), c: src.c1 } : dc > 0 ? { r: src.r1, c: Number(td.dataset.c) } : { r: src.r1, c: src.c1 };
+          fillDrag.target = range();
+          paintSelection(false);
+          return;
+        }
         if (!dragging) return;
-        const td = e.target.closest('td');
         if (td) select(Number(td.dataset.r), Number(td.dataset.c), true);
       });
-      window.addEventListener('mouseup', () => (dragging = false));
+      table.addEventListener('mousemove', (e) => {
+        const th = e.target.closest('th.col-head');
+        table.classList.toggle('edge-hover', Boolean(th && nearColumnEdge(th, e)));
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!resizing) return;
+        const zoom = Number(inner.style.zoom) || 1;
+        const w = Math.max(24, Math.min(600, Math.round(resizing.w0 + (e.clientX - resizing.x0) / zoom)));
+        meta().widths = { ...(meta().widths || {}), [resizing.c]: w };
+        applyColumnWidths();
+      });
+      window.addEventListener('mouseup', () => {
+        dragging = false;
+        if (resizing) {
+          resizing = null;
+          document.body.classList.remove('col-resizing');
+          refresh();
+          ctx.dirty();
+        }
+        if (fillDrag) {
+          const { src, target } = fillDrag;
+          fillDrag = null;
+          if (target) applyFill(src, target);
+        }
+      });
       table.addEventListener('dblclick', (e) => {
+        const th = e.target.closest('th.col-head');
+        if (th && nearColumnEdge(th, e)) return autofitColumn(Number(th.dataset.c));
         if (e.target.closest('td')) startEdit();
       });
 
@@ -1199,6 +1658,7 @@
       for (const a of drawn.keys()) drawn.set(a, null); // força o redesenho completo
       editing = null;
       editorEl.style.display = 'none';
+      if (wrap) wrap.scrollTop = wrap.scrollLeft = 0; // um documento novo ou aberto começa em A1
       cells = {};
       sheetList = [{ name: 'Folha1', cells }]; activeSheet = 0; showSheetTabs();
       undoStack = [];
@@ -1287,7 +1747,7 @@
         get: () => {
           if (editing) stopEdit(true);
           sheetList[activeSheet].cells = cells;
-          return MO.OOXML.exportXlsx(sheetList.map((sheet) => ({ name: sheet.name, cells: sheet.cells, charts: sheet.charts, values: F.compute(sheet.cells, ROWS, COLS) })));
+          return MO.OOXML.exportXlsx(sheetList.map((sheet) => ({ name: sheet.name, cells: sheet.cells, charts: sheet.charts, merges: sheet.merges, widths: sheet.widths, freeze: sheet.freeze, values: F.compute(sheet.cells, ROWS, COLS) })));
         }
       },
       { label: 'Valores separados por ; (.csv)', ext: 'csv', filterName: 'CSV', mime: 'text/csv', get: toCSV }

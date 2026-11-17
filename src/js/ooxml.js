@@ -508,8 +508,17 @@
     for (const nf of all(stylesDoc, 'numFmt')) customFormats[attr(nf, 'numFmtId')] = attr(nf, 'formatCode');
     const fonts = kids(first(stylesDoc, 'fonts'), 'font');
     const fills = kids(first(stylesDoc, 'fills'), 'fill');
+    // Bordas: cada lado com estilo definido conta como borda.
+    const borders = kids(first(stylesDoc, 'borders'), 'border').map((border) =>
+      [['top', 't'], ['bottom', 'b'], ['left', 'l'], ['right', 'r']].filter(([side]) => {
+        const style = attr(kid(border, side), 'style');
+        return style && style !== 'none';
+      }).map(([, k]) => k).join('')
+    );
     const xfs = kids(first(stylesDoc, 'cellXfs'), 'xf').map((xf) => {
       const s = {};
+      const bd = borders[Number(attr(xf, 'borderId'))];
+      if (bd) s.bd = bd;
       const font = fonts[Number(attr(xf, 'fontId'))];
       if (font && isOn(kid(font, 'b'))) s.b = 1;
       if (font && isOn(kid(font, 'i'))) s.i = 1;
@@ -584,7 +593,29 @@
           charts.push({ name: `Gráfico ${charts.length + 1}`, type: chartType, range: { r0: cat[0].r - 1, r1: cat[1].r, c0: cat[0].c, c1: val[1].c } });
         }
       }
-      importedSheets.push({ name, cells, charts });
+      // Células unidas, larguras das colunas e painéis fixos.
+      const merges = [];
+      for (const mc of all(sheet, 'mergeCell')) {
+        const [from, to] = String(attr(mc, 'ref') || '').split(':').map((x) => F.parseAddr(x));
+        if (from && to && to.r < rows && to.c < cols) merges.push({ r0: Math.min(from.r, to.r), r1: Math.max(from.r, to.r), c0: Math.min(from.c, to.c), c1: Math.max(from.c, to.c) });
+      }
+      const widths = {};
+      for (const col of all(first(sheet, 'cols'), 'col')) {
+        const w = Number(attr(col, 'width'));
+        const min = Number(attr(col, 'min'));
+        const max = Math.min(Number(attr(col, 'max')), min + 300, cols);
+        if (!Number.isFinite(w) || !Number.isInteger(min) || min < 1) continue;
+        // A largura do Excel está em carateres; cerca de 7 píxeis por caráter mais margem.
+        for (let c = min; c <= max; c++) widths[c - 1] = Math.max(24, Math.min(600, Math.round(w * 7 + 5)));
+      }
+      let freeze = null;
+      const pane = first(first(sheet, 'sheetView'), 'pane');
+      if (pane && /frozen/.test(attr(pane, 'state') || '')) {
+        const ys = Math.round(Number(attr(pane, 'ySplit')) || 0);
+        const xs = Math.round(Number(attr(pane, 'xSplit')) || 0);
+        if (ys || xs) freeze = { rows: Math.min(50, ys), cols: Math.min(20, xs) };
+      }
+      importedSheets.push({ name, cells, charts, merges, widths, freeze });
     }
     return { sheets: importedSheets, clipped };
   }
@@ -599,17 +630,47 @@
     const xfs = ['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'];
     const index = (list, item) => (list.includes(item) ? list.indexOf(item) : list.push(item) - 1);
     const NUM_FMT = { num2: 2, pct: 10, eur: 164 };
+    const borders = ['<border><left/><right/><top/><bottom/><diagonal/></border>'];
+    const borderXML = (bd) => {
+      const side = (name, k) => (bd.includes(k) ? `<${name} style="thin"><color rgb="FF1D2622"/></${name}>` : `<${name}/>`);
+      return `<border>${side('left', 'l')}${side('right', 'r')}${side('top', 't')}${side('bottom', 'b')}<diagonal/></border>`;
+    };
 
     function styleIndex(s) {
       if (!s) return 0;
       const font = index(fonts, `<font>${s.b ? '<b/>' : ''}${s.i ? '<i/>' : ''}<sz val="11"/>${s.c ? `<color rgb="FF${s.c.slice(1).toUpperCase()}"/>` : ''}<name val="Calibri"/></font>`);
       const fill = s.bg ? index(fills, `<fill><patternFill patternType="solid"><fgColor rgb="FF${s.bg.slice(1).toUpperCase()}"/><bgColor indexed="64"/></patternFill></fill>`) : 0;
       const fmt = NUM_FMT[s.f] || 0;
+      const border = s.bd ? index(borders, borderXML(s.bd)) : 0;
       return index(
         xfs,
-        `<xf numFmtId="${fmt}" fontId="${font}" fillId="${fill}" borderId="0" xfId="0"${fmt ? ' applyNumberFormat="1"' : ''}${font ? ' applyFont="1"' : ''}${fill ? ' applyFill="1"' : ''}` +
+        `<xf numFmtId="${fmt}" fontId="${font}" fillId="${fill}" borderId="${border}" xfId="0"${fmt ? ' applyNumberFormat="1"' : ''}${font ? ' applyFont="1"' : ''}${fill ? ' applyFill="1"' : ''}${border ? ' applyBorder="1"' : ''}` +
           (s.a ? ` applyAlignment="1"><alignment horizontal="${s.a}"/></xf>` : '/>')
       );
+    }
+
+    // Painéis fixos, larguras (em carateres, como no Excel) e células unidas de cada folha.
+    function sheetView(fz) {
+      if (!fz || !(fz.rows || fz.cols)) return '';
+      const cell = F.addr(fz.rows || 0, fz.cols || 0);
+      const pane = fz.rows && fz.cols ? 'bottomRight' : fz.rows ? 'bottomLeft' : 'topRight';
+      return `<sheetViews><sheetView workbookViewId="0"><pane${fz.cols ? ` xSplit="${fz.cols}"` : ''}${fz.rows ? ` ySplit="${fz.rows}"` : ''} topLeftCell="${cell}" activePane="${pane}" state="frozen"/></sheetView></sheetViews>`;
+    }
+    function colsXML(widths) {
+      const custom = Object.entries(widths || {}).map(([c, w]) => [Number(c), w]).filter(([c, w]) => Number.isInteger(c) && c >= 0 && c < 256 && Number.isFinite(w)).sort((x, y) => x[0] - y[0]);
+      const out = [];
+      let next = 0;
+      for (const [c, w] of custom) {
+        if (c > next) out.push(`<col min="${next + 1}" max="${c}" width="14" customWidth="1"/>`);
+        out.push(`<col min="${c + 1}" max="${c + 1}" width="${Math.max(1, (w - 5) / 7).toFixed(2)}" customWidth="1"/>`);
+        next = c + 1;
+      }
+      if (next < 256) out.push(`<col min="${next + 1}" max="256" width="14" customWidth="1"/>`);
+      return `<cols>${out.join('')}</cols>`;
+    }
+    function mergeXML(merges) {
+      const list = (Array.isArray(merges) ? merges : []).filter((m) => m && [m.r0, m.r1, m.c0, m.c1].every(Number.isInteger));
+      return list.length ? `<mergeCells count="${list.length}">${list.map((m) => `<mergeCell ref="${F.addr(m.r0, m.c0)}:${F.addr(m.r1, m.c1)}"/>`).join('')}</mergeCells>` : '';
     }
 
     const sheetFiles = {};
@@ -682,7 +743,7 @@
           sheetFiles[`xl/worksheets/_rels/sheet${i + 1}.xml.rels`] = XML_HEAD + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/${drawingName}.xml"/></Relationships>`;
         }
       }
-      sheetFiles[`xl/worksheets/sheet${i + 1}.xml`] = XML_HEAD + `<worksheet ${NS} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="256" width="14" customWidth="1"/></cols><sheetData>${rowsXML}</sheetData>${drawingTag}</worksheet>`;
+      sheetFiles[`xl/worksheets/sheet${i + 1}.xml`] = XML_HEAD + `<worksheet ${NS} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${sheetView(sheet.freeze)}<sheetFormatPr defaultRowHeight="15"/>${colsXML(sheet.widths)}<sheetData>${rowsXML}</sheetData>${mergeXML(sheet.merges)}${drawingTag}</worksheet>`;
       sheetParts.push(`<sheet name="${esc(safeName)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`);
       sheetRels.push(`<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`);
       sheetOverrides.push(`<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`);
@@ -710,7 +771,7 @@
         XML_HEAD +
         `<styleSheet ${NS}><numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.00\\ &quot;€&quot;"/></numFmts>` +
         `<fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills>` +
-        '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+        `<borders count="${borders.length}">${borders.join('')}</borders>` +
         '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
         `<cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`,
       ...sheetFiles,

@@ -200,6 +200,117 @@ const cellText = (page, a) =>
     assert.equal(charts.length, 1, 'só o gráfico válido fica');
   });
 
+  // ---------------- Folhas: funções essenciais ----------------
+  const loadBook = (book) => page.evaluate((text) => MO.modules.sheets.load(text, 'mosheet'), JSON.stringify(book));
+  const sheetData = async () => JSON.parse(await page.evaluate(() => MO.modules.sheets.serialize())).sheets[0];
+  const selectRange = async (from, to) => {
+    await page.click(`.grid td[data-r="${from[0]}"][data-c="${from[1]}"]`);
+    await page.click(`.grid td[data-r="${to[0]}"][data-c="${to[1]}"]`, { modifiers: ['Shift'] });
+  };
+  const sheetsTab = (name) => page.click(`#view-sheets .ribbon-tab:has-text("${name}")`);
+
+  await test('Folhas: preenchimento automático continua séries', page, async () => {
+    await loadBook({ format: 'myoffice-sheet', version: 3, sheets: [{ name: 'S', cells: { A1: { v: '1' }, A2: { v: '2' }, B1: { v: 'Item 1' }, C1: { v: 'janeiro' }, D1: { v: '=A1*10' }, E1: { v: 'texto' } } }] });
+    await selectRange([0, 0], [1, 0]);
+    let box = await page.locator('.fill-handle').boundingBox();
+    let target = await page.locator('.grid td[data-r="4"][data-c="0"]').boundingBox();
+    await page.mouse.move(box.x + 4, box.y + 4);
+    await page.mouse.down();
+    await page.mouse.move(target.x + 10, target.y + 10, { steps: 5 });
+    await page.mouse.up();
+    assert.deepEqual([await cellText(page, 'A3'), await cellText(page, 'A4'), await cellText(page, 'A5')], ['3', '4', '5']);
+    await selectRange([0, 1], [0, 4]);
+    box = await page.locator('.fill-handle').boundingBox();
+    target = await page.locator('.grid td[data-r="2"][data-c="4"]').boundingBox();
+    await page.mouse.move(box.x + 4, box.y + 4);
+    await page.mouse.down();
+    await page.mouse.move(target.x + 10, target.y + 10, { steps: 5 });
+    await page.mouse.up();
+    assert.equal(await cellText(page, 'B3'), 'Item 3');
+    assert.equal(await cellText(page, 'C2'), 'fevereiro');
+    const d = await sheetData();
+    assert.equal(d.cells.D2.v, '=A2*10', 'fórmula com referência ajustada');
+    assert.equal(d.cells.E3.v, 'texto', 'texto simples repete-se');
+  });
+
+  await test('Folhas: bordas, células unidas e anular', page, async () => {
+    await loadBook({ format: 'myoffice-sheet', version: 3, sheets: [{ name: 'S', cells: { A1: { v: 'Título' }, B1: { v: 'apagado ao unir' } } }] });
+    await selectRange([0, 0], [1, 1]);
+    await sheetsTab('Base');
+    await page.click('button[title="Todas as bordas"]');
+    let d = await sheetData();
+    assert.equal(d.cells.A1.s.bd, 'tblr');
+    assert.equal(d.cells.B2.s.bd, 'tblr');
+    await selectRange([0, 0], [0, 2]);
+    await page.click('button[title="Unir e centrar células"]');
+    d = await sheetData();
+    assert.deepEqual(d.merges, [{ r0: 0, r1: 0, c0: 0, c1: 2 }]);
+    assert.equal(d.cells.B1.v, '', 'só fica o valor da primeira célula');
+    assert.equal(await page.getAttribute('.grid td[data-r="0"][data-c="0"]', 'colspan'), '3');
+    await page.keyboard.press('Control+Z');
+    d = await sheetData();
+    assert.deepEqual(d.merges, []);
+    assert.equal(d.cells.B1.v, 'apagado ao unir');
+  });
+
+  await test('Folhas: fixar painéis mantém a linha de títulos à vista', page, async () => {
+    const cells = { A1: { v: 'Cabeçalho' } };
+    for (let r = 2; r <= 300; r++) cells['A' + r] = { v: String(r) };
+    await loadBook({ format: 'myoffice-sheet', version: 3, sheets: [{ name: 'S', cells }] });
+    await page.click('.grid td[data-r="0"][data-c="0"]');
+    await sheetsTab('Esquema de página');
+    await page.click('button[title="Manter a primeira linha visível ao deslocar"]');
+    await page.evaluate(() => { document.querySelector('.sheet-wrap').scrollTop = 3000; });
+    await page.waitForTimeout(150);
+    const header = page.locator('.grid td[data-r="0"][data-c="0"]');
+    assert.equal(await header.textContent(), 'Cabeçalho');
+    const wrapBox = await page.locator('.sheet-wrap').boundingBox();
+    const headBox = await header.boundingBox();
+    assert.ok(headBox.y >= wrapBox.y && headBox.y < wrapBox.y + 80, 'linha fixa continua no topo');
+    assert.deepEqual((await sheetData()).freeze, { rows: 1, cols: 0 });
+    await page.click('button[title="Deixar de fixar linhas e colunas"]');
+    assert.equal((await sheetData()).freeze, null);
+    await page.evaluate(() => { document.querySelector('.sheet-wrap').scrollTop = 0; });
+    await page.waitForTimeout(100);
+  });
+
+  await test('Folhas: largura das colunas ajusta-se arrastando o cabeçalho', page, async () => {
+    await loadBook({ format: 'myoffice-sheet', version: 3, sheets: [{ name: 'S', cells: {} }] });
+    const th = await page.locator('.grid th.col-head[data-c="1"]').boundingBox();
+    await page.mouse.move(th.x + th.width - 2, th.y + th.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(th.x + th.width + 80, th.y + th.height / 2, { steps: 4 });
+    await page.mouse.up();
+    const w = (await sheetData()).widths['1'];
+    assert.ok(w >= 170 && w <= 200, 'largura nova: ' + w);
+  });
+
+  await test('Folhas: formatação condicional realça os valores', page, async () => {
+    await loadBook({ format: 'myoffice-sheet', version: 3, sheets: [{ name: 'S', cells: { A1: { v: '50' }, A2: { v: '150' }, A3: { v: '300' } } }] });
+    await selectRange([0, 0], [2, 0]);
+    await sheetsTab('Base');
+    await page.click('button[title^="Formatação condicional"]');
+    await page.selectOption('#cf-type', 'gt');
+    await page.fill('#cf-a', '100');
+    await page.click('.mo-dialog button[type=submit]');
+    const bg = (a) => page.evaluate((r) => document.querySelector(`.grid td[data-r="${r}"][data-c="0"]`).style.backgroundColor, a);
+    assert.equal(await bg(0), '');
+    assert.equal(await bg(1), 'rgb(198, 239, 206)');
+    await page.click('.grid td[data-r="0"][data-c="0"]');
+    await page.keyboard.type('500');
+    await page.keyboard.press('Enter');
+    assert.equal(await bg(0), 'rgb(198, 239, 206)', 'a regra acompanha os valores');
+  });
+
+  await test('Folhas: bordas, unir, larguras e painéis sobrevivem ao .xlsx', page, async () => {
+    await loadBook({ format: 'myoffice-sheet', version: 3, sheets: [{ name: 'S', cells: { A1: { v: 'X', s: { bd: 'tb' } } }, merges: [{ r0: 0, r1: 1, c0: 0, c1: 1 }], widths: { 2: 180 }, freeze: { rows: 1, cols: 1 } }] });
+    const back = await page.evaluate(() => MO.OOXML.importXlsx(MO.modules.sheets.exports.find((e) => e.ext === 'xlsx').get(), 100000, 256).sheets[0]);
+    assert.equal(back.cells.A1.s.bd, 'tb');
+    assert.deepEqual(back.merges, [{ r0: 0, r1: 1, c0: 0, c1: 1 }]);
+    assert.ok(Math.abs(back.widths['2'] - 180) <= 2, 'largura ' + back.widths['2']);
+    assert.deepEqual(back.freeze, { rows: 1, cols: 1 });
+  });
+
   await test('Sem erros na consola da página', page, async () => {
     assert.deepEqual(errors, []);
   });
