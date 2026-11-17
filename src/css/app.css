@@ -2064,3 +2064,7 @@ body:not([data-current="home"]) .rail-btn .app-tile { width: 34px; height: 34px;
 .rail-btn { color: var(--studio-ink); }
 .rail-btn:hover { background: var(--studio-soft); }
 #rail::before { color: var(--studio-muted); }
+/* Ações nas respostas do Assistente */
+.mo-assistant-actions { margin-top: 10px; white-space: normal; }
+.mo-assistant-action { background: var(--studio-ink, #183b34); color: #fff; border-color: transparent; }
+.mo-assistant-action:hover { filter: brightness(1.1); }

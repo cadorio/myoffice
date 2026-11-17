@@ -1773,6 +1773,27 @@
       return { node: table, page: 'A4 landscape', margin: '12mm' };
     },
 
+    // Usado pelo Assistente: célula ativa, escrever nela e ler a área com dados.
+    assist: {
+      activeAddr: () => F.addr(cur.r, cur.c),
+      put(raw) {
+        if (editing) stopEdit(true);
+        mutate(() => setRaw(F.addr(cur.r, cur.c), String(raw).slice(0, MAX_CELL_CHARS)));
+      },
+      table() {
+        const used = Object.keys(cells).filter((a) => cells[a] && cells[a].v !== '').map((a) => F.parseAddr(a)).filter(Boolean);
+        if (!used.length) return '';
+        const r1 = Math.min(Math.max(...used.map((p) => p.r)), 200);
+        const c1 = Math.min(Math.max(...used.map((p) => p.c)), 20);
+        const rows = [];
+        for (let r = 0; r <= r1; r++) {
+          const row = [];
+          for (let c = 0; c <= c1; c++) { const a = F.addr(r, c); row.push(F.format(values.get(a) ?? (cells[a] ? cells[a].v : ''))); }
+          if (row.some(Boolean)) rows.push(row.join(' | '));
+        }
+        return rows.join('\n').slice(0, 6000);
+      }
+    },
     show() {
       wrap.focus({ preventScroll: true });
     }

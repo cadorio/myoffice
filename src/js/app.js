@@ -49,6 +49,7 @@
     if (api) api.setDirty(ORDER.some((id) => docs[id].dirty));
   }
 
+  MO.showView = (id) => show(id);
   function show(id) {
     current = id;
     document.querySelectorAll('.view').forEach((view) => (view.hidden = view.id !== 'view-' + id));

@@ -555,6 +555,23 @@ const cellText = (page, a) =>
     assert.deepEqual(table.rows, [['Região', 'Vendas'], ['Norte', '82']]);
   });
 
+  await test('Assistente: insere a fórmula na célula ativa e o rascunho no Texto', page, async () => {
+    await page.click('#rail [data-view="assistant"]');
+    await page.fill('.mo-assistant-compose textarea', 'soma de A1 a A3');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('.mo-assistant-action');
+    await page.click('.mo-assistant-message.ai:last-child .mo-assistant-action');
+    assert.equal(await page.evaluate(() => document.body.dataset.current), 'sheets');
+    assert.equal(await page.inputValue('.fx-input'), '=SOMA(A1:A3)');
+    await page.click('#rail [data-view="assistant"]');
+    await page.fill('.mo-assistant-compose textarea', 'escreve um convite para o jantar de Natal');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => document.querySelectorAll('.mo-assistant-action').length === 2);
+    await page.click('.mo-assistant-message.ai:last-child .mo-assistant-action');
+    assert.equal(await page.evaluate(() => document.body.dataset.current), 'writer');
+    assert.match(await page.textContent('#view-writer .page'), /jantar de Natal/);
+  });
+
   await test('Sem erros na consola da página', page, async () => {
     assert.deepEqual(errors, []);
   });
