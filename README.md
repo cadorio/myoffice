@@ -12,6 +12,7 @@ Texto, folhas de cálculo, apresentações e diagramas numa só aplicação. Os 
 
 ## Índice
 
+- [Um visual próprio](#um-visual-próprio)
 - [As aplicações](#as-aplicações)
 - [Instalação](#instalação)
 - [Ficheiros do Microsoft Office](#ficheiros-do-microsoft-office)
@@ -20,6 +21,19 @@ Texto, folhas de cálculo, apresentações e diagramas numa só aplicação. Os 
 - [Privacidade e segurança](#privacidade-e-segurança)
 - [O que ainda não faz](#o-que-ainda-não-faz)
 - [Desenvolvimento](#desenvolvimento)
+
+## Um visual próprio
+
+O MyOffice não imita o Office. Em vez da faixa de separadores no topo, cada aplicação tem um **estúdio**:
+
+- **O documento ao centro**, com espaço para trabalhar e sem barras a ocupar o ecrã.
+- **Painel de ferramentas à direita**, organizado em secções (Tipo de letra, Bordas, Alinhar…). Esconde-se com **Ctrl+.** quando precisa de mais espaço.
+- **Barra de aplicações à esquerda**, sempre visível: passe de Texto para Folhas ou Diapositivos com um clique.
+- **Procura de comandos (Ctrl+K)**: escreva o que quer fazer, como "borda", "gráfico" ou "PDF", e carregue em Enter. Não precisa de saber onde está cada botão.
+
+![Procura de comandos nas Folhas](docs/screenshots/comandos.png)
+
+Tons calmos de verde e papel, com modo claro e escuro.
 
 ## As aplicações
 
