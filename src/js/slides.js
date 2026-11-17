@@ -41,6 +41,8 @@
   // Aspeto em uso: cores e tipos de letra do tema e da variante escolhidos (ver themes.js).
   let theme = T.slideLook(T.LIST[0], 'claro');
   let themeRow, variantRow;
+  let transitionSelect;
+  let animationSelect;
   let showStates = () => {};
 
   function textEl(x, y, w, h_, html, extra) {
@@ -117,6 +119,7 @@
           w: clampNum(el.w, MIN, 2 * W, 200),
           h: clampNum(el.h, MIN, 2 * H, 100)
         };
+        if (['fade', 'zoom', 'appear'].includes(el.animation)) clean.animation = el.animation;
         if (el.type === 'text') {
           clean.html = MO.sanitizeHTML(typeof el.html === 'string' ? el.html : '');
           clean.fs = clampNum(el.fs, 8, 200, 24);
@@ -142,7 +145,8 @@
       // Ficheiros de versões anteriores.
       if (s && s.deco === 'bar') look.deco = 'barra';
       if (s && s.deco === 'title') Object.assign(look, { deco: 'barra', lead: true });
-      return { bg: MO.HEX.test(s && s.bg) ? s.bg : '#ffffff', ...look, notes: typeof (s && s.notes) === 'string' ? s.notes.slice(0, 5000) : '', els };
+      const transition = ['fade', 'push', 'wipe'].includes(s && s.transition) ? s.transition : '';
+      return { bg: MO.HEX.test(s && s.bg) ? s.bg : '#ffffff', ...look, transition, notes: typeof (s && s.notes) === 'string' ? s.notes.slice(0, 5000) : '', els };
     });
   }
 
@@ -185,6 +189,7 @@
         class: 'el el-' + el.type,
         style: { left: el.x + 'px', top: el.y + 'px', width: el.w + 'px', height: el.h + 'px' }
       });
+      if (el.animation) box.dataset.animation = el.animation;
       if (el.type === 'text') {
         const content = h('div', {
           class: 'el-content',
@@ -261,6 +266,8 @@
   }
 
   function renderAll() {
+    if (transitionSelect) transitionSelect.value = slide().transition || '';
+    if (animationSelect) animationSelect.value = selected()?.animation || '';
     renderStage();
     renderThumbs();
   }
@@ -269,12 +276,14 @@
     commitTextEdit();
     idx = Math.max(0, Math.min(slides.length - 1, i));
     selId = null;
+    if (transitionSelect) transitionSelect.value = slide().transition || '';
     renderAll();
   }
 
   function selectEl(id) {
     selId = id;
     stage.querySelectorAll('.el').forEach((box) => box.classList.toggle('selected', box.dataset.id === id));
+    if (animationSelect) animationSelect.value = selected()?.animation || '';
     syncToolbar();
   }
 
@@ -921,11 +930,30 @@
     let wasFullscreen = false;
     const overlay = h('div', { class: 'present', tabindex: '0', 'aria-label': 'Apresentação' });
 
+    let moveDirection = 0;
     function draw() {
       const node = renderSlide(slides[i], false);
       const k = Math.min(window.innerWidth / W, window.innerHeight / H);
       node.style.transform = `translate(-50%, -50%) scale(${k})`;
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches && slides[i].transition) {
+        const frames = {
+          fade: [{ opacity: 0 }, { opacity: 1 }],
+          push: [{ opacity: 0, transform: `translate(-50%, -50%) scale(${k}) translateX(${moveDirection < 0 ? '-8%' : '8%'})` }, { opacity: 1, transform: node.style.transform }],
+          wipe: [{ clipPath: moveDirection < 0 ? 'inset(0 0 0 100%)' : 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0 0 0)' }]
+        };
+        node.animate(frames[slides[i].transition], { duration: 420, easing: 'ease-out' });
+      }
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        node.querySelectorAll('.el[data-animation]').forEach((element, order) => {
+          const effect = element.dataset.animation;
+          const frames = effect === 'zoom'
+            ? [{ opacity: 0, transform: 'scale(.72)' }, { opacity: 1, transform: 'scale(1)' }]
+            : effect === 'fade' ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translateY(16px)' }, { opacity: 1, transform: 'translateY(0)' }];
+          element.animate(frames, { duration: 360, delay: order * 100, easing: 'ease-out' });
+        });
+      }
       overlay.replaceChildren(node, h('div', { class: 'present-count' }, `${i + 1} / ${slides.length}`));
+      moveDirection = 0;
     }
 
     function close() {
@@ -940,6 +968,7 @@
     function step(delta) {
       const next = i + delta;
       if (next >= slides.length) return close();
+      moveDirection = delta;
       i = Math.max(0, next);
       draw();
     }
@@ -970,6 +999,20 @@
   // ---------- Construção da interface ----------
 
   function buildRibbon() {
+    animationSelect = h('select', { class: 'tool-select', title: 'Animação do elemento selecionado', 'aria-label': 'Animação do elemento' },
+      h('option', { value: '' }, 'Sem animação'),
+      h('option', { value: 'appear' }, 'Aparecer'),
+      h('option', { value: 'fade' }, 'Desvanecer'),
+      h('option', { value: 'zoom' }, 'Ampliar')
+    );
+    animationSelect.addEventListener('change', () => withSelected((el) => { if (animationSelect.value) el.animation = animationSelect.value; else delete el.animation; }));
+    transitionSelect = h('select', { class: 'tool-select', title: 'Transição ao apresentar', 'aria-label': 'Transição do diapositivo' },
+      h('option', { value: '' }, 'Sem transição'),
+      h('option', { value: 'fade' }, 'Desvanecer'),
+      h('option', { value: 'push' }, 'Deslizar'),
+      h('option', { value: 'wipe' }, 'Revelar')
+    );
+    transitionSelect.addEventListener('change', () => change(() => { slide().transition = transitionSelect.value; }));
     sizeSelect = h(
       'select',
       { class: 'tool-select', title: 'Tamanho da letra', 'aria-label': 'Tamanho da letra' },
@@ -1115,6 +1158,8 @@
         {
           label: 'Apresentação',
           groups: [
+            { label: 'Transição', rows: [[transitionSelect]] },
+            { label: 'Animação do elemento', rows: [[animationSelect]] },
             {
               label: 'Iniciar apresentação',
               rows: [

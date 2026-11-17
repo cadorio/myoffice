@@ -60,7 +60,9 @@ O Assistente IA tem uma área própria, com conversa e atalhos para obter ajuda 
 
 - **Novo espaço de trabalho MyOffice** — identidade visual própria, navegação lateral, acesso direto às ferramentas, modelos editáveis e pesquisa de ficheiros recentes.
 - **Seis modelos prontos a usar** — relatório, ata de reunião, orçamento mensal com fórmulas, gestor de tarefas, apresentação de projeto e apresentação de aula.
-- **Gráficos em Folhas** — gráficos de colunas e linhas guardados no livro MyOffice, reabertos e atualizados a partir do intervalo original, com exportação SVG.
+- **Gráficos em Folhas** — gráficos de colunas e linhas guardados no livro MyOffice e exportados/importados em XLSX com referências aos dados; também podem ser exportados em SVG.
+- **Resumo dinâmico em Folhas** — agrupa as categorias selecionadas e calcula soma, contagem e média com fórmulas que acompanham os dados. O resumo nativo é editável; não é uma Tabela Dinâmica Excel.
+- **Transições e animações em Diapositivos** — desvanecer, deslizar e revelar entre diapositivos; efeitos básicos de entrada por elemento. São guardados em `.moslides` e exportados/importados em PPTX.
 - **Livros de várias folhas** — separadores editáveis e importação/exportação de várias folhas em XLSX; a grelha virtual suporta até 100 000 linhas e 256 colunas por folha.
 - **Análise estatística em Folhas** — fórmulas para mediana, moda, desvio padrão e variância, além de soma, média e contagem.
 - **Edição mais rápida de apresentações** — duplicar elementos com Ctrl+D e ajustar a posição com as setas; Shift+setas move em passos maiores.
@@ -121,8 +123,8 @@ O MyOffice importa e exporta `.docx`, `.xlsx` e `.pptx`. A conversão procura pr
 | Formato | Importação suportada | Limitações conhecidas |
 | --- | --- | --- |
 | DOCX | Títulos, parágrafos, alinhamento, formatação de caracteres, listas, tabelas, ligações, imagens, quebras de página, cabeçalho, rodapé e campos de página. | Cabeçalhos e rodapés simples; não preserva notas, comentários e revisões, colunas, caixas de texto e células unidas. |
-| XLSX | Até 100 folhas: valores, fórmulas, estilos básicos, alinhamento e formatos numéricos/moeda. | Limite atual de 100 000 linhas × 256 colunas por folha; gráficos guardados no formato `.mosheet` não são transferidos para XLSX; sem gráficos XLSX ou tabelas dinâmicas. Fórmulas entre folhas e funções não suportadas podem apresentar `#NOME?`. |
-| PPTX | Texto e posição das caixas, listas, imagens, retângulos, elipses, fundo e notas do orador na importação. | Não preserva animações, transições, gráficos, tabelas, SmartArt ou fundos com imagem; algumas informações de tema e notas não são exportadas. |
+| XLSX | Até 100 folhas: valores, fórmulas, estilos básicos, alinhamento, formatos numéricos/moeda e gráficos simples de colunas/linhas com uma série. | Limite atual de 100 000 linhas × 256 colunas por folha; tabelas dinâmicas Excel, gráficos avançados e opções de estilo não são preservados. Fórmulas entre folhas e funções não suportadas podem apresentar `#NOME?`. |
+| PPTX | Texto e posição das caixas, listas, imagens, retângulos, elipses, fundo, notas do orador, transições simples e efeitos de entrada básicos por objeto. | Animações complexas, gráficos, tabelas, SmartArt e fundos com imagem não são preservados; algumas informações de tema e notas não são exportadas. |
 
 Os ficheiros originais não são alterados durante a importação: o documento convertido é guardado no formato próprio do MyOffice. Os ficheiros exportados foram verificados com LibreOffice e com as bibliotecas python-docx, openpyxl e python-pptx; não foram validados no Microsoft Office.
 
@@ -187,9 +189,9 @@ O MyOffice foi concebido para manter o processamento dos documentos no computado
 
 O MyOffice ainda não oferece todas as funcionalidades das suites comerciais. Entre as funcionalidades que não estão implementadas encontram-se:
 
-- Gráficos incorporados, tabelas dinâmicas e filtros persistentes nas folhas.
+- Tabelas dinâmicas compatíveis com Excel; o resumo dinâmico MyOffice é uma alternativa baseada em fórmulas.
 - Revisão de alterações e comentários.
-- Animações e vista do apresentador avançada.
+- Animações complexas por objeto e vista do apresentador avançada.
 - Coautoria em tempo real e armazenamento na nuvem.
 - Correio eletrónico e calendário.
 

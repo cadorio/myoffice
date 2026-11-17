@@ -80,7 +80,7 @@
   }
 
   function mutate(fn) {
-    undoStack.push(JSON.stringify(cells));
+    undoStack.push(JSON.stringify({ cells, pivots: sheetList[activeSheet]?.pivots || [] }));
     if (undoStack.length > MAX_UNDO) undoStack.shift();
     redoStack = [];
     fn();
@@ -90,8 +90,10 @@
 
   function timeTravel(from, to) {
     if (!from.length) return;
-    to.push(JSON.stringify(cells));
-    cells = JSON.parse(from.pop());
+    to.push(JSON.stringify({ cells, pivots: sheetList[activeSheet]?.pivots || [] }));
+    const state = JSON.parse(from.pop());
+    cells = state.cells || state;
+    if (state.cells && sheetList[activeSheet]) sheetList[activeSheet].pivots = state.pivots || [];
     refresh();
     ctx.dirty();
   }
@@ -146,6 +148,7 @@
   }
 
   function refresh() {
+    rebuildPivotTables();
     values = F.compute(cells, ROWS, COLS);
     cellsByRow = new Map();
     for (const a of Object.keys(cells)) {
@@ -160,6 +163,60 @@
     renderWindow();
     painted = new Set(Object.keys(cells));
     paintSelection(false);
+  }
+
+  function rebuildPivotTables() {
+    const configs = sheetList[activeSheet]?.pivots || [];
+    if (!configs.length) return;
+    const sourceValues = F.compute(cells, ROWS, COLS);
+    for (const pivot of configs) {
+      const { r0, r1, c0, c1 } = pivot.range;
+      const categories = new Map();
+      for (let r = r0 + 1; r <= r1; r++) {
+        const value = sourceValues.get(F.addr(r, c0));
+        if (value == null || value === '' || value instanceof F.FError) continue;
+        const key = `${typeof value}:${String(value)}`;
+        if (!categories.has(key)) categories.set(key, value);
+      }
+      for (let r = 0; r < (pivot.rows || 0); r++) for (let c = 0; c < 4; c++) delete cells[F.addr(pivot.outRow + r, pivot.outCol + c)];
+      const headers = ['Categoria', 'Soma', 'Contagem', 'Média'];
+      headers.forEach((label, c) => { const a = F.addr(pivot.outRow, pivot.outCol + c); cells[a] = { v: label, s: { b: 1, bg: '#dff3eb' } }; });
+      const categoryRange = `$${F.colName(c0)}$${r0 + 2}:$${F.colName(c0)}$${r1 + 1}`;
+      const valueRange = `$${F.colName(c1)}$${r0 + 2}:$${F.colName(c1)}$${r1 + 1}`;
+      let row = pivot.outRow + 1;
+      for (const value of categories.values()) {
+        const categoryCell = F.addr(row, pivot.outCol);
+        cells[categoryCell] = { v: typeof value === 'string' && /^[=+\-@']/.test(value) ? `'${value}` : String(value) };
+        cells[F.addr(row, pivot.outCol + 1)] = { v: `=SOMA.SE(${categoryRange};${categoryCell};${valueRange})` };
+        cells[F.addr(row, pivot.outCol + 2)] = { v: `=CONTAR.SE(${categoryRange};${categoryCell})` };
+        cells[F.addr(row, pivot.outCol + 3)] = { v: `=MÉDIA.SE(${categoryRange};${categoryCell};${valueRange})` };
+        row++;
+      }
+      pivot.rows = row - pivot.outRow;
+    }
+  }
+
+  function createPivotTable() {
+    if (editing) stopEdit(true);
+    const selectedRange = { ...range() };
+    if (selectedRange.r1 <= selectedRange.r0 || selectedRange.c1 <= selectedRange.c0) return MO.toast('Selecione cabeçalhos e pelo menos duas colunas: categoria e valores.');
+    const used = usedBounds();
+    const outCol = Math.max(selectedRange.c1, used.maxC) + 2;
+    if (outCol + 3 >= COLS) return MO.toast('Não há espaço à direita da folha para criar o resumo dinâmico.');
+    const sheet = sheetList[activeSheet];
+    sheet.pivots ||= [];
+    if (sheet.pivots.length >= 10) return MO.toast('Este livro já tem o limite de 10 tabelas dinâmicas por folha.');
+    const outRow = selectedRange.r0;
+    const intersects = sheet.pivots.some((p) => outCol <= p.outCol + 3 && outCol + 3 >= p.outCol && outRow <= p.outRow + p.rows && outRow + 500 >= p.outRow);
+    if (intersects) return MO.toast('O espaço de saída coincide com outra tabela dinâmica.');
+    undoStack.push(JSON.stringify({ cells, pivots: sheet.pivots }));
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    redoStack = [];
+    sheet.pivots.push({ range: selectedRange, outCol, outRow, rows: 0 });
+    rebuildPivotTables();
+    refresh();
+    ctx.dirty();
+    MO.toast('Resumo dinâmico criado. As fórmulas acompanham os dados; as categorias atualizam-se ao editar a origem.');
   }
 
   function visibleStart() {
@@ -858,7 +915,12 @@
         if (!r || !['bar', 'line'].includes(chart.type) || ![r.r0, r.r1, r.c0, r.c1].every(Number.isInteger) || r.r0 < 0 || r.c0 < 0 || r.r1 >= ROWS || r.c1 >= COLS || r.r1 <= r.r0 || r.c1 <= r.c0) return [];
         return [{ name: String(chart.name || 'Gráfico').slice(0, 60), type: chart.type, range: { r0: r.r0, r1: r.r1, c0: r.c0, c1: r.c1 } }];
       });
-      return { name, cells: cleanCells(sheet && sheet.cells), charts };
+      const pivots = (Array.isArray(sheet && sheet.pivots) ? sheet.pivots : []).slice(0, 10).flatMap((pivot) => {
+        const r = pivot && pivot.range;
+        if (!r || ![r.r0, r.r1, r.c0, r.c1, pivot.outCol, pivot.outRow, pivot.rows].every(Number.isInteger) || r.r0 < 0 || r.c0 < 0 || r.r1 <= r.r0 || r.c1 <= r.c0 || r.r1 >= ROWS || r.c1 >= COLS || pivot.outCol < 0 || pivot.outCol + 3 >= COLS || pivot.outRow < 0 || pivot.outRow >= ROWS) return [];
+        return [{ range: { r0: r.r0, r1: r.r1, c0: r.c0, c1: r.c1 }, outCol: pivot.outCol, outRow: pivot.outRow, rows: Math.max(0, Math.min(ROWS - pivot.outRow, pivot.rows)) }];
+      });
+      return { name, cells: cleanCells(sheet && sheet.cells), charts, pivots };
     });
   }
 
@@ -1062,6 +1124,7 @@
                   bigButton('filter', 'Filtrar', 'Filtrar as linhas da seleção pela coluna ativa', filterSelection),
                   bigButton('filter', 'Limpar filtro', 'Mostrar novamente todas as linhas', clearFilter),
                   bigButton('chart', 'Gráfico', 'Criar gráfico a partir da seleção', openChart),
+                  bigButton('chart', 'Tabela dinâmica', 'Agrupar categorias e resumir valores com fórmulas atualizadas', createPivotTable),
                   bigButton('sparkle', 'Analisar com IA', 'Calcular estatísticas e verificar células vazias com o motor próprio do MyOffice', aiAnalyseSelection)
                 ]
               ]
@@ -1211,7 +1274,7 @@
       if (clipped) MO.toast(`Algumas células ultrapassam o limite atual de ${ROWS} linhas × ${COLS} colunas e não foram importadas.`);
       if (nextSheets && nextSheets.length) {
         sheetList = nextSheets; activeSheet = nextActive; cells = sheetList[activeSheet].cells; showSheetTabs();
-      } else { cells = next; sheetList = [{ name: 'Folha1', cells, charts: [] }]; activeSheet = 0; showSheetTabs(); }
+      } else { cells = next; sheetList = [{ name: 'Folha1', cells, charts: [], pivots: [] }]; activeSheet = 0; showSheetTabs(); }
       refresh();
     },
 
@@ -1224,7 +1287,7 @@
         get: () => {
           if (editing) stopEdit(true);
           sheetList[activeSheet].cells = cells;
-          return MO.OOXML.exportXlsx(sheetList.map((sheet) => ({ name: sheet.name, cells: sheet.cells, values: F.compute(sheet.cells, ROWS, COLS) })));
+          return MO.OOXML.exportXlsx(sheetList.map((sheet) => ({ name: sheet.name, cells: sheet.cells, charts: sheet.charts, values: F.compute(sheet.cells, ROWS, COLS) })));
         }
       },
       { label: 'Valores separados por ; (.csv)', ext: 'csv', filterName: 'CSV', mime: 'text/csv', get: toCSV }

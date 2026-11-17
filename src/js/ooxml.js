@@ -556,7 +556,35 @@
         if (style && Object.keys(style).length) cell.s = { ...style };
         if (cell.v !== '' || cell.s) cells[F.addr(pos.r, pos.c)] = cell;
       }
-      importedSheets.push({ name: attr(sheetEl, 'name') || `Folha${index + 1}`, cells });
+      const name = attr(sheetEl, 'name') || `Folha${index + 1}`;
+      const charts = [];
+      const sheetRels = relsOf(files, sheetRel ? sheetRel.path : `xl/worksheets/sheet${index + 1}.xml`);
+      for (const drawingRef of all(sheet, 'drawing')) {
+        const drawingRel = sheetRels[relAttr(drawingRef)];
+        const drawing = drawingRel && parseXML(files, drawingRel.path);
+        if (!drawing) continue;
+        const chartRels = relsOf(files, drawingRel.path);
+        for (const chartRef of all(drawing, 'chart')) {
+          const chartRel = chartRels[relAttr(chartRef)];
+          const chartDoc = chartRel && parseXML(files, chartRel.path);
+          if (!chartDoc) continue;
+          const chartType = first(chartDoc, 'lineChart') ? 'line' : first(chartDoc, 'barChart') ? 'bar' : null;
+          const series = first(chartDoc, 'ser');
+          const catFormula = first(first(series, 'cat'), 'f')?.textContent || '';
+          const valFormula = first(first(series, 'val'), 'f')?.textContent || '';
+          const parseChartRange = (formula) => {
+            const ref = formula.split('!').pop().replace(/\$/g, '');
+            const parts = ref.split(':');
+            return parts.length === 2 ? [F.parseAddr(parts[0]), F.parseAddr(parts[1])] : null;
+          };
+          const cat = parseChartRange(catFormula);
+          const val = parseChartRange(valFormula);
+          if (!chartType || !cat || !val || !cat[0] || !cat[1] || !val[0] || !val[1]) continue;
+          if (cat[0].r !== val[0].r || cat[1].r !== val[1].r || cat[0].r < 1 || cat[0].c + 1 !== val[0].c || cat[0].c !== cat[1].c || val[0].c !== val[1].c) continue;
+          charts.push({ name: `Gráfico ${charts.length + 1}`, type: chartType, range: { r0: cat[0].r - 1, r1: cat[1].r, c0: cat[0].c, c1: val[1].c } });
+        }
+      }
+      importedSheets.push({ name, cells, charts });
     }
     return { sheets: importedSheets, clipped };
   }
@@ -585,9 +613,14 @@
     }
 
     const sheetFiles = {};
+    const chartFiles = {};
+    const drawingFiles = {};
     const sheetParts = [];
     const sheetRels = [];
     const sheetOverrides = [];
+    let chartCount = 0;
+    const chartOverrides = [];
+    const drawingOverrides = [];
     for (const [i, sheet] of sheets.entries()) {
       const byRow = new Map();
       for (const [a, cell] of Object.entries(sheet.cells || {})) {
@@ -614,8 +647,42 @@
         }
         rowsXML += `<row r="${r + 1}">${row}</row>`;
       }
-      sheetFiles[`xl/worksheets/sheet${i + 1}.xml`] = XML_HEAD + `<worksheet ${NS}><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="256" width="14" customWidth="1"/></cols><sheetData>${rowsXML}</sheetData></worksheet>`;
       const safeName = String(sheet.name || `Folha${i + 1}`).replace(/[\\/*?:\[\]]/g, '').slice(0, 31) || `Folha${i + 1}`;
+      const charts = Array.isArray(sheet.charts) ? sheet.charts.slice(0, 50) : [];
+      let drawingTag = '';
+      if (charts.length) {
+        const drawingName = `drawing${i + 1}`;
+        const drawingRels = [];
+        const frames = [];
+        for (const chart of charts) {
+          const range = chart && chart.range;
+          if (!range || !['bar', 'line'].includes(chart.type) || ![range.r0, range.r1, range.c0, range.c1].every(Number.isInteger) || range.r0 < 0 || range.r1 <= range.r0 || range.c0 < 0 || range.c1 <= range.c0) continue;
+          chartCount++;
+          const chartName = `chart${chartCount}`;
+          const chartRelId = `rId${drawingRels.length + 1}`;
+          drawingRels.push(`<Relationship Id="${chartRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/${chartName}.xml"/>`);
+          const col0 = range.c0, col1 = Math.min(255, range.c0 + 8);
+          const row0 = range.r0 + frames.length * 16, row1 = row0 + 14;
+          const seriesName = String(sheet.cells?.[F.addr(range.r0, range.c1)]?.v || 'Valores');
+          const catRef = `'${safeName.replace(/'/g, "''")}'!$${F.colName(range.c0)}$${range.r0 + 2}:$${F.colName(range.c0)}$${range.r1 + 1}`;
+          const valRef = `'${safeName.replace(/'/g, "''")}'!$${F.colName(range.c1)}$${range.r0 + 2}:$${F.colName(range.c1)}$${range.r1 + 1}`;
+          const ax1 = chartCount * 10 + 1, ax2 = chartCount * 10 + 2;
+          const plot = chart.type === 'line'
+            ? `<c:lineChart><c:grouping val="standard"/><c:ser><c:idx val="0"/><c:order val="0"/><c:tx><c:v>${esc(seriesName)}</c:v></c:tx><c:cat><c:strRef><c:f>${esc(catRef)}</c:f></c:strRef></c:cat><c:val><c:numRef><c:f>${esc(valRef)}</c:f></c:numRef></c:val></c:ser><c:marker val="1"/><c:smooth val="0"/><c:axId val="${ax1}"/><c:axId val="${ax2}"/></c:lineChart>`
+            : `<c:barChart><c:barDir val="col"/><c:grouping val="clustered"/><c:ser><c:idx val="0"/><c:order val="0"/><c:tx><c:v>${esc(seriesName)}</c:v></c:tx><c:cat><c:strRef><c:f>${esc(catRef)}</c:f></c:strRef></c:cat><c:val><c:numRef><c:f>${esc(valRef)}</c:f></c:numRef></c:val></c:ser><c:gapWidth val="150"/><c:axId val="${ax1}"/><c:axId val="${ax2}"/></c:barChart>`;
+          chartFiles[`xl/charts/${chartName}.xml`] = XML_HEAD + `<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><c:lang val="pt-PT"/><c:chart><c:plotArea><c:layout/>${plot}<c:catAx><c:axId val="${ax1}"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:axPos val="b"/><c:tickLblPos val="nextTo"/><c:crossAx val="${ax2}"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/></c:catAx><c:valAx><c:axId val="${ax2}"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:axPos val="l"/><c:majorGridlines/><c:numFmt formatCode="General" sourceLinked="1"/><c:tickLblPos val="nextTo"/><c:crossAx val="${ax1}"/><c:crosses val="autoZero"/><c:crossBetween val="between"/></c:valAx></c:plotArea><c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/></c:chart></c:chartSpace>`;
+          chartOverrides.push(`<Override PartName="/xl/charts/${chartName}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`);
+          frames.push(`<xdr:twoCellAnchor><xdr:from><xdr:col>${col0}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${row0}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:to><xdr:col>${col1}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${row1}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to><xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="${chartCount}" name="${esc(chart.name || `Gráfico ${chartCount}`)}"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="${chartRelId}"/></a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor>`);
+        }
+        if (frames.length) {
+          drawingTag = '<drawing r:id="rId1"/>';
+          drawingFiles[`xl/drawings/${drawingName}.xml`] = XML_HEAD + `<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${frames.join('')}</xdr:wsDr>`;
+          drawingOverrides.push(`<Override PartName="/xl/drawings/${drawingName}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`);
+          drawingFiles[`xl/drawings/_rels/${drawingName}.xml.rels`] = XML_HEAD + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${drawingRels.join('')}</Relationships>`;
+          sheetFiles[`xl/worksheets/_rels/sheet${i + 1}.xml.rels`] = XML_HEAD + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/${drawingName}.xml"/></Relationships>`;
+        }
+      }
+      sheetFiles[`xl/worksheets/sheet${i + 1}.xml`] = XML_HEAD + `<worksheet ${NS} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="256" width="14" customWidth="1"/></cols><sheetData>${rowsXML}</sheetData>${drawingTag}</worksheet>`;
       sheetParts.push(`<sheet name="${esc(safeName)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`);
       sheetRels.push(`<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`);
       sheetOverrides.push(`<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`);
@@ -627,6 +694,8 @@
         '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>' +
         '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
         sheetOverrides.join('') +
+        chartOverrides.join('') +
+        drawingOverrides.join('') +
         '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>',
       '_rels/.rels':
         XML_HEAD +
@@ -644,7 +713,9 @@
         '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
         '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
         `<cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`,
-      ...sheetFiles
+      ...sheetFiles,
+      ...drawingFiles,
+      ...chartFiles
     });
   }
 
@@ -760,7 +831,7 @@
             const blipRel = rels[attr(first(node, 'blip'), 'embed')];
             const src = blipRel && imageDataURL(files, blipRel.path);
             const box = boxOf(first(kid(node, 'spPr'), 'xfrm'));
-            if (src && box) els.push({ type: 'image', src, ...box });
+            if (src && box) els.push({ type: 'image', src, pptId: attr(first(kid(node, 'nvPicPr'), 'cNvPr'), 'id'), ...box });
           } else if (node.localName === 'sp') {
             const ph = first(kid(node, 'nvSpPr'), 'ph');
             const type = ph ? attr(ph, 'type') || 'body' : null;
@@ -774,11 +845,11 @@
             if (!box) continue;
             const fill = solid(spPr);
             const geometry = attr(kid(spPr, 'prstGeom'), 'prst');
-            if (fill && !ph) els.push({ type: geometry === 'ellipse' ? 'ellipse' : 'rect', fill, ...box });
+            if (fill && !ph) els.push({ type: geometry === 'ellipse' ? 'ellipse' : 'rect', fill, pptId: attr(first(kid(node, 'nvSpPr'), 'cNvPr'), 'id'), ...box });
             const isTitle = type === 'title' || type === 'ctrTitle';
             const text = paragraphs(kid(node, 'txBody'), { fs: preset ? preset.fs : 24, list: type === 'body', bold: isTitle });
             if (!text) continue;
-            const el = { type: 'text', ...box, html: text.html, fs: text.fs, color: text.color || (isTitle ? '#1c2130' : '#3b4252'), align: text.align || (type === 'ctrTitle' || type === 'subTitle' ? 'center' : 'left') };
+            const el = { type: 'text', pptId: attr(first(kid(node, 'nvSpPr'), 'cNvPr'), 'id'), ...box, html: text.html, fs: text.fs, color: text.color || (isTitle ? '#1c2130' : '#3b4252'), align: text.align || (type === 'ctrTitle' || type === 'subTitle' ? 'center' : 'left') };
             if (isTitle) Object.assign(el, { bold: true, role: 'title' });
             else if (ph) el.role = 'body';
             if (text.italic) el.italic = true;
@@ -788,7 +859,15 @@
       };
       visit(first(doc, 'spTree'));
 
-      const slide = { bg: solid(first(kid(first(doc, 'cSld'), 'bg'), 'bgPr')) || '#ffffff', els, notes: '' };
+      for (const effect of all(doc, 'animEffect')) {
+        const targetId = attr(first(effect, 'spTgt'), 'spid');
+        const target = els.find((el) => el.pptId === targetId);
+        if (target) target.animation = (attr(effect, 'filter') || '').startsWith('zoom') ? 'zoom' : 'fade';
+      }
+
+      const transition = first(doc, 'transition');
+      const transitionKind = transition && kids(transition).find((node) => ['fade', 'push', 'wipe'].includes(node.localName));
+      const slide = { bg: solid(first(kid(first(doc, 'cSld'), 'bg'), 'bgPr')) || '#ffffff', els, notes: '', transition: transitionKind ? transitionKind.localName : '' };
       const notesRel = Object.values(rels).find((r) => r.type === 'notesSlide');
       const notes = notesRel && parseXML(files, notesRel.path);
       for (const sp of all(notes, 'sp')) {
@@ -882,9 +961,11 @@
       const n = index + 1;
       const rels = [`<Relationship Id="rId1" Type="${REL}slideLayout" Target="../slideLayouts/slideLayout1.xml"/>`];
       let shapes = '';
+      const animationNodes = [];
       let id = 1;
       for (const el of slide.els) {
         id++;
+        const shapeId = id;
         if (el.type === 'text') {
           shapes += `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Texto ${id}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr>${xfrm(el)}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>${textBody(el, slide)}</p:sp>`;
         } else if (el.type === 'image') {
@@ -898,11 +979,17 @@
         } else {
           shapes += `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Forma ${id}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr>${xfrm(el)}<a:prstGeom prst="${el.type === 'ellipse' ? 'ellipse' : 'rect'}"><a:avLst/></a:prstGeom>${fill(el.fill)}<a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang="pt-PT"/></a:p></p:txBody></p:sp>`;
         }
+        if (['fade', 'zoom', 'appear'].includes(el.animation)) {
+          const seq = animationNodes.length;
+          const effect = el.animation === 'zoom' ? 'zoom' : 'fade';
+          animationNodes.push(`<p:par><p:cTn id="${100 + seq * 2}" fill="hold"><p:stCondLst><p:cond delay="${seq * 120}"/></p:stCondLst><p:childTnLst><p:animEffect transition="in" filter="${effect}"><p:cBhvr><p:cTn id="${101 + seq * 2}" dur="450" fill="hold"/><p:tgtEl><p:spTgt spid="${shapeId}"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr></p:animEffect></p:childTnLst></p:cTn></p:par>`);
+        }
       }
+      const timing = animationNodes.length ? `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst><p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst>${animationNodes.join('')}</p:childTnLst></p:cTn></p:seq></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>` : '';
       parts[`ppt/slides/slide${n}.xml`] =
         XML_HEAD +
         `<p:sld ${A} ${R} ${P}><p:cSld><p:bg><p:bgPr>${fill(slide.bg)}<a:effectLst/></p:bgPr></p:bg><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>` +
-        `<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>${shapes}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
+        `<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>${shapes}</p:spTree></p:cSld>${['fade', 'push', 'wipe'].includes(slide.transition) ? `<p:transition spd="med" advClick="1"><p:${slide.transition}${slide.transition === 'push' || slide.transition === 'wipe' ? ' dir="l"' : ''}/></p:transition>` : ''}${timing}<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
       parts[`ppt/slides/_rels/slide${n}.xml.rels`] = XML_HEAD + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels.join('')}</Relationships>`;
     });
 
