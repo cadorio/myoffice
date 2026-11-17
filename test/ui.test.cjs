@@ -934,6 +934,77 @@ const cellText = (page, a) =>
     assert.doesNotMatch(html, /«/);
   });
 
+  await test('Bases de dados: perguntas em português geram a consulta certa', page, async () => {
+    await page.click('#rail [data-view="db"]');
+    await page.evaluate(() => MO.modules.db.newDoc('encomendas'));
+    const ask = async (q) => page.evaluate((t) => { const r = MO.modules.db._debug.nl(t); return { ...r, rows: MO.modules.db._debug.sql(r.sql) }; }, q);
+    let r = await ask('clientes de Lisboa');
+    assert.deepEqual(r.rows.map((x) => x.Nome), ['Ana Sousa']);
+    r = await ask('quantos clientes ativos');
+    assert.equal(r.rows[0].Quantidade, 2);
+    r = await ask('encomendas da Ana Sousa');
+    assert.equal(r.rows.length, 2);
+    assert.equal(r.rows[0].Cliente, 'Ana Sousa', 'mostra o nome em vez do número da ligação');
+    r = await ask('total de encomendas por cliente');
+    assert.deepEqual(r.rows.map((x) => [x.Cliente, x.Quantidade]), [['Ana Sousa', 2], ['Rui Pinto', 1]]);
+    r = await ask('os 2 produtos mais caros');
+    assert.deepEqual(r.rows.map((x) => x.Produto), ['Secretária', 'Monitor 27"']);
+    r = await ask('produtos com preço acima de 200');
+    assert.equal(r.rows.length, 2);
+    r = await ask('encomendas enviadas');
+    assert.deepEqual(r.rows.map((x) => x.Estado), ['Enviada']);
+    // Pela caixa "Perguntar"
+    await page.click('#view-db .ribbon-tab:has-text("Criar")');
+    await page.click('#view-db .db-mode[data-mode="query"]');
+    await page.fill('.db-ask-input', 'produtos por categoria');
+    await page.click('.db-ask button:has-text("Perguntar")');
+    assert.match(await page.textContent('.db-ask-explain'), /agrupado por Categoria/);
+    assert.equal(await page.locator('.db-results tbody tr').count(), 3);
+  });
+
+  await test('Bases de dados: regras, integridade, subformulário, relações e relatório com totais', page, async () => {
+    const sql = (s) => page.evaluate((q) => MO.modules.db._debug.sql(q), s);
+    await page.click('#view-db .ribbon-tab:has-text("Base")');
+    await page.click('.db-nav-item:has-text("Clientes")');
+    // Regra: Email único e Nome obrigatório
+    await page.click('#view-db .db-mode[data-mode="design"]');
+    await page.check('.db-design-table input[aria-label="Email único"]');
+    await page.check('.db-design-table input[aria-label="Nome obrigatório"]');
+    await page.click('#view-db .db-mode[data-mode="sheet"]');
+    const email = page.locator('.db-grid tbody tr[data-id="2"] td.db-text input').nth(1);
+    await email.fill('ana@exemplo.pt');
+    await email.press('Enter');
+    assert.match(await page.textContent('#toast'), /não pode repetir/);
+    assert.equal((await sql('SELECT "Email" FROM "Clientes" WHERE rowid = 2'))[0].Email, 'rui@exemplo.pt');
+    // Integridade: não deixa eliminar um cliente com encomendas
+    page.removeAllListeners('dialog');
+    page.on('dialog', (d) => d.accept());
+    await page.click('.db-grid tbody tr[data-id="1"] .db-row-del');
+    assert.match(await page.textContent('#toast'), /ligado a 2 registo\(s\) de Encomendas/);
+    assert.equal((await sql('SELECT COUNT(*) AS n FROM "Clientes"'))[0].n, 3);
+    // Subformulário no formulário do cliente
+    await page.click('#view-db .db-mode[data-mode="form"]');
+    assert.match(await page.textContent('.db-subform h3'), /Encomendas/);
+    assert.equal(await page.locator('.db-subform tbody tr:not(.db-newrow)').count(), 2);
+    await page.click('.db-subform .db-newrow button');
+    assert.equal((await sql('SELECT COUNT(*) AS n FROM "Encomendas" WHERE "Cliente" = 1'))[0].n, 3);
+    // Personalizar: esconder o Telefone
+    await page.click('.db-form-nav button:has-text("Personalizar")');
+    await page.click('button[aria-label="Esconder Telefone"]');
+    await page.click('.db-form-nav button:has-text("Concluir")');
+    assert.doesNotMatch(await page.textContent('.db-form-card'), /Telefone/);
+    // Relações
+    await page.click('#view-db .db-mode[data-mode="rel"]');
+    assert.equal(await page.locator('.db-rel-table').count(), 3);
+    assert.match(await page.textContent('.db-relations .db-hint'), /2 ligação/);
+    // Relatório de Produtos agrupado por Categoria, com totais de Preço
+    await page.click('.db-nav-item:has-text("Produtos")');
+    const html = await page.evaluate(() => { MO.modules.db._debug.setReport({ group: 'Categoria', totals: ['Preço'] }); return MO.modules.db._debug.reportHTML(); });
+    assert.match(html, /Categoria: Mobiliário/);
+    assert.match(html, /Subtotal[\s\S]*438,90/);
+    assert.match(html, /Total geral: Preço 673,15/);
+  });
+
   await test('Sem erros na consola da página', page, async () => {
     assert.deepEqual(errors, []);
   });
