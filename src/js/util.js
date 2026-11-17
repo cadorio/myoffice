@@ -11,7 +11,7 @@
       for (const [k, v] of Object.entries(attrs)) {
         if (v == null || v === false) continue;
         if (k === 'class') el.className = v;
-        else if (k === 'style') Object.assign(el.style, v);
+        else if (k === 'style') { if (typeof v === 'string') el.style.cssText = v; else Object.assign(el.style, v); }
         else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
         else el.setAttribute(k, v === true ? '' : v);
       }
@@ -237,6 +237,14 @@
   // ---------- Ícones (SVG de traço, desenhados para esta aplicação) ----------
 
   const ICONS = {
+    cursor: 'M6 3l12 9-5.5 1.2L16 20l-2.6 1.2-2.6-6.6L6 18z',
+    highlight: 'M4 20h16M7 16l2-6 7-7 3 3-7 7-6 2zM14 5l3 3',
+    pen: 'M4 20c3-1 4-4 7-4s3 3 6 3 3-2 3-2M14 4l4 4-7 7-4 1 1-4z',
+    sign: 'M3 17c2-4 4-9 6-9s-1 9 1 9 3-5 5-5 1 4 3 4 2-2 3-2M3 21h18',
+    whiteout: 'M4 6h16v12H4zM8 10h8M8 14h5',
+    rotateLeft: 'M4 4v6h6M4.5 10A8 8 0 1 1 6 16.5',
+    rotateRight: 'M20 4v6h-6M19.5 10A8 8 0 1 0 18 16.5',
+    pageAdd: 'M6 3h8l4 4v14H6zM14 3v4h4M12 11v6M9 14h6',
     undo: 'M8 6 3 11l5 5M3 11h11a5.5 5.5 0 0 1 0 11h-3',
     redo: 'M16 6l5 5-5 5M21 11H10a5.5 5.5 0 0 0 0 11h3',
     alignLeft: 'M4 6h16M4 10h10M4 14h16M4 18h10',

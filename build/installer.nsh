@@ -20,6 +20,7 @@
   !insertmacro moShortcut "MyOffice Folhas" "--sheets" "pt.myoffice.sheets" "Folhas de cálculo, fórmulas e gráficos"
   !insertmacro moShortcut "MyOffice Diapositivos" "--slides" "pt.myoffice.slides" "Criar e apresentar diapositivos"
   !insertmacro moShortcut "MyOffice Desenho" "--draw" "pt.myoffice.draw" "Fluxogramas, mapas mentais e organogramas"
+  !insertmacro moShortcut "MyOffice PDF" "--pdf" "pt.myoffice.pdf" "Ler, anotar, assinar e organizar PDF"
   !insertmacro moShortcut "MyOffice Assistente" "--assistant" "pt.myoffice.assistant" "Ajuda, fórmulas e rascunhos sem Internet"
 !macroend
 
@@ -29,6 +30,7 @@
   !insertmacro moRemoveShortcut "MyOffice Folhas" "pt.myoffice.sheets"
   !insertmacro moRemoveShortcut "MyOffice Diapositivos" "pt.myoffice.slides"
   !insertmacro moRemoveShortcut "MyOffice Desenho" "pt.myoffice.draw"
+  !insertmacro moRemoveShortcut "MyOffice PDF" "pt.myoffice.pdf"
   !insertmacro moRemoveShortcut "MyOffice Assistente" "pt.myoffice.assistant"
   WinShell::UninstAppUserModelId "pt.myoffice.home"
   RMDir "$SMPROGRAMS\MyOffice"

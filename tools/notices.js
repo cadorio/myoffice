@@ -20,6 +20,8 @@ const components = [
     license: read('node_modules/electron/LICENSE'),
     note: 'Inclui o Chromium e o Node.js; os avisos de licença completos desses projetos estão no ficheiro LICENSES.chromium.html, na pasta de instalação.'
   },
+  { name: 'pdf.js', version: version('pdfjs-dist'), url: 'https://github.com/mozilla/pdf.js', license: read('node_modules/pdfjs-dist/LICENSE'), note: 'Leitura e desenho de ficheiros PDF no programa PDF.' },
+  { name: 'pdf-lib', version: version('pdf-lib'), url: 'https://github.com/Hopding/pdf-lib', license: read('node_modules/pdf-lib/LICENSE.md'), note: 'Gravação de ficheiros PDF com anotações, assinaturas e páginas reorganizadas.' },
   { name: 'fflate', version: version('fflate'), url: 'https://github.com/101arrowz/fflate', license: read('node_modules/fflate/LICENSE'), note: 'Compressão ZIP, usada para ler e escrever ficheiros .docx, .xlsx e .pptx.' }
 ];
 
