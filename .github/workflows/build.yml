@@ -63,14 +63,20 @@ jobs:
           done
           echo "Não foi possível atualizar as capturas após 5 tentativas."
           exit 1
-      # A assinatura Windows é opcional e requer WIN_CSC_LINK e WIN_CSC_KEY_PASSWORD.
+      # A assinatura Windows é opcional e usa um PFX armazenado como segredo.
       - name: Preparar assinatura
         shell: bash
         env:
+          WIN_CSC_BASE64: ${{ secrets.WIN_CSC_BASE64 }}
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: |
-          if [ -n "$WIN_CSC_LINK" ]; then
+          if [ -n "$WIN_CSC_BASE64" ]; then
+            cert_file="$RUNNER_TEMP/myoffice-codesign.pfx"
+            printf '%s' "$WIN_CSC_BASE64" | base64 --decode > "$cert_file"
+            echo "CSC_LINK=$cert_file" >> "$GITHUB_ENV"
+            echo "CSC_KEY_PASSWORD=$WIN_CSC_KEY_PASSWORD" >> "$GITHUB_ENV"
+          elif [ -n "$WIN_CSC_LINK" ]; then
             echo "CSC_LINK=$WIN_CSC_LINK" >> "$GITHUB_ENV"
             echo "CSC_KEY_PASSWORD=$WIN_CSC_KEY_PASSWORD" >> "$GITHUB_ENV"
           else

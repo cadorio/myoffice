@@ -7,7 +7,7 @@ O MyOffice reúne cinco áreas numa única aplicação: **Texto**, **Folhas**, *
 [Descarregar instalador Windows](https://github.com/cadorio/myoffice/releases/download/v1.5.0/MyOffice-Setup-1.5.0.exe) · [Consultar compilações](https://github.com/cadorio/myoffice/actions) · [Ver código-fonte](https://github.com/cadorio/myoffice) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
 > **Código fonte atual — MyOffice**
-> A versão 1.5.0 inclui o novo editor Desenho e as sugestões de design para diapositivos.
+> O código atual em `main` prepara a versão 1.6.0, com grelha virtual, livros com várias folhas, cabeçalhos/rodapés em Texto e paginação PDF/DOCX. O instalador disponível continua na versão 1.5.0 até a assinatura ser configurada.
 
 ## Capturas de ecrã
 
@@ -61,6 +61,7 @@ O Assistente IA tem uma área própria, com conversa e atalhos para obter ajuda 
 - **Novo espaço de trabalho MyOffice** — identidade visual própria, navegação lateral, acesso direto às ferramentas, modelos editáveis e pesquisa de ficheiros recentes.
 - **Seis modelos prontos a usar** — relatório, ata de reunião, orçamento mensal com fórmulas, gestor de tarefas, apresentação de projeto e apresentação de aula.
 - **Gráficos em Folhas** — pré-visualização de gráficos de colunas e linhas a partir de dados selecionados, com exportação SVG.
+- **Livros de várias folhas** — separadores editáveis e importação/exportação de várias folhas em XLSX; a grelha virtual suporta até 100 000 linhas e 256 colunas por folha.
 - **Análise estatística em Folhas** — fórmulas para mediana, moda, desvio padrão e variância, além de soma, média e contagem.
 - **Edição mais rápida de apresentações** — duplicar elementos com Ctrl+D e ajustar a posição com as setas; Shift+setas move em passos maiores.
 - **Ideias de design em Diapositivos** — pré-visualiza composições de título, colunas e cartões com o conteúdo e o tema atuais; aplica a proposta com anulação disponível. As imagens e formas existentes são preservadas.
@@ -71,6 +72,8 @@ O Assistente IA tem uma área própria, com conversa e atalhos para obter ajuda 
 - **Filtros rápidos em Folhas** — mostrar apenas as linhas que correspondem a um texto na coluna ativa; a ordenação ascendente e descendente também está disponível.
 - **Quatro módulos integrados** — alternar entre documentos, folhas de cálculo, apresentações e desenhos.
 - **Abertura de ficheiros Office** — importar DOCX, XLSX e PPTX e exportar para esses formatos.
+- **PDF num clique** — exporta Texto, Folhas e Diapositivos para PDF a partir de Ficheiro ou com Ctrl+P.
+- **Cabeçalhos e rodapés em Texto** — texto repetido nas páginas, número da página e total de páginas na exportação PDF e DOCX.
 - **Abertura direta** — abrir ficheiros DOCX e PPTX com o MyOffice através do sistema operativo; no Windows, existem também atalhos para iniciar diretamente Texto, Folhas ou Diapositivos.
 - **Temas e personalização** — 13 temas partilhados, variantes de cor para apresentações e modo claro/escuro.
 - **Recuperação automática** — rascunhos de documentos alterados são guardados periodicamente para permitir recuperação após uma falha.
@@ -96,11 +99,11 @@ O MyOffice é distribuído oficialmente para computadores Windows de 64 bits. O 
 
 **[Descarregar MyOffice 1.5.0 para Windows x64](https://github.com/cadorio/myoffice/releases/download/v1.5.0/MyOffice-Setup-1.5.0.exe)**
 
-O instalador inclui o editor Desenho, além das melhorias nas sugestões de design para diapositivos.
+O instalador atual inclui o editor Desenho e as sugestões de design para diapositivos. As melhorias 1.6.0 descritas neste README estão no código fonte; o novo instalador será publicado depois de ser configurado um certificado.
 
-> **Aviso de assinatura:** os instaladores atuais não estão assinados digitalmente. O Windows SmartScreen pode apresentar avisos na primeira execução. A assinatura requer certificados próprios, configurados como segredos no GitHub Actions.
+> **Assinatura Windows:** o workflow já suporta certificados `.pfx`. Para ativar a assinatura, o proprietário deve adicionar os segredos `WIN_CSC_BASE64` e `WIN_CSC_KEY_PASSWORD` ao repositório. Consulte [as instruções de assinatura](docs/assinatura-windows.md). Sem um certificado válido configurado, os instaladores continuam sem assinatura e o SmartScreen pode mostrar um aviso.
 
-Depois da instalação, os formatos nativos `.modoc`, `.mosheet` e `.moslides` podem ser associados ao MyOffice. As versões futuras acrescentarão também a associação do novo formato `.modraw`.
+Depois da instalação, os formatos nativos `.modoc`, `.mosheet`, `.moslides` e `.modraw` podem ser associados ao MyOffice.
 
 ### Requisitos mínimos e desempenho
 
@@ -117,8 +120,8 @@ O MyOffice importa e exporta `.docx`, `.xlsx` e `.pptx`. A conversão procura pr
 
 | Formato | Importação suportada | Limitações conhecidas |
 | --- | --- | --- |
-| DOCX | Títulos, parágrafos, alinhamento, formatação de caracteres, listas, tabelas, ligações, imagens e quebras de página. | Não preserva cabeçalhos/rodapés, notas, comentários e revisões, colunas, caixas de texto e células unidas. |
-| XLSX | Primeira folha: valores, fórmulas, estilos básicos, alinhamento e formatos numéricos/moeda. | Uma folha por livro; limite de 100 linhas × 26 colunas; sem gráficos ou tabelas dinâmicas. Funções não suportadas podem apresentar `#NOME?`. |
+| DOCX | Títulos, parágrafos, alinhamento, formatação de caracteres, listas, tabelas, ligações, imagens, quebras de página, cabeçalho, rodapé e campos de página. | Cabeçalhos e rodapés simples; não preserva notas, comentários e revisões, colunas, caixas de texto e células unidas. |
+| XLSX | Até 100 folhas: valores, fórmulas, estilos básicos, alinhamento e formatos numéricos/moeda. | Limite atual de 100 000 linhas × 256 colunas por folha; sem gráficos ou tabelas dinâmicas. Fórmulas entre folhas e funções não suportadas podem apresentar `#NOME?`. |
 | PPTX | Texto e posição das caixas, listas, imagens, retângulos, elipses, fundo e notas do orador na importação. | Não preserva animações, transições, gráficos, tabelas, SmartArt ou fundos com imagem; algumas informações de tema e notas não são exportadas. |
 
 Os ficheiros originais não são alterados durante a importação: o documento convertido é guardado no formato próprio do MyOffice. Os ficheiros exportados foram verificados com LibreOffice e com as bibliotecas python-docx, openpyxl e python-pptx; não foram validados no Microsoft Office.
@@ -175,23 +178,21 @@ O MyOffice foi concebido para manter o processamento dos documentos no computado
 - O conteúdo importado é validado e limpo antes de ser apresentado.
 - A exportação CSV neutraliza conteúdos que poderiam ser interpretados como fórmulas por outras folhas de cálculo.
 
-**Limitações de segurança a considerar:** os instaladores ainda não têm assinatura digital e a verificação de integridade do pacote não está ativa. O motor inteligente não faz pedidos de rede nem transfere modelos.
+**Limitações de segurança a considerar:** a assinatura depende da configuração dos segredos com um certificado válido; sem eles, os instaladores não são assinados. A verificação de integridade do pacote não está ativa. O motor inteligente não faz pedidos de rede nem transfere modelos.
 
 ## Limitações atuais
 
 O MyOffice ainda não oferece todas as funcionalidades das suites comerciais. Entre as funcionalidades que não estão implementadas encontram-se:
 
-- Gráficos incorporados e guardados nas folhas de cálculo, tabelas dinâmicas e filtros persistentes.
-- Várias folhas por livro.
-- Cabeçalhos, rodapés e numeração de páginas.
+- Gráficos incorporados, tabelas dinâmicas e filtros persistentes nas folhas.
 - Revisão de alterações e comentários.
 - Animações e vista do apresentador avançada.
 - Coautoria em tempo real e armazenamento na nuvem.
 - Correio eletrónico e calendário.
 
-## Estado da versão 1.5.0
+## Estado da versão
 
-A versão publicada **1.5.0 — MyOffice Desenho** fica disponível em [Releases](https://github.com/cadorio/myoffice/releases/tag/v1.5.0). A versão 1.5.0 inclui MyOffice Desenho e as novas ideias de design para diapositivos.
+A versão publicada **1.5.0 — MyOffice Desenho** está disponível em [Releases](https://github.com/cadorio/myoffice/releases/tag/v1.5.0). O código em `main` prepara a versão 1.6.0, com melhorias de compatibilidade e paginação; a publicação do instalador assinado aguarda a configuração de um certificado nos segredos do GitHub.
 
 ## Desenvolvimento
 

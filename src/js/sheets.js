@@ -6,8 +6,10 @@
   const F = MO.Formula;
   const { h, toolButton, colorButton, iconButton, bigButton } = MO;
 
-  const ROWS = 100;
-  const COLS = 26;
+  // Limites práticos do editor. A grelha só cria no DOM as linhas visíveis.
+  const ROWS = 100000;
+  const COLS = 256;
+  const ROW_HEIGHT = 26;
   const MAX_UNDO = 100;
   const MAX_CELL_CHARS = 32767;
   const NUMBER_FORMATS = {
@@ -22,9 +24,14 @@
   let showStates = () => {};
   let cells = {}; // endereço -> { v: texto introduzido, s: { b, i, a, bg, c } }
   let values = new Map();
-  let tds = [];
+  let cellsByRow = new Map();
+  let tds = new Map();
   let colHeads = [];
-  let rowHeads = [];
+  let rowHeads = new Map();
+  let tbodyEl, topSpacer, bottomSpacer, sheetTabs;
+  let sheetList = [{ name: 'Folha1', cells: {} }];
+  let activeSheet = 0;
+  const filteredRows = new Set();
   let cur = { r: 0, c: 0 }; // célula ativa
   let end = { r: 0, c: 0 }; // canto oposto da seleção
   let editing = null; // { a, viaBar }
@@ -93,7 +100,7 @@
     const out = {};
     if (!input || typeof input !== 'object') return out;
     for (const [a, cell] of Object.entries(input)) {
-      const pos = /^[A-Z]{1,2}\d{1,4}$/.test(a) ? F.parseAddr(a) : null;
+      const pos = /^[A-Z]{1,3}\d{1,7}$/.test(a) ? F.parseAddr(a) : null;
       if (!pos || pos.r >= ROWS || pos.c >= COLS || !cell || typeof cell !== 'object') continue;
       const clean = { v: cell.v == null ? '' : String(cell.v).slice(0, MAX_CELL_CHARS) };
       if (cell.s && typeof cell.s === 'object') {
@@ -115,7 +122,9 @@
 
   function paintCell(a) {
     const pos = F.parseAddr(a);
-    const td = tds[pos.r][pos.c];
+    const row = tds.get(pos.r);
+    const td = row && row[pos.c];
+    if (!td) return;
     const cell = cells[a];
     const v = cell ? values.get(a) : null;
     const s = (cell && cell.s) || {};
@@ -138,35 +147,97 @@
 
   function refresh() {
     values = F.compute(cells, ROWS, COLS);
-    const next = new Set(Object.keys(cells));
-    for (const a of painted) if (!next.has(a)) paintCell(a);
-    for (const a of next) paintCell(a);
-    painted = next;
+    cellsByRow = new Map();
+    for (const a of Object.keys(cells)) {
+      const pos = F.parseAddr(a);
+      if (!pos || pos.r >= ROWS || pos.c >= COLS) continue;
+      if (!cellsByRow.has(pos.r)) cellsByRow.set(pos.r, []);
+      cellsByRow.get(pos.r).push(a);
+    }
+    const start = visibleStart();
+    const endRow = Math.min(ROWS, start + visibleCount());
+    for (const r of [...tds.keys()]) if (r < start || r >= endRow) tds.delete(r);
+    renderWindow();
+    painted = new Set(Object.keys(cells));
     paintSelection(false);
+  }
+
+  function visibleStart() {
+    return Math.max(0, Math.floor(Math.max(0, wrap.scrollTop - 26) / ROW_HEIGHT) - 2);
+  }
+
+  function visibleCount() {
+    return Math.ceil((wrap.clientHeight || 700) / ROW_HEIGHT) + 5;
+  }
+
+  function renderWindow() {
+    if (!tbodyEl || !wrap) return;
+    const start = visibleStart();
+    const count = visibleCount();
+    const endRow = Math.min(ROWS, start + count);
+    tds.clear(); rowHeads.clear();
+    const children = [];
+    topSpacer.firstChild.style.height = `${start * ROW_HEIGHT}px`;
+    children.push(topSpacer);
+    for (let r = start; r < endRow; r++) {
+      const th = h('th', { class: 'row-head', 'data-r': r }, r + 1);
+      rowHeads.set(r, th);
+      const tr = h('tr', { 'data-r': r }, th);
+      const rowTds = [];
+      for (let c = 0; c < COLS; c++) {
+        const td = h('td', { 'data-r': r, 'data-c': c });
+        rowTds.push(td); tr.append(td);
+      }
+      tds.set(r, rowTds);
+      children.push(tr);
+    }
+    bottomSpacer.firstChild.style.height = `${Math.max(0, ROWS - endRow) * ROW_HEIGHT}px`;
+    children.push(bottomSpacer);
+    tbodyEl.replaceChildren(...children);
+    // Pinta apenas células ocupadas dentro da janela atualmente visível.
+    for (let r = start; r < endRow; r++) for (const a of cellsByRow.get(r) || []) { drawn.delete(a); paintCell(a); }
+    for (const r of filteredRows) {
+      const row = tds.get(r);
+      if (row) row[0].parentElement.hidden = true;
+    }
   }
 
   function paintSelection(scroll) {
     for (const el of selPainted) el.classList.remove('sel', 'cur', 'hot');
     selPainted = [];
     const { r0, r1, c0, c1 } = range();
-    eachInRange((r, c) => {
-      tds[r][c].classList.add('sel');
-      selPainted.push(tds[r][c]);
-    });
+    const firstVisible = visibleStart();
+    const lastVisible = firstVisible + visibleCount();
+    for (let r = Math.max(r0, firstVisible); r <= Math.min(r1, lastVisible - 1); r++) {
+      for (let c = c0; c <= c1; c++) {
+        const td = tds.get(r)?.[c];
+        if (td) { td.classList.add('sel'); selPainted.push(td); }
+      }
+    }
     for (let c = c0; c <= c1; c++) {
       colHeads[c].classList.add('hot');
       selPainted.push(colHeads[c]);
     }
-    for (let r = r0; r <= r1; r++) {
-      rowHeads[r].classList.add('hot');
-      selPainted.push(rowHeads[r]);
+    for (let r = Math.max(r0, firstVisible); r <= Math.min(r1, lastVisible - 1); r++) {
+      const head = rowHeads.get(r);
+      if (head) { head.classList.add('hot'); selPainted.push(head); }
     }
-    tds[cur.r][cur.c].classList.add('cur');
+    const activeTd = tds.get(cur.r)?.[cur.c];
+    if (activeTd) activeTd.classList.add('cur');
 
     const single = r0 === r1 && c0 === c1;
     nameBox.textContent = single ? F.addr(cur.r, cur.c) : `${F.addr(r0, c0)}:${F.addr(r1, c1)}`;
     if (!editing) fxInput.value = rawOf(F.addr(cur.r, cur.c));
-    if (scroll) tds[end.r][end.c].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (scroll) {
+      const td = tds.get(end.r)?.[end.c];
+      if (td) td.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      else {
+        wrap.scrollTop = Math.max(0, end.r * ROW_HEIGHT);
+        renderWindow();
+        paintSelection(false);
+        tds.get(end.r)?.[end.c]?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+    }
     updateStatus(single);
     const active = cells[F.addr(cur.r, cur.c)];
     const st = (active && active.s) || {};
@@ -179,10 +250,13 @@
       return;
     }
     const nums = [];
-    eachInRange((_r, _c, a) => {
+    const { r0, r1, c0, c1 } = range();
+    for (const a of Object.keys(cells)) {
+      const pos = F.parseAddr(a);
+      if (!pos || pos.r < r0 || pos.r > r1 || pos.c < c0 || pos.c > c1) continue;
       const v = values.get(a);
-      if (cells[a] && typeof v === 'number') nums.push(v);
-    });
+      if (typeof v === 'number') nums.push(v);
+    }
     if (!nums.length) {
       statusEl.textContent = 'Pronto';
       return;
@@ -222,13 +296,15 @@
     const text = initial != null ? initial : rawOf(a);
     fxInput.value = text;
     if (viaBar) return;
-    const td = tds[cur.r][cur.c];
+    const td = tds.get(cur.r)?.[cur.c];
+    if (!td) { wrap.scrollTop = cur.r * ROW_HEIGHT; renderWindow(); }
+    const target = tds.get(cur.r)?.[cur.c];
     Object.assign(editorEl.style, {
       display: 'block',
-      left: td.offsetLeft + 'px',
-      top: td.offsetTop + 'px',
-      minWidth: td.offsetWidth + 1 + 'px',
-      height: td.offsetHeight + 1 + 'px'
+      left: target.offsetLeft + 'px',
+      top: target.offsetTop + 'px',
+      minWidth: target.offsetWidth + 1 + 'px',
+      height: target.offsetHeight + 1 + 'px'
     });
     editorEl.value = text;
     editorEl.focus();
@@ -268,7 +344,13 @@
   // ---------- Ações ----------
 
   function clearRange() {
-    mutate(() => eachInRange((_r, _c, a) => setRaw(a, '')));
+    const { r0, r1, c0, c1 } = range();
+    mutate(() => {
+      for (const a of Object.keys(cells)) {
+        const pos = F.parseAddr(a);
+        if (pos && pos.r >= r0 && pos.r <= r1 && pos.c >= c0 && pos.c <= c1) setRaw(a, '');
+      }
+    });
   }
 
   function toggleStyle(key) {
@@ -282,13 +364,15 @@
   }
 
   function clearFormat() {
-    mutate(() =>
-      eachInRange((_r, _c, a) => {
-        if (!cells[a]) return;
+    const { r0, r1, c0, c1 } = range();
+    mutate(() => {
+      for (const a of Object.keys(cells)) {
+        const pos = F.parseAddr(a);
+        if (!pos || pos.r < r0 || pos.r > r1 || pos.c < c0 || pos.c > c1 || !cells[a]) continue;
         delete cells[a].s;
         if (cells[a].v === '') delete cells[a];
-      })
-    );
+      }
+    });
   }
 
   // Tema da folha: tipo de letra da grelha, cores dos seletores e estilos de tabela (ver themes.js).
@@ -658,14 +742,89 @@
     if (term == null) return;
     const needle = term.trim().toLocaleLowerCase('pt-PT');
     for (let r = 0; r < ROWS; r++) {
-      const row = tds[r][0].parentElement;
-      row.hidden = Boolean(needle) && r > r0 && r <= r1 && !F.format(values.get(F.addr(r, col))).toLocaleLowerCase('pt-PT').includes(needle);
+      const hide = Boolean(needle) && r > r0 && r <= r1 && !F.format(values.get(F.addr(r, col))).toLocaleLowerCase('pt-PT').includes(needle);
+      if (hide) filteredRows.add(r); else filteredRows.delete(r);
+      const row = tds.get(r)?.[0]?.parentElement;
+      if (row) row.hidden = hide;
     }
     MO.toast(needle ? 'Filtro aplicado à seleção.' : 'Filtro removido.');
   }
 
   function clearFilter() {
-    for (let r = 0; r < ROWS; r++) tds[r][0].parentElement.hidden = false;
+    filteredRows.clear();
+    for (const row of tbodyEl.querySelectorAll('tr[data-r]')) row.hidden = false;
+  }
+
+  function showSheetTabs() {
+    if (!sheetTabs) return;
+    const tabs = sheetList.map((sheet, index) => h('span', { class: 'sheet-tab-group' },
+      h('button', {
+        type: 'button', class: `sheet-tab${index === activeSheet ? ' active' : ''}`, title: 'Duplo clique para mudar o nome',
+        onclick: () => switchSheet(index), ondblclick: () => editSheetName(index)
+      }, sheet.name),
+      sheetList.length > 1 ? h('button', { type: 'button', class: 'sheet-tab-remove', title: `Eliminar ${sheet.name}`, 'aria-label': `Eliminar ${sheet.name}`, onclick: () => deleteSheet(index) }, '×') : null
+    ));
+    const add = h('button', { type: 'button', class: 'sheet-tab-add', title: 'Adicionar folha', 'aria-label': 'Adicionar folha', onclick: addSheet }, '+');
+    sheetTabs.replaceChildren(...tabs, add);
+  }
+
+  async function editSheetName(index) {
+    const sheet = sheetList[index];
+    const result = await MO.dialog({ title: 'Mudar nome da folha', message: 'O nome pode ter até 31 caracteres.', fields: [{ name: 'name', label: 'Nome', value: sheet.name }], okLabel: 'Guardar' });
+    if (!result || !result.name.trim()) return;
+    const name = result.name.replace(/[\\/*?:\[\]]/g, '').trim().slice(0, 31) || sheet.name;
+    const duplicate = sheetList.some((other, i) => i !== index && other.name.toLocaleLowerCase('pt-PT') === name.toLocaleLowerCase('pt-PT'));
+    if (duplicate) return MO.toast('Já existe uma folha com esse nome.');
+    sheet.name = name;
+    showSheetTabs(); ctx.dirty();
+  }
+
+  async function deleteSheet(index) {
+    if (sheetList.length <= 1) return;
+    const result = await MO.dialog({ title: 'Eliminar folha?', message: `A folha «${sheetList[index].name}» e os seus dados serão removidos deste livro.`, okLabel: 'Eliminar' });
+    if (!result) return;
+    sheetList.splice(index, 1);
+    if (index < activeSheet) activeSheet--;
+    else if (index === activeSheet) activeSheet = Math.min(index, sheetList.length - 1);
+    cells = sheetList[activeSheet].cells;
+    undoStack = []; redoStack = []; drawn.clear(); filteredRows.clear(); wrap.scrollTop = 0;
+    refresh(); showSheetTabs(); ctx.dirty();
+  }
+
+  function switchSheet(index) {
+    if (index === activeSheet || !sheetList[index]) return;
+    if (editing) stopEdit(true);
+    sheetList[activeSheet].cells = cells;
+    activeSheet = index;
+    cells = sheetList[index].cells;
+    undoStack = []; redoStack = []; cur = { r: 0, c: 0 }; end = { ...cur };
+    drawn.clear(); filteredRows.clear(); wrap.scrollTop = 0;
+    refresh(); showSheetTabs();
+  }
+
+  function addSheet() {
+    if (sheetList.length >= 100) return MO.toast('Um livro pode ter até 100 folhas.');
+    if (editing) stopEdit(true);
+    sheetList[activeSheet].cells = cells;
+    const index = sheetList.length;
+    let number = 1;
+    while (sheetList.some((sheet) => sheet.name.toLocaleLowerCase('pt-PT') === `folha${number}`)) number++;
+    sheetList.push({ name: `Folha${number}`, cells: {} });
+    activeSheet = index; cells = sheetList[index].cells;
+    cur = { r: 0, c: 0 }; end = { ...cur }; undoStack = []; redoStack = [];
+    drawn.clear(); filteredRows.clear(); wrap.scrollTop = 0;
+    refresh(); showSheetTabs(); ctx.dirty();
+  }
+
+  function normalizedSheets(input) {
+    const names = new Set();
+    return (Array.isArray(input) ? input : []).slice(0, 100).map((sheet, index) => {
+      let name = String(sheet && sheet.name || `Folha${index + 1}`).replace(/[\\/*?:\[\]]/g, '').trim().slice(0, 31) || `Folha${index + 1}`;
+      const base = name; let suffix = 2;
+      while (names.has(name.toLocaleLowerCase('pt-PT'))) name = `${base.slice(0, 27)} (${suffix++})`;
+      names.add(name.toLocaleLowerCase('pt-PT'));
+      return { name, cells: cleanCells(sheet && sheet.cells) };
+    });
   }
 
   // ---------- Construção da interface ----------
@@ -677,21 +836,11 @@
       colHeads.push(th);
       headRow.append(th);
     }
-    const tbody = h('tbody');
-    for (let r = 0; r < ROWS; r++) {
-      const th = h('th', { class: 'row-head', 'data-r': r }, r + 1);
-      rowHeads.push(th);
-      const tr = h('tr', null, th);
-      const rowTds = [];
-      for (let c = 0; c < COLS; c++) {
-        const td = h('td', { 'data-r': r, 'data-c': c });
-        rowTds.push(td);
-        tr.append(td);
-      }
-      tds.push(rowTds);
-      tbody.append(tr);
-    }
-    return h('table', { class: 'grid' }, h('thead', null, headRow), tbody);
+    tbodyEl = h('tbody');
+    topSpacer = h('tr', { class: 'sheet-spacer' }, h('td', { colspan: COLS + 1 }));
+    bottomSpacer = h('tr', { class: 'sheet-spacer' }, h('td', { colspan: COLS + 1 }));
+    tbodyEl.append(topSpacer, bottomSpacer);
+    return h('table', { class: 'grid' }, h('thead', null, headRow), tbodyEl);
   }
 
   function onMouseDown(e) {
@@ -902,9 +1051,17 @@
       statusEl = h('span', { class: 'status-text' });
       const ribbon = buildRibbon();
       const inner = wrap.firstChild;
+      sheetTabs = h('div', { class: 'sheet-tabs', 'aria-label': 'Separadores do livro' });
       const bar = h('div', { class: 'statusbar' }, statusEl, MO.zoomControl((k) => (inner.style.zoom = k)));
       showStates = MO.toolStates(ribbon, { Negrito: 'b', 'Itálico': 'i', 'Alinhar à esquerda': 'left', Centrar: 'center', 'Alinhar à direita': 'right' });
-      container.append(ribbon, h('div', { class: 'fx-bar' }, nameBox, h('span', { class: 'fx-label' }, 'fx'), fxInput), wrap, bar);
+      container.append(ribbon, sheetTabs, h('div', { class: 'fx-bar' }, nameBox, h('span', { class: 'fx-label' }, 'fx'), fxInput), wrap, bar);
+      showSheetTabs();
+
+      let scrollFrame = 0;
+      wrap.addEventListener('scroll', () => {
+        if (scrollFrame) return;
+        scrollFrame = requestAnimationFrame(() => { scrollFrame = 0; renderWindow(); paintSelection(false); });
+      });
 
       table.addEventListener('mousedown', onMouseDown);
       table.addEventListener('mouseover', (e) => {
@@ -940,6 +1097,7 @@
       editing = null;
       editorEl.style.display = 'none';
       cells = {};
+      sheetList = [{ name: 'Folha1', cells }]; activeSheet = 0; showSheetTabs();
       undoStack = [];
       redoStack = [];
       clip = null;
@@ -981,16 +1139,19 @@
 
     serialize() {
       if (editing) stopEdit(true);
-      return JSON.stringify({ format: 'myoffice-sheet', version: 1, theme: theme.id, cells });
+      sheetList[activeSheet].cells = cells;
+      return JSON.stringify({ format: 'myoffice-sheet', version: 2, theme: theme.id, cells, activeSheet, sheets: sheetList });
     },
 
     load(text, ext) {
       let next = {};
+      let nextSheets = null;
+      let nextActive = 0;
       let nextTheme = T.LIST[0];
       let clipped = false;
       if (ext === 'xlsx') {
         const book = MO.OOXML.importXlsx(text, ROWS, COLS);
-        next = cleanCells(book.cells);
+        nextSheets = normalizedSheets(book.sheets);
         clipped = book.clipped;
       } else if (ext === 'csv') {
         parseCSV(text).forEach((row, r) =>
@@ -1001,13 +1162,16 @@
       } else {
         const data = JSON.parse(text);
         if (!data || data.format !== 'myoffice-sheet') throw new Error('Formato inválido');
-        next = cleanCells(data.cells);
+        if (Array.isArray(data.sheets)) { nextSheets = normalizedSheets(data.sheets); nextActive = Math.max(0, Math.min(nextSheets.length - 1, Number(data.activeSheet) || 0)); }
+        else next = cleanCells(data.cells);
         nextTheme = T.byId(data.theme);
       }
       this.newDoc();
       setTheme(nextTheme);
-      if (clipped) MO.toast(`O livro tem dados fora de ${ROWS} linhas × ${COLS} colunas; essa parte não foi importada.`);
-      cells = next;
+      if (clipped) MO.toast(`Algumas células ultrapassam o limite atual de ${ROWS} linhas × ${COLS} colunas e não foram importadas.`);
+      if (nextSheets && nextSheets.length) {
+        sheetList = nextSheets; activeSheet = nextActive; cells = sheetList[activeSheet].cells; showSheetTabs();
+      } else { cells = next; sheetList = [{ name: 'Folha1', cells }]; activeSheet = 0; showSheetTabs(); }
       refresh();
     },
 
@@ -1019,7 +1183,8 @@
         mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         get: () => {
           if (editing) stopEdit(true);
-          return MO.OOXML.exportXlsx(cells, values);
+          sheetList[activeSheet].cells = cells;
+          return MO.OOXML.exportXlsx(sheetList.map((sheet) => ({ name: sheet.name, cells: sheet.cells, values: F.compute(sheet.cells, ROWS, COLS) })));
         }
       },
       { label: 'Valores separados por ; (.csv)', ext: 'csv', filterName: 'CSV', mime: 'text/csv', get: toCSV }
@@ -1032,10 +1197,10 @@
       for (let r = 0; r <= maxR; r++) {
         const tr = h('tr');
         for (let c = 0; c <= maxC; c++) {
-          const src = tds[r][c];
-          const td = h('td', null, src.textContent);
-          td.style.cssText = src.style.cssText;
-          if (src.classList.contains('num') && !src.style.textAlign) td.style.textAlign = 'right';
+          const a = F.addr(r, c); const cell = cells[a]; const value = values.get(a);
+          const td = h('td', null, typeof value === 'number' && cell?.s?.f && Object.hasOwn(NUMBER_FORMATS, cell.s.f) ? NUMBER_FORMATS[cell.s.f].format(value) : F.format(value));
+          if (cell?.s) { td.style.fontWeight = cell.s.b ? '700' : ''; td.style.fontStyle = cell.s.i ? 'italic' : ''; td.style.textAlign = cell.s.a || (typeof value === 'number' ? 'right' : ''); td.style.backgroundColor = cell.s.bg || ''; td.style.color = cell.s.c || ''; }
+          else if (typeof value === 'number') td.style.textAlign = 'right';
           tr.append(td);
         }
         table.append(tr);

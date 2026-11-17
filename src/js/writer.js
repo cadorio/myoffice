@@ -28,6 +28,8 @@
   const PICKER = 'colors-writer';
   let theme = T.LIST[0];
   let themeRow;
+  let docHeader = '';
+  let docFooter = '';
 
   function showTheme(node) {
     const look = T.docLook(theme);
@@ -302,7 +304,10 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
         },
         {
           label: 'Estrutura',
-          groups: [{ label: 'Temas do documento', rows: [themeRow] }]
+          groups: [
+            { label: 'Temas do documento', rows: [themeRow] },
+            { label: 'Página', rows: [[bigButton('pageBreak', 'Cabeçalho e rodapé', 'Definir texto repetido e numeração de páginas', editPageParts)]] }
+          ]
         },
         {
           label: 'Inserir',
@@ -326,11 +331,28 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
     );
   }
 
+  async function editPageParts() {
+    const result = await MO.dialog({
+      title: 'Cabeçalho e rodapé',
+      message: 'O texto aparece em todas as páginas exportadas para PDF e Word.',
+      fields: [
+        { name: 'header', label: 'Cabeçalho', value: docHeader, placeholder: 'Ex.: nome da organização' },
+        { name: 'footer', label: 'Rodapé', value: docFooter, placeholder: 'Ex.: confidencial · 2026' }
+      ],
+      okLabel: 'Aplicar'
+    });
+    if (!result) return;
+    docHeader = result.header.slice(0, 180);
+    docFooter = result.footer.slice(0, 180);
+    ctx.dirty();
+    MO.toast('Cabeçalho e rodapé atualizados.');
+  }
+
   function standaloneHTML(title) {
     const look = T.docLook(theme);
     return (
       '<!DOCTYPE html>\n<html lang="pt">\n<head>\n<meta charset="utf-8">\n' +
-      `<title>${MO.escapeHTML(title)}</title>\n<style>${DOC_CSS}\nbody { font-family: ${look.body}; }\nh1, h2, h3 { font-family: ${look.head}; color: ${look.color}; }\nblockquote { border-left-color: ${look.accent}; }\n</style>\n</head>\n<body>\n${editor.innerHTML}\n</body>\n</html>\n`
+      `<title>${MO.escapeHTML(title)}</title>\n<style>${DOC_CSS}\nbody { font-family: ${look.body}; }\nh1, h2, h3 { font-family: ${look.head}; color: ${look.color}; }\nblockquote { border-left-color: ${look.accent}; }\n.page-header,.page-footer { color:#667085; font:9pt Arial,sans-serif; border-bottom:1px solid #d0d5dd; padding:6pt 0; }\n.page-footer { border-top:1px solid #d0d5dd; border-bottom:0; margin-top:20pt; }\n</style>\n</head>\n<body>\n${docHeader ? `<header class="page-header">${MO.escapeHTML(docHeader)}</header>` : ''}\n${editor.innerHTML}\n${docFooter ? `<footer class="page-footer">${MO.escapeHTML(docFooter)}</footer>` : ''}\n</body>\n</html>\n`
     );
   }
 
@@ -380,6 +402,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
 
     newDoc(template) {
       setTheme(T.LIST[0]);
+      docHeader = ''; docFooter = '';
       const templates = {
         report: '<h1>Relatório de projeto</h1><p><strong>Responsável:</strong> [Nome]</p><p><strong>Data:</strong> [Data]</p><h2>1. Resumo executivo</h2><p>Apresente aqui os principais objetivos, resultados e conclusões.</p><h2>2. Objetivos</h2><p>Descreva o que se pretende alcançar.</p><h2>3. Desenvolvimento</h2><p>Registe as atividades realizadas, os recursos utilizados e os resultados obtidos.</p><h2>4. Conclusões e próximos passos</h2><p>Resuma as conclusões e identifique as ações seguintes.</p>',
         meeting: '<h1>Ata de reunião</h1><p><strong>Data:</strong> [Data] &nbsp; <strong>Hora:</strong> [Hora]</p><p><strong>Participantes:</strong> [Nomes]</p><h2>Agenda</h2><ul><li>[Tema 1]</li><li>[Tema 2]</li></ul><h2>Decisões</h2><p>Registe as decisões tomadas.</p><h2>Ações a realizar</h2><table><tbody><tr><th>Ação</th><th>Responsável</th><th>Prazo</th></tr><tr><td>[Ação]</td><td>[Nome]</td><td>[Data]</td></tr></tbody></table><h2>Próxima reunião</h2><p>[Data e hora]</p>'
@@ -390,7 +413,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
     },
 
     serialize() {
-      return JSON.stringify({ format: 'myoffice-doc', version: 1, theme: theme.id, html: editor.innerHTML });
+      return JSON.stringify({ format: 'myoffice-doc', version: 2, theme: theme.id, html: editor.innerHTML, header: docHeader, footer: docFooter });
     },
 
     load(text, ext) {
@@ -400,15 +423,22 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
         const data = JSON.parse(text);
         if (!data || data.format !== 'myoffice-doc' || typeof data.html !== 'string') throw new Error('Formato inválido');
         html = data.html;
+        docHeader = String(data.header || '').slice(0, 180);
+        docFooter = String(data.footer || '').slice(0, 180);
         nextTheme = T.byId(data.theme);
       } else if (ext === 'docx') {
-        html = MO.OOXML.importDocx(text);
+        const doc = MO.OOXML.importDocx(text);
+        html = doc.html;
+        docHeader = String(doc.header || '').slice(0, 180);
+        docFooter = String(doc.footer || '').slice(0, 180);
       } else if (ext === 'txt') {
+        docHeader = ''; docFooter = '';
         html = text
           .split(/\r?\n/)
           .map((line) => `<p>${MO.escapeHTML(line) || '<br>'}</p>`)
           .join('');
       } else {
+        docHeader = ''; docFooter = '';
         html = text;
       }
       editor.innerHTML = MO.sanitizeHTML(html) || EMPTY;
@@ -418,16 +448,20 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
     },
 
     exports: [
-      { label: 'Documento do Word (.docx)', ext: 'docx', filterName: 'Documento do Word', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', get: () => MO.OOXML.exportDocx(editor, T.docLook(theme)) },
+      { label: 'Documento do Word (.docx)', ext: 'docx', filterName: 'Documento do Word', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', get: () => MO.OOXML.exportDocx(editor, T.docLook(theme), { header: docHeader, footer: docFooter }) },
       { label: 'Página web (.html)', ext: 'html', filterName: 'Página web', mime: 'text/html', get: (title) => standaloneHTML(title) },
       { label: 'Texto simples (.txt)', ext: 'txt', filterName: 'Texto simples', mime: 'text/plain', get: () => editor.innerText }
     ],
 
     print() {
-      const node = h('div', { class: 'print-doc' });
-      node.innerHTML = editor.innerHTML;
-      showTheme(node);
-      return { node, page: 'A4 portrait', margin: '20mm' };
+      const node = h('div', { class: 'print-document' });
+      if (docHeader) node.append(h('div', { class: 'print-running-header' }, docHeader));
+      const body = h('div', { class: 'print-doc' });
+      body.innerHTML = editor.innerHTML;
+      showTheme(body);
+      node.append(body);
+      if (docFooter) node.append(h('div', { class: 'print-running-footer' }, docFooter));
+      return { node, page: 'A4 portrait', margin: '24mm 20mm 25mm', pageRule: '@bottom-right { content: counter(page) " / " counter(pages); font: 9pt Arial; color: #667085; }' };
     },
 
     show() {

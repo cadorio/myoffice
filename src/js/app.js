@@ -166,9 +166,9 @@
 
   async function exportPdf() {
     if (current === 'home') return;
-    const { node, page, margin } = MO.modules[current].print();
+    const { node, page, margin, pageRule } = MO.modules[current].print();
     const area = $('#print-area');
-    $('#print-page').textContent = `@page { size: ${page}; margin: ${margin}; }`;
+    $('#print-page').textContent = `@page { size: ${page}; margin: ${margin}; ${pageRule || ''} }`;
     area.replaceChildren(node);
     try {
       if (api) {
