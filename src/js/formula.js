@@ -53,7 +53,13 @@
     COMPACTAR: 'TRIM',
     HOJE: 'TODAY',
     'SOMA.SE': 'SUMIF',
+    'SOMA.SES': 'SUMIFS',
     'CONTAR.SE': 'COUNTIF',
+    'CONTAR.SES': 'COUNTIFS',
+    'CONTAR.VAZIO': 'COUNTBLANK',
+    'MÉDIA.SE': 'AVERAGEIF',
+    'MEDIA.SE': 'AVERAGEIF',
+    SOMARPRODUTO: 'SUMPRODUCT',
     PROCV: 'VLOOKUP'
   };
 
@@ -350,6 +356,61 @@
       return sum;
     },
     COUNTIF: (a) => needRange(a[0]).filter(criterion(a[1])).length,
+    COUNTBLANK: (a) => needRange(a[0]).filter((v) => v === null || v === '').length,
+    AVERAGEIF: (a) => {
+      const range = needRange(a[0]);
+      const values = a.length > 2 ? needRange(a[2]) : range;
+      const test = criterion(a[1]);
+      let sum = 0;
+      let count = 0;
+      range.forEach((v, i) => {
+        if (test(v) && typeof values[i] === 'number') {
+          sum += values[i];
+          count++;
+        }
+      });
+      if (!count) throw new FError('#DIV/0!');
+      return sum / count;
+    },
+    SUMIFS: (a) => {
+      if (a.length < 3 || a.length % 2 !== 1) throw new FError('#ERRO!');
+      const values = needRange(a[0]);
+      const conditions = [];
+      for (let i = 1; i < a.length; i += 2) {
+        const range = needRange(a[i]);
+        if (range.length !== values.length) throw new FError('#VALOR!');
+        conditions.push({ range, test: criterion(a[i + 1]) });
+      }
+      let sum = 0;
+      for (let i = 0; i < values.length; i++) {
+        if (conditions.every(({ range, test }) => test(range[i])) && typeof values[i] === 'number') sum += values[i];
+      }
+      return sum;
+    },
+    COUNTIFS: (a) => {
+      if (!a.length || a.length % 2 !== 0) throw new FError('#ERRO!');
+      const conditions = [];
+      let length = null;
+      for (let i = 0; i < a.length; i += 2) {
+        const range = needRange(a[i]);
+        if (length !== null && range.length !== length) throw new FError('#VALOR!');
+        length = range.length;
+        conditions.push({ range, test: criterion(a[i + 1]) });
+      }
+      let count = 0;
+      for (let i = 0; i < length; i++) if (conditions.every(({ range, test }) => test(range[i]))) count++;
+      return count;
+    },
+    SUMPRODUCT: (a) => {
+      if (!a.length) throw new FError('#ERRO!');
+      const arrays = a.map(needRange);
+      if (arrays.some((range) => range.length !== arrays[0].length)) throw new FError('#VALOR!');
+      let sum = 0;
+      for (let i = 0; i < arrays[0].length; i++) {
+        sum += arrays.reduce((product, range) => product * (typeof range[i] === 'number' ? range[i] : 0), 1);
+      }
+      return sum;
+    },
     VLOOKUP: (a) => {
       const table = needRange(a[1]);
       const cols = table.cols;
@@ -445,7 +506,7 @@
     return variance ? result : Math.sqrt(result);
   }
 
-  const MIN_ARGS = { SUMIF: 2, COUNTIF: 2, VLOOKUP: 3, MEDIAN: 1, MODE: 1, STDEV_S: 1, STDEV_P: 1, VAR_S: 1, VAR_P: 1, ROUND: 1, INT: 1, ABS: 1, SQRT: 1, POWER: 2, MOD: 2, NOT: 1, LEN: 1, UPPER: 1, LOWER: 1, TRIM: 1 };
+  const MIN_ARGS = { SUMIF: 2, COUNTIF: 2, COUNTBLANK: 1, AVERAGEIF: 2, SUMIFS: 3, COUNTIFS: 2, SUMPRODUCT: 1, VLOOKUP: 3, MEDIAN: 1, MODE: 1, STDEV_S: 1, STDEV_P: 1, VAR_S: 1, VAR_P: 1, ROUND: 1, INT: 1, ABS: 1, SQRT: 1, POWER: 2, MOD: 2, NOT: 1, LEN: 1, UPPER: 1, LOWER: 1, TRIM: 1 };
 
   function evaluate(n, ctx) {
     switch (n.k) {

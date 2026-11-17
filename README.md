@@ -162,6 +162,9 @@ As fórmulas começam por `=`. Os argumentos podem ser separados por ponto e ví
 | `ARRED`, `INT`, `ABS`, `RAIZQ`, `POTÊNCIA`, `RESTO`, `PRODUTO`, `PI` | `ROUND`, `INT`, `ABS`, `SQRT`, `POWER`, `MOD`, `PRODUCT`, `PI` | `=ARRED(A1/3;2)` |
 | `CONCATENAR`, `NÚM.CARACT`, `MAIÚSCULAS`, `MINÚSCULAS`, `COMPACTAR` | `CONCAT`, `LEN`, `UPPER`, `LOWER`, `TRIM` | `=A1&" "&B1` |
 | `SOMA.SE`, `CONTAR.SE` | `SUMIF`, `COUNTIF` | `=SOMA.SE(A1:A9;">10";B1:B9)` |
+| `SOMA.SES`, `CONTAR.SES` | `SUMIFS`, `COUNTIFS` | `=SOMA.SES(C2:C20;A2:A20;"Norte";B2:B20;">=100")` |
+| `MÉDIA.SE`, `CONTAR.VAZIO` | `AVERAGEIF`, `COUNTBLANK` | `=MÉDIA.SE(A2:A20;">0";B2:B20)` |
+| `SOMARPRODUTO` | `SUMPRODUCT` | `=SOMARPRODUTO(B2:B20;C2:C20)` |
 | `PROCV` | `VLOOKUP` | `=PROCV("pera";A1:C9;3;FALSO)` |
 | `HOJE` | `TODAY` | `=HOJE()` |
 

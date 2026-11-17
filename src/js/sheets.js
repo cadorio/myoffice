@@ -993,6 +993,11 @@
                   bigButton('branch', 'Se', 'Inserir SE(condição; valor se verdadeiro; valor se falso)', () => insertFn('=SE(')),
                   bigButton('sum', 'Soma.Se', 'Inserir SOMA.SE(intervalo; critério; intervalo a somar)', () => insertFn('=SOMA.SE(')),
                   bigButton('count', 'Contar.Se', 'Inserir CONTAR.SE(intervalo; critério)', () => insertFn('=CONTAR.SE(')),
+                    bigButton('sum', 'Soma.Ses', 'Inserir SOMA.SES(intervalo a somar; intervalo de critério; critério)', () => insertFn('=SOMA.SES(')),
+                    bigButton('count', 'Contar.Ses', 'Inserir CONTAR.SES(intervalo de critério; critério)', () => insertFn('=CONTAR.SES(')),
+                    bigButton('sum', 'Média.Se', 'Inserir MÉDIA.SE(intervalo; critério; intervalo de média)', () => insertFn('=MÉDIA.SE(')),
+                    bigButton('count', 'Contar vazios', 'Inserir CONTAR.VAZIO(intervalo)', () => insertFn('=CONTAR.VAZIO(')),
+                    bigButton('sum', 'Soma produto', 'Inserir SOMARPRODUTO(intervalo1; intervalo2)', () => insertFn('=SOMARPRODUTO(')),
                   bigButton('lookup', 'ProcV', 'Inserir PROCV(valor; tabela; coluna; FALSO)', () => insertFn('=PROCV('))
                 ]
               ]
