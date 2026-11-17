@@ -71,7 +71,7 @@ O Assistente IA tem uma área própria, com conversa e atalhos para obter ajuda 
 - **Assistente MyOffice independente** — aplicação própria para responder a pedidos conhecidos sobre os módulos, analisar texto e tabelas, ajudar com fórmulas e estruturar apresentações. Usa regras e cálculos incluídos no projeto, sem modelos ou serviços externos.
 - **Filtros rápidos em Folhas** — mostrar apenas as linhas que correspondem a um texto na coluna ativa; a ordenação ascendente e descendente também está disponível.
 - **Quatro módulos integrados** — alternar entre documentos, folhas de cálculo, apresentações e desenhos.
-- **Abertura de ficheiros Office** — importar DOCX, XLSX e PPTX e exportar para esses formatos.
+- **Abertura segura de ficheiros Office** — importar DOCX, XLSX e PPTX com um aviso prévio sobre elementos que podem não ser transferidos. O MyOffice guarda a conversão num ficheiro próprio e não altera o original.
 - **PDF num clique** — exporta Texto, Folhas e Diapositivos para PDF a partir de Ficheiro ou com Ctrl+P.
 - **Cabeçalhos e rodapés em Texto** — texto repetido nas páginas, número da página e total de páginas na exportação PDF e DOCX.
 - **Abertura direta** — abrir ficheiros DOCX e PPTX com o MyOffice através do sistema operativo; no Windows, existem também atalhos para iniciar diretamente Texto, Folhas ou Diapositivos.

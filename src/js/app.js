@@ -78,12 +78,21 @@
     updateChrome();
   }
 
-  function loadFile(file) {
+  async function loadFile(file) {
     if (!file) return;
     if (file.error) return MO.toast(file.error);
     const ext = file.name.split('.').pop().toLowerCase();
     const id = Object.hasOwn(EXT_MODULE, ext) ? EXT_MODULE[ext] : null;
     if (!id) return MO.toast('Tipo de ficheiro não suportado.');
+    const importNotices = {
+      docx: 'O Texto importa o conteúdo e a formatação mais comuns. Comentários, alterações controladas e alguns elementos avançados podem não ser transferidos. O original não será alterado; o documento convertido será guardado como .modoc.',
+      xlsx: 'Folhas importa valores, fórmulas e formatação básica. Gráficos, tabelas dinâmicas e fórmulas não suportadas podem não ser transferidos. O original não será alterado; o livro convertido será guardado como .mosheet.',
+      pptx: 'Diapositivos importa texto, formas e imagens suportadas. Animações, transições, SmartArt e alguns elementos avançados podem não ser transferidos. O original não será alterado; a apresentação convertida será guardada como .moslides.'
+    };
+    if (importNotices[ext]) {
+      const proceed = await MO.dialog({ title: 'Importar uma cópia do ficheiro Office?', message: importNotices[ext], okLabel: 'Importar cópia', cancelLabel: 'Voltar' });
+      if (!proceed) return;
+    }
     if (!confirmDiscard(id)) return;
     const mod = MO.modules[id];
     try {
