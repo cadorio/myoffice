@@ -547,7 +547,9 @@
       okLabel: 'Criar'
     });
     if (!res) return;
-    const out = await window.api.ai.generate(res);
+    const out = window.api?.ai?.generate
+      ? await window.api.ai.generate(res)
+      : MO.Assistant.generateDeck(res);
     if (out.error) return MO.toast(out.error);
     change(() => {
       slides = [makeSlide('title', out), ...out.slides.map((s) => makeSlide('content', s))];

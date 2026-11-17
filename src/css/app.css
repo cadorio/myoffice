@@ -970,6 +970,7 @@ body[data-current="home"] #rail { display: flex; }
 .app-tile.writer { background: #6658d3; }
 .app-tile.sheets { background: #078b78; }
 .app-tile.slides { background: #e47758; }
+.app-tile img { display: block; width: 76%; height: 76%; object-fit: contain; }
 
 #view-home { background: var(--home-bg); }
 .home { max-width: 1120px; padding: 8px 40px 52px; }
@@ -1202,6 +1203,7 @@ body[data-current="home"] #rail { display: flex; }
   font-size: 17px;
   font-weight: 750;
 }
+.tool-symbol img { display: block; width: 76%; height: 76%; object-fit: contain; }
 .tool-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4px; }
 .tool-copy strong { font-size: 14px; font-weight: 700; }
 .tool-copy small { color: var(--muted); font-size: 11px; }

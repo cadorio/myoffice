@@ -405,7 +405,10 @@ function registerIpc() {
       });
       if (res.canceled || !res.filePath) return null;
       target = res.filePath;
-      if (!path.extname(target)) target += '.' + ext;
+      const chosenExt = path.extname(target).toLowerCase();
+      if (chosenExt !== '.' + ext) {
+        target = chosenExt ? target.slice(0, -chosenExt.length) + '.' + ext : target + '.' + ext;
+      }
     }
 
     try {

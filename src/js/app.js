@@ -11,7 +11,7 @@
   const ORDER = ['writer', 'sheets', 'slides'];
   const EXT_MODULE = { modoc: 'writer', html: 'writer', htm: 'writer', txt: 'writer', mosheet: 'sheets', csv: 'sheets', moslides: 'slides', docx: 'writer', xlsx: 'sheets', pptx: 'slides' };
   const BINARY_EXT = ['docx', 'xlsx', 'pptx'];
-  const LETTER = { writer: 'T', sheets: 'F', slides: 'D' };
+  const APP_ICON = { writer: 'icon-text.svg', sheets: 'icon-sheets.svg', slides: 'icon-slides.svg', assistant: 'icon-assistant.svg' };
   const docs = {};
   let current = 'home';
 
@@ -252,7 +252,7 @@
             h(
               'button',
               { type: 'button', class: 'recent-item', title: item.path, onclick: async () => loadFile(await api.openRecent(item.path)) },
-              h('span', { class: 'app-tile ' + id }, LETTER[id]),
+              h('span', { class: 'app-tile ' + id }, h('img', { src: 'assets/' + APP_ICON[id], alt: '' })),
               h('span', { class: 'recent-name' }, item.name),
               h('span', { class: 'recent-path' }, item.path)
             )
