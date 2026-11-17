@@ -80,6 +80,29 @@ const { pathToFileURL } = require('node:url');
   }
   await capture('slides', 'diapositivos.png');
   await capture('draw', 'desenho.png');
+  // PDF de exemplo, com uma anotação e um realce.
+  await page.evaluate(async () => {
+    const { PDFDocument, StandardFonts, rgb } = PDFLib;
+    const d = await PDFDocument.create();
+    const bold = await d.embedFont(StandardFonts.HelveticaBold);
+    const f = await d.embedFont(StandardFonts.Helvetica);
+    for (let i = 1; i <= 3; i++) {
+      const pg = d.addPage([595, 842]);
+      pg.drawText('Proposta de prestação de serviços', { x: 60, y: 760, size: 22, font: bold, color: rgb(0.1, 0.16, 0.14) });
+      pg.drawText(`Página ${i} de 3 · Referência 2026/041`, { x: 60, y: 735, size: 11, font: f, color: rgb(0.4, 0.45, 0.42) });
+      ['1. Âmbito: apoio à transformação digital da equipa comercial.', '2. Prazo: 12 semanas a contar da data de adjudicação.', '3. Valor total: 18 400 € (IVA não incluído).', '4. Pagamento: 30% na adjudicação e 70% na entrega.'].forEach((t, k) => pg.drawText(t, { x: 60, y: 680 - k * 26, size: 12, font: f }));
+      pg.drawText('Assinatura do cliente', { x: 60, y: 200, size: 11, font: f, color: rgb(0.4, 0.45, 0.42) });
+      pg.drawLine({ start: { x: 60, y: 215 }, end: { x: 300, y: 215 }, thickness: 0.8 });
+    }
+    await MO.openFileObject({ path: null, name: 'Proposta.pdf', content: await d.save() });
+    const st = MO.modules.pdf._debug.pages();
+    st[0].annots = [
+      { id: 'h1', type: 'highlight', fx: 0.09, fy: 0.231, fw: 0.47, fh: 0.024, color: '#ffe066' },
+      { id: 't1', type: 'text', fx: 0.62, fy: 0.22, text: 'Confirmar valor', size: 12, color: '#c8463d' }
+    ];
+    MO.modules.pdf._debug.setPages(st);
+  });
+  await capture('pdf', 'pdf.png');
   await capture('assistant', 'assistente-ia.png');
   if (!(await page.locator('#view-assistant textarea[aria-label="Mensagem para o Assistente"]').count())) {
     throw new Error('A aplicação Assistente IA não foi inicializada.');

@@ -572,6 +572,71 @@ const cellText = (page, a) =>
     assert.match(await page.textContent('#view-writer .page'), /jantar de Natal/);
   });
 
+  await test('PDF: abrir, escrever, realçar, rodar, organizar e guardar', page, async () => {
+    await page.click('#rail [data-view="pdf"]');
+    assert.equal(await page.isVisible('.pdf-empty'), true);
+    await page.evaluate(async () => {
+      const { PDFDocument, StandardFonts } = PDFLib;
+      const d = await PDFDocument.create();
+      const f = await d.embedFont(StandardFonts.Helvetica);
+      for (let i = 1; i <= 3; i++) d.addPage([595, 842]).drawText('Página original ' + i, { x: 50, y: 780, size: 18, font: f });
+      await MO.openFileObject({ path: null, name: 'contrato.pdf', content: await d.save() });
+    });
+    await page.waitForSelector('.pdf-page');
+    assert.equal(await page.locator('.pdf-page').count(), 3);
+    assert.equal(await page.locator('.pdf-thumb').count(), 3);
+    assert.match(await page.textContent('#view-pdf .status-text'), /Página 1 de 3/);
+    // Texto
+    await page.click('#view-pdf .tool[title="Clicar na página para escrever"]');
+    const box = await page.locator('.pdf-page').first().boundingBox();
+    await page.mouse.click(box.x + 100, box.y + 300);
+    await page.keyboard.type('Aprovado');
+    await page.mouse.click(box.x + 300, box.y + 700);
+    await page.waitForSelector('.pdf-text');
+    // Realce
+    await page.click('#view-pdf .tool[title="Arrastar sobre o texto para o realçar"]');
+    await page.mouse.move(box.x + 60, box.y + 60); await page.mouse.down(); await page.mouse.move(box.x + 300, box.y + 90, { steps: 4 }); await page.mouse.up();
+    assert.equal(await page.locator('.pdf-highlight').count(), 1);
+    // Anular e refazer
+    await page.click('#view-pdf .tool[title="Selecionar, mover e apagar anotações"]');
+    await page.keyboard.press('Control+z');
+    assert.equal(await page.locator('.pdf-highlight').count(), 0);
+    await page.keyboard.press('Control+y');
+    assert.equal(await page.locator('.pdf-highlight').count(), 1);
+    // Páginas: rodar a 1.ª, apagar a 3.ª, acrescentar uma em branco no fim
+    await page.evaluate(() => MO.modules.pdf._debug.pages());
+    await page.click('#view-pdf .ribbon-tab:has-text("Páginas")');
+    await page.click('#view-pdf .tool[title="Rodar a página atual 90° para a direita"]');
+    await page.click('.pdf-thumb[data-n="2"]');
+    await page.click('#view-pdf .tool[title="Eliminar a página atual"]');
+    await page.click('#view-pdf .tool[title="Inserir uma página em branco depois da atual"]');
+    assert.equal(await page.locator('.pdf-page').count(), 3);
+    const result = await page.evaluate(async () => {
+      const bytes = await MO.modules.pdf.serialize();
+      const doc = await PDFLib.PDFDocument.load(bytes);
+      const read = await pdfjsLib.getDocument({ data: bytes, isEvalSupported: false }).promise;
+      const text = async (n) => (await (await read.getPage(n)).getTextContent()).items.map((i) => i.str).join(' ');
+      return { count: doc.getPageCount(), rot: doc.getPage(0).getRotation().angle, p1: await text(1), p2: await text(2), p3: await text(3), title: document.title };
+    });
+    assert.equal(result.count, 3);
+    assert.equal(result.rot, 90);
+    assert.match(result.p1, /Página original 1/);
+    assert.match(result.p1, /Aprovado/);
+    assert.match(result.p2, /Página original 2/);
+    assert.equal(result.p3.trim(), '');
+    assert.match(result.title, /contrato •/);
+  });
+
+  await test('PDF: procurar texto e o Assistente explica como assinar', page, async () => {
+    await page.click('#view-pdf .ribbon-tab:has-text("Procurar")');
+    await page.fill('.pdf-search', 'original 2');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('.pdf-result');
+    assert.match(await page.textContent('.pdf-result'), /Pág\. 2/);
+    const A = await page.evaluate(() => MO.Assistant.assist({ module: 'assistant', task: 'chat', content: 'Utilizador: como assino um pdf' }).answer);
+    assert.match(A, /^Assinar um PDF/);
+  });
+
   await test('Sem erros na consola da página', page, async () => {
     assert.deepEqual(errors, []);
   });

@@ -76,6 +76,12 @@
         "name": "Apresentação PowerPoint (MyOffice)",
         "description": "Abrir apresentações PowerPoint com MyOffice Diapositivos",
         "role": "Editor"
+      },
+      {
+        "ext": "pdf",
+        "name": "Documento PDF (MyOffice)",
+        "description": "Abrir documentos PDF com MyOffice PDF",
+        "role": "Editor"
       }
     ],
     "win": {
@@ -99,7 +105,9 @@
       "include": "build/installer.nsh",
       "license": "LICENSE",
       "language": "2070",
-      "installerLanguages": ["pt_PT"],
+      "installerLanguages": [
+        "pt_PT"
+      ],
       "multiLanguageInstaller": false,
       "uninstallDisplayName": "MyOffice ${version}",
       "deleteAppDataOnUninstall": false
@@ -114,7 +122,10 @@
   "devDependencies": {
     "electron": "^45.3.2",
     "electron-builder": "^26.18.0",
-    "fflate": "^0.8.3"
+    "esbuild": "0.28.2",
+    "fflate": "^0.8.3",
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "6.5.438"
   },
   "desktopName": "myoffice.desktop"
 }

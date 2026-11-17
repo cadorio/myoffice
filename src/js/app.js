@@ -10,13 +10,13 @@
   // Na aplicação instalada, cada programa tem a sua janela: ?app=sheets mostra só as Folhas.
   const SOLO = (() => {
     const id = api ? new URLSearchParams(location.search).get('app') : null;
-    return ['home', 'writer', 'sheets', 'slides', 'draw', 'assistant'].includes(id) ? id : null;
+    return ['home', 'writer', 'sheets', 'slides', 'draw', 'pdf', 'assistant'].includes(id) ? id : null;
   })();
   MO.solo = SOLO;
 
-  const ORDER = ['writer', 'sheets', 'slides', 'draw'];
-  const EXT_MODULE = { modoc: 'writer', html: 'writer', htm: 'writer', txt: 'writer', mosheet: 'sheets', csv: 'sheets', moslides: 'slides', modraw: 'draw', docx: 'writer', xlsx: 'sheets', pptx: 'slides' };
-  const BINARY_EXT = ['docx', 'xlsx', 'pptx'];
+  const ORDER = ['writer', 'sheets', 'slides', 'draw', 'pdf'];
+  const EXT_MODULE = { modoc: 'writer', html: 'writer', htm: 'writer', txt: 'writer', mosheet: 'sheets', csv: 'sheets', moslides: 'slides', modraw: 'draw', pdf: 'pdf', docx: 'writer', xlsx: 'sheets', pptx: 'slides' };
+  const BINARY_EXT = ['docx', 'xlsx', 'pptx', 'pdf'];
   const APP_ICON = { writer: 'icon-text.svg', sheets: 'icon-sheets.svg', slides: 'icon-slides.svg', draw: 'icon-draw.svg', assistant: 'icon-assistant.svg' };
   const docs = {};
   let current = 'home';
@@ -114,7 +114,7 @@
     const mod = MO.modules[id];
     try {
       if (BINARY_EXT.includes(ext) !== file.content instanceof Uint8Array) throw new Error('Tipo de conteúdo inesperado');
-      mod.load(file.content, ext);
+      await mod.load(file.content, ext);
     } catch {
       return MO.toast(`Não foi possível abrir "${file.name}": o ficheiro não é válido.`);
     }
@@ -124,6 +124,9 @@
     dropDraft(id);
     show(id);
   }
+
+  // Um ficheiro largado numa janela (por exemplo um PDF arrastado) segue o caminho normal.
+  MO.openFileObject = (file) => loadFile(file);
 
   async function openFile() {
     if (api) return loadFile(await api.open());
@@ -154,7 +157,12 @@
     const id = current;
     const mod = MO.modules[id];
     const d = docs[id];
-    const content = mod.serialize();
+    let content;
+    try {
+      content = await mod.serialize();
+    } catch {
+      return MO.toast('Não há nada para guardar.');
+    }
     const defaultName = (d.name ? baseName(d.name) : mod.defaultName) + '.' + mod.ext;
     if (api) {
       const res = await api.save({
@@ -169,7 +177,7 @@
       d.path = res.path;
       d.name = res.name;
     } else {
-      MO.download(defaultName, content, 'application/json');
+      MO.download(defaultName, content, mod.binary ? 'application/pdf' : 'application/json');
       d.name = defaultName;
     }
     d.dirty = false;
@@ -184,7 +192,7 @@
     const name = title + '.' + exp.ext;
     let content;
     try {
-      content = exp.get(title);
+      content = await exp.get(title);
     } catch {
       return MO.toast('Não foi possível exportar o documento.');
     }
@@ -197,7 +205,7 @@
   // Prepara a área de impressão com o documento atual e corre a ação pedida (PDF, pré-visualização, imprimir).
   async function withPrintArea(run) {
     if (current === 'home' || !MO.modules[current]) return;
-    const { node, page, margin, pageRule } = MO.modules[current].print();
+    const { node, page, margin, pageRule } = await MO.modules[current].print();
     const area = $('#print-area');
     $('#print-page').textContent = `@page { size: ${page}; margin: ${margin}; ${pageRule || ''} }`;
     area.replaceChildren(node);
@@ -335,7 +343,7 @@
 
   async function writeDrafts() {
     for (const id of [...stale]) {
-      if (!docs[id].dirty) continue;
+      if (!docs[id].dirty || MO.modules[id].noDrafts) continue;
       stale.delete(id);
       let content;
       try {

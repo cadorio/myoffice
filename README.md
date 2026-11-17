@@ -2,7 +2,7 @@
 
 **Suite de escritório para Windows: simples, privada e leve.**
 
-Texto, folhas de cálculo, apresentações e diagramas numa só aplicação. Os documentos ficam no seu computador: não é precisa conta, nuvem nem ligação à Internet. Abre e grava ficheiros do Word, Excel e PowerPoint.
+Texto, folhas de cálculo, apresentações, diagramas e PDF numa só aplicação. Os documentos ficam no seu computador: não é precisa conta, nuvem nem ligação à Internet. Abre e grava ficheiros do Word, Excel e PowerPoint.
 
 **[⬇ Descarregar MyOffice 1.9.0 para Windows (64 bits)](https://github.com/cadorio/myoffice/releases/download/v1.9.0/MyOffice-Setup-1.9.0.exe)**
 
@@ -43,6 +43,7 @@ Tons calmos de verde e papel, com modo claro e escuro.
 | **Folhas** | Contas, orçamentos e análise de dados, com fórmulas, gráficos e várias folhas por livro | `.mosheet` · XLSX · CSV · PDF |
 | **Diapositivos** | Apresentações com temas, esquemas, imagens, formas, transições e notas do orador | `.moslides` · PPTX · PDF |
 | **Desenho** | Fluxogramas, mapas mentais e organogramas | `.modraw` · SVG · PDF |
+| **PDF** | Ler, anotar, assinar, juntar e organizar ficheiros PDF | PDF · TXT |
 | **Assistente** | Ajuda sobre a aplicação e análise de textos e tabelas, sem Internet | — |
 
 O ecrã inicial tem seis **modelos prontos a usar** (relatório, ata de reunião, orçamento mensal, gestor de tarefas, apresentação de projeto e apresentação de aula) e a lista de ficheiros recentes, com pesquisa.
@@ -82,6 +83,17 @@ O ecrã inicial tem seis **modelos prontos a usar** (relatório, ata de reunião
 - **Tabelas**, organizador de diapositivos com arrastar e largar, e alinhar, distribuir e agrupar vários objetos (Shift+clique).
 - Atalhos: Ctrl+D duplica um elemento, as setas movem-no e Shift+setas move-o em passos maiores.
 
+### PDF
+
+![MyOffice PDF](docs/screenshots/pdf.png)
+
+- Abrir e ler PDF, com miniaturas das páginas, zoom e procura de texto.
+- **Anotar**: escrever texto em qualquer sítio (ótimo para preencher formulários), realçar, desenhar à mão, retângulos e **Tapar** (cobrir uma zona com branco).
+- **Assinar**: desenhe a assinatura com o rato, a caneta ou o dedo, ou use uma imagem digitalizada, e coloque-a na página.
+- **Páginas**: rodar, reordenar (arrastando as miniaturas), apagar, inserir páginas em branco, **juntar** outro PDF e **extrair** páginas para um PDF novo.
+- Guardar grava as alterações no próprio PDF (Ctrl+S) e anular/refazer funciona com Ctrl+Z e Ctrl+Y. Também exporta o texto do PDF.
+- Os ficheiros PDF abrem diretamente no MyOffice PDF a partir do Explorador do Windows.
+
 ### Desenho
 
 ![MyOffice Desenho](docs/screenshots/desenho.png)
@@ -90,7 +102,7 @@ Comece por um modelo de fluxo, mapa mental ou organograma e acrescente caixas, c
 
 ### Em todas as aplicações
 
-- **Cada programa na sua janela**: Texto, Folhas, Diapositivos, Desenho e Assistente abrem em janelas separadas, cada uma com a sua entrada na barra de tarefas do Windows, como o Word e o Excel. Fechar um programa não fecha os outros, e cada um recupera o seu próprio trabalho se fechar inesperadamente.
+- **Cada programa na sua janela**: Texto, Folhas, Diapositivos, Desenho, PDF e Assistente abrem em janelas separadas, cada uma com a sua entrada na barra de tarefas do Windows, como o Word e o Excel. Fechar um programa não fecha os outros, e cada um recupera o seu próprio trabalho se fechar inesperadamente.
 - **Painel de ferramentas** à direita, em secções, e barra de aplicações à esquerda. Ctrl+. esconde ou mostra o painel.
 - **Ctrl+K** abre a procura de comandos: escreva o que quer fazer.
 - Modo claro e escuro, que acompanha o Windows ou se escolhe na aplicação.
