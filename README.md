@@ -116,6 +116,8 @@ O instalador cria atalhos no menu Iniciar para abrir diretamente o Texto, as Fol
 
 > Os requisitos de memória são objetivos e ainda não foram confirmados em computadores de diferentes idades.
 
+**Desinstalar:** em Definições do Windows › Aplicações, escolha **MyOffice** › Desinstalar. O desinstalador remove a aplicação, os atalhos de todos os programas e as associações de ficheiros, e pergunta se também quer apagar as definições (licença, recentes e rascunhos de recuperação). Os seus documentos nunca são apagados. Ao atualizar para uma versão nova, as definições ficam sempre.
+
 ## Ficheiros do Microsoft Office
 
 O MyOffice abre e exporta `.docx`, `.xlsx` e `.pptx`. Ao abrir um destes ficheiros, avisa sobre o que pode não ser convertido e guarda a conversão num ficheiro próprio; **o original nunca é alterado**.
