@@ -2264,3 +2264,18 @@ tr:hover .db-row-del, .db-row-del:focus { opacity: 1; }
 .db-conn-field small { font-size: 11px; }
 .db-conn-checks { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 @media (max-width: 640px) { .db-conn-grid, .db-conn-checks { grid-template-columns: 1fr; } }
+
+/* ---------- Texto: imagens, símbolos, pincel ---------- */
+.page img.img-selected { outline: 2px solid #2f6fdd; outline-offset: 2px; }
+.page img { max-width: 100%; }
+.page-scroll { position: relative; }
+.image-bar { position: absolute; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 5px 8px; background: #fff; border: 1px solid #d4ddd6; border-radius: 10px; box-shadow: 0 6px 18px rgba(0, 0, 0, .12); font-size: 12px; color: #1d2622; }
+.image-bar span { color: #6b7a72; margin: 0 2px 0 6px; }
+.image-bar button { min-width: 30px; padding: 4px 7px; border: 1px solid #dde2da; border-radius: 6px; background: #fff; cursor: pointer; font: inherit; }
+.image-bar button:hover { background: #eef3ee; }
+.image-bar button.danger { color: #b4473f; }
+.symbol-dialog .symbol-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; max-width: 520px; }
+.symbol-dialog .symbol { aspect-ratio: 1; border: 1px solid var(--studio-line, #dde2da); border-radius: 6px; background: var(--studio-panel, #fff); color: inherit; font-size: 18px; cursor: pointer; }
+.symbol-dialog .symbol:hover { background: #eef3ee; }
+.tool.painter.on, .tool.on { background: #dfeee6; box-shadow: inset 0 0 0 1px #16865b; }
+.page th { background: #f2f4f1; font-weight: 700; text-align: left; }

@@ -218,6 +218,9 @@
       if (isOn(kid(rPr, 'i'))) out = `<i>${out}</i>`;
       if (isOn(kid(rPr, 'u'))) out = `<u>${out}</u>`;
       if (isOn(kid(rPr, 'strike'))) out = `<s>${out}</s>`;
+      const va = attr(kid(rPr, 'vertAlign'), 'val');
+      if (va === 'superscript') out = `<sup>${out}</sup>`;
+      else if (va === 'subscript') out = `<sub>${out}</sub>`;
       return out;
     }
 
@@ -256,6 +259,18 @@
           const styleId = attr(kid(pPr, 'pStyle'), 'val');
           const numId = attr(first(kid(pPr, 'numPr'), 'numId'), 'val') || styleNum[styleId] || (styleList[styleId] ? 'style' : null);
           const align = { center: 'center', right: 'right', end: 'right', both: 'justify' }[attr(kid(pPr, 'jc'), 'val')];
+          // Espaçamentos e avanço da primeira linha, em estilos CSS.
+          const spc = kid(pPr, 'spacing');
+          const ind = kid(pPr, 'ind');
+          const extra = [];
+          const line = Number(attr(spc, 'line'));
+          if (line && (!attr(spc, 'lineRule') || attr(spc, 'lineRule') === 'auto') && line !== 240) extra.push(`line-height: ${Math.round((line / 240) * 100) / 100}`);
+          const bef = attr(spc, 'before');
+          const aft = attr(spc, 'after');
+          if (bef != null && /^\d+$/.test(bef)) extra.push(`margin-top: ${Number(bef) / 20}pt`);
+          if (aft != null && /^\d+$/.test(aft)) extra.push(`margin-bottom: ${Number(aft) / 20}pt`);
+          const firstLine = Number(attr(ind, 'firstLine'));
+          if (firstLine > 0) extra.push(`text-indent: ${Math.round(firstLine / 20)}pt`);
           // \u0000 marca uma quebra de página dentro do parágrafo.
           const reopen = openComments.map((id) => `<mark class="mo-comment" data-id="${id}">`).join('');
           const inner = inlineHTML(node);
@@ -277,7 +292,8 @@
             closeList();
             if (i > 0 && !part) return;
             const tag = tags[styleId] || 'p';
-            out.push(`<${tag}${align ? ` style="text-align: ${align}"` : ''}>${part || '<br>'}</${tag}>`);
+            const css = [align ? `text-align: ${align}` : '', ...extra].filter(Boolean).join('; ');
+            out.push(`<${tag}${css ? ` style="${css}"` : ''}>${part || '<br>'}</${tag}>`);
           });
         } else if (node.localName === 'tbl') {
           closeList();
@@ -333,7 +349,8 @@
       const short = Math.min(w, hgt);
       const size = Math.abs(short - 12240) < 150 ? 'Letter' : Math.abs(short - 8391) < 300 ? 'A5' : 'A4';
       const left = Number(attr(pgMar, 'left')) || 1134;
-      page = { size, orient: w > hgt ? 'landscape' : 'portrait', margin: left <= 800 ? 'narrow' : left >= 1900 ? 'wide' : 'normal' };
+      const numCols = Number(attr(kid(sect, 'cols'), 'num')) || 1;
+      page = { size, orient: w > hgt ? 'landscape' : 'portrait', margin: left <= 800 ? 'narrow' : left >= 1900 ? 'wide' : 'normal', columns: [2, 3].includes(numCols) ? numCols : 1 };
     }
     const html_ = body ? blocksOf(body).join('') : '';
     return { html: html_, header: pagePart('header'), footer: pagePart('footer'), comments, notes, page };
@@ -363,6 +380,7 @@
       if (fmt.size) out += `<w:sz w:val="${fmt.size}"/><w:szCs w:val="${fmt.size}"/>`;
       if (fmt.u) out += '<w:u w:val="single"/>';
       if (fmt.bg) out += `<w:shd w:val="clear" w:color="auto" w:fill="${fmt.bg}"/>`;
+      if (fmt.va) out += `<w:vertAlign w:val="${fmt.va}"/>`;
       return out ? `<w:rPr>${out}</w:rPr>` : '';
     }
 
@@ -371,7 +389,7 @@
       const tag = el.tagName;
       const st = el.style;
       const weight = st.fontWeight;
-      if (tag === 'B' || tag === 'STRONG' || weight === 'bold' || Number(weight) >= 600) fmt.b = true;
+      if (tag === 'B' || tag === 'STRONG' || tag === 'TH' || weight === 'bold' || Number(weight) >= 600) fmt.b = true;
       if (weight === 'normal' || weight === '400') fmt.b = false;
       if (tag === 'I' || tag === 'EM' || st.fontStyle === 'italic') fmt.i = true;
       const deco = st.textDecorationLine || st.textDecoration || '';
@@ -384,6 +402,8 @@
       const size = /^([\d.]+)(pt|px)$/.exec(st.fontSize || '');
       if (size) fmt.size = Math.round(Number(size[1]) * (size[2] === 'px' ? 1.5 : 2));
       if (tag === 'A') Object.assign(fmt, { color: fmt.color || '1F5FBF', u: true });
+      if ((tag === 'SUP' && !el.classList.contains('mo-fn')) || st.verticalAlign === 'super') fmt.va = 'superscript';
+      if (tag === 'SUB' || st.verticalAlign === 'sub') fmt.va = 'subscript';
       return fmt;
     }
 
@@ -446,6 +466,19 @@
       let props = '';
       if (opts.style) props += `<w:pStyle w:val="${opts.style}"/>`;
       if (opts.list) props += `<w:numPr><w:ilvl w:val="${opts.level}"/><w:numId w:val="${opts.list}"/></w:numPr>`;
+      // Espaçamento entre linhas, antes e depois, e avanço da primeira linha.
+      const st = el.style || {};
+      const twips = (v) => { const m = /^(-?[\d.]+)(pt|px|cm|mm)?$/.exec(String(v || '').trim()); if (!m) return null; const n = Number(m[1]); return Math.round(m[2] === 'px' ? n * 15 : m[2] === 'cm' ? n * 567 : m[2] === 'mm' ? n * 56.7 : n * 20); };
+      const spacing = [];
+      const before = twips(st.marginTop);
+      const after = twips(st.marginBottom);
+      if (before != null) spacing.push(`w:before="${Math.max(0, before)}"`);
+      if (after != null) spacing.push(`w:after="${Math.max(0, after)}"`);
+      const lh = /^([\d.]+)(%)?$/.exec(String(st.lineHeight || ''));
+      if (lh) spacing.push(`w:line="${Math.round((lh[2] ? Number(lh[1]) / 100 : Number(lh[1])) * 240)}" w:lineRule="auto"`);
+      if (spacing.length) props += `<w:spacing ${spacing.join(' ')}/>`;
+      const indent = twips(st.textIndent);
+      if (indent) props += `<w:ind w:firstLine="${Math.max(0, indent)}"/>`;
       const align = { center: 'center', right: 'right', justify: 'both' }[el.style ? el.style.textAlign : ''];
       if (align) props += `<w:jc w:val="${align}"/>`;
       return `<w:p>${props ? `<w:pPr>${props}</w:pPr>` : ''}${inline(el, formatOf(el, {}))}</w:p>`;
@@ -491,11 +524,13 @@
               const span = Math.max(1, Math.min(64, td.colSpan || 1));
               const down = Math.max(1, Math.min(1000, td.rowSpan || 1));
               if (down > 1) pending[column] = { left: down - 1, span };
-              xml += `<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/>${span > 1 ? `<w:gridSpan w:val="${span}"/>` : ''}${down > 1 ? '<w:vMerge w:val="restart"/>' : ''}</w:tcPr>${paragraph(td, {})}</w:tc>`;
+              const shade = hexColor(td.style.backgroundColor);
+              xml += `<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/>${span > 1 ? `<w:gridSpan w:val="${span}"/>` : ''}${down > 1 ? '<w:vMerge w:val="restart"/>' : ''}${shade ? `<w:shd w:val="clear" w:color="auto" w:fill="${shade}"/>` : ''}</w:tcPr>${paragraph(td, td.tagName === 'TH' ? { b: true } : {})}</w:tc>`;
               column += span;
             }
             cont();
-            return '<w:tr>' + xml + '</w:tr>';
+            // Linha de cabeçalho: repete-se no topo de cada página.
+            return '<w:tr>' + ([...tr.cells].some((c) => c.tagName === 'TH') ? '<w:trPr><w:tblHeader/></w:trPr>' : '') + xml + '</w:tr>';
           });
           const border = (side) => `<w:${side} w:val="single" w:sz="4" w:space="0" w:color="9AA1B1"/>`;
           out += `<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders>${['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(border).join('')}</w:tblBorders></w:tblPr>${rows.join('')}</w:tbl><w:p/>`;
@@ -540,7 +575,8 @@
       let [w, hgt] = sizes[pg.size] || sizes.A4;
       if (pg.orient === 'landscape') [w, hgt] = [hgt, w];
       const m = { normal: [25, 20], narrow: [12.7, 12.7], wide: [25.4, 38.1] }[pg.margin] || [25, 20];
-      return `<w:pgSz w:w="${mm(w)}" w:h="${mm(hgt)}"${pg.orient === 'landscape' ? ' w:orient="landscape"' : ''}/><w:pgMar w:top="${mm(m[0])}" w:right="${mm(m[1])}" w:bottom="${mm(m[0])}" w:left="${mm(m[1])}" w:header="708" w:footer="708" w:gutter="0"/>`;
+      const cols = [2, 3].includes(pg.columns) ? `<w:cols w:num="${pg.columns}" w:space="567"/>` : '';
+      return `<w:pgSz w:w="${mm(w)}" w:h="${mm(hgt)}"${pg.orient === 'landscape' ? ' w:orient="landscape"' : ''}/><w:pgMar w:top="${mm(m[0])}" w:right="${mm(m[1])}" w:bottom="${mm(m[0])}" w:left="${mm(m[1])}" w:header="708" w:footer="708" w:gutter="0"/>${cols}`;
     }
     const textParagraphs = (text) => String(text || '').split(/\n/).map((line) => `<w:p><w:r><w:t xml:space="preserve">${esc(line)}</w:t></w:r></w:p>`).join('');
     const extraParts = {};
