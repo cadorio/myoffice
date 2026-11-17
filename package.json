@@ -12,7 +12,7 @@
   "license": "Apache-2.0",
   "scripts": {
     "start": "electron .",
-    "test": "node test/formula.test.js && node test/assistant.test.js && node test/license.test.js",
+    "test": "node test/formula.test.js && node test/assistant.test.js && node test/license.test.js && node test/dbserver.test.js",
     "dist": "electron-builder --publish never",
     "dist:win": "electron-builder --win --publish never",
     "notices": "node tools/notices.js",
@@ -30,6 +30,7 @@
     "files": [
       "main.js",
       "ai.js",
+      "dbserver.js",
       "license.js",
       "license-public.pem",
       "preload.js",
@@ -136,5 +137,10 @@
     "pdfjs-dist": "6.5.438",
     "sql.js": "1.16.0"
   },
-  "desktopName": "myoffice.desktop"
+  "desktopName": "myoffice.desktop",
+  "dependencies": {
+    "mysql2": "3.24.6",
+    "pg": "8.23.1",
+    "tedious": "20.3.9"
+  }
 }

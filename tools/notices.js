@@ -33,6 +33,24 @@ const components = [
   { name: 'fflate', version: version('fflate'), url: 'https://github.com/101arrowz/fflate', license: read('node_modules/fflate/LICENSE'), note: 'Compressão ZIP, usada para ler e escrever ficheiros .docx, .xlsx e .pptx.' }
 ];
 
+// Dependências de produção (controladores dos servidores de bases de dados e as suas dependências):
+// vão dentro do instalador, por isso entram todas, com o texto da licença de cada uma.
+const { execSync } = require('child_process');
+const listed = new Set(components.map((c) => c.name));
+const prodDirs = execSync('npm ls --omit=dev --all --parseable', { cwd: root, encoding: 'utf8' }).split(/\r?\n/).filter((d) => d && d !== root);
+const seen = new Set();
+for (const dir of prodDirs) {
+  let pkg;
+  try { pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')); } catch { continue; }
+  const key = pkg.name + '@' + pkg.version;
+  if (seen.has(key) || listed.has(pkg.name)) continue;
+  seen.add(key);
+  const file = fs.readdirSync(dir).find((f) => /^(licen[cs]e|copying)(\.(md|txt|markdown))?$/i.test(f));
+  const license = file ? fs.readFileSync(path.join(dir, file), 'utf8').trim() : `Licença: ${typeof pkg.license === 'string' ? pkg.license : 'ver o pacote'} (o pacote não inclui o texto da licença).`;
+  const url = (pkg.repository && (pkg.repository.url || pkg.repository)) || pkg.homepage || `https://www.npmjs.com/package/${pkg.name}`;
+  components.push({ name: pkg.name, version: pkg.version, url: String(url).replace(/^git\+/, '').replace(/\.git$/, ''), license, note: `Licença ${typeof pkg.license === 'string' ? pkg.license : ''}. Usado pelas ligações a servidores do programa Bases de dados.` });
+}
+
 const own = `MyOffice ${JSON.parse(read('package.json')).version}\nhttps://github.com/cadorio/myoffice\nLicenciado sob a Licença Apache, versão 2.0. O texto completo está no ficheiro LICENSE.\n\nCopyright 2026 cadorio\n\nLicensed under the Apache License, Version 2.0 (the "License");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0\n\nUnless required by applicable law or agreed to in writing, software\ndistributed under the License is distributed on an "AS IS" BASIS,\nWITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\nSee the License for the specific language governing permissions and\nlimitations under the License.`;
 const text = [own, ...components.map((c) => `${c.name} ${c.version}\n${c.url}\n${c.note}\n\n${c.license}`)].join('\n\n' + '-'.repeat(72) + '\n\n');
 

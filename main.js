@@ -1,9 +1,10 @@
 'use strict';
 
-const { app, BrowserWindow, Menu, dialog, ipcMain, session } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, session, safeStorage } = require('electron');
 const { fileURLToPath } = require('url');
 const license = require('./license.js').createManager(app);
 const ai = require('./ai');
+const dbServers = require('./dbserver.js').createManager(app, safeStorage);
 const path = require('path');
 const fs = require('fs/promises');
 const fsSync = require('fs');
@@ -365,6 +366,8 @@ const LICENSE_BLOCK = 'O período experimental terminou. Ative uma licença em F
 
 function registerIpc() {
   ai.register(ipcMain, fromOurWindow);
+  // Ligações a servidores de bases de dados: só a janela do programa Bases de dados as pode usar.
+  dbServers.register(ipcMain, (event) => fromOurWindow(event) && entryOf(event).appId === 'db');
   ipcMain.handle('license:status', (event) => (fromOurWindow(event) ? license.status() : null));
   ipcMain.handle('license:activate', (event, key) => (fromOurWindow(event) ? license.activate(key) : null));
 
@@ -606,6 +609,8 @@ if (!app.requestSingleInstanceLock()) {
       if (!windows.size) openApp('home');
     });
   });
+
+  app.on('before-quit', () => { dbServers.closeAll(); });
 
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
