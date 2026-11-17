@@ -4,10 +4,10 @@
 
 O MyOffice reúne cinco áreas numa única aplicação: **Texto**, **Folhas**, **Diapositivos**, **Desenho** e o **Assistente IA**. A nova aplicação Desenho cria fluxogramas, mapas mentais e organogramas vetoriais. Foi desenvolvido com Electron e é distribuído para computadores Windows de 64 bits, com Windows 10 versão 22H2 ou Windows 11. Os documentos são processados localmente e a aplicação foi concebida para funcionar sem ligação à Internet.
 
-[Descarregar instalador Windows](https://github.com/cadorio/myoffice/releases/download/v1.4.0-independent.2/MyOffice-Setup-1.4.0.exe) · [Consultar compilações](https://github.com/cadorio/myoffice/actions) · [Ver código-fonte](https://github.com/cadorio/myoffice) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
+[Descarregar instalador Windows](https://github.com/cadorio/myoffice/releases/download/v1.5.0/MyOffice-Setup-1.5.0.exe) · [Consultar compilações](https://github.com/cadorio/myoffice/actions) · [Ver código-fonte](https://github.com/cadorio/myoffice) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
 > **Código fonte atual — MyOffice**
-> A branch `main` inclui o novo editor Desenho e as sugestões de design para diapositivos. O instalador disponível `v1.4.0-independent.2` é uma versão anterior e ainda não inclui estas alterações.
+> A versão 1.5.0 inclui o novo editor Desenho e as sugestões de design para diapositivos.
 
 ## Capturas de ecrã
 
@@ -94,9 +94,9 @@ O MyOffice é distribuído oficialmente para computadores Windows de 64 bits. O 
 | Windows 10 | `.exe` | Versão 22H2, 64 bits |
 | Windows 11 | `.exe` | 64 bits |
 
-**[Descarregar MyOffice 1.4.0 para Windows x64](https://github.com/cadorio/myoffice/releases/download/v1.4.0-independent.2/MyOffice-Setup-1.4.0.exe)**
+**[Descarregar MyOffice 1.5.0 para Windows x64](https://github.com/cadorio/myoffice/releases/download/v1.5.0/MyOffice-Setup-1.5.0.exe)**
 
-Este instalador corresponde à versão publicada `v1.4.0-independent.2`. Para obter as novas funcionalidades descritas acima, é necessário compilar a versão atual do código fonte.
+O instalador inclui o editor Desenho, além das melhorias nas sugestões de design para diapositivos.
 
 > **Aviso de assinatura:** os instaladores atuais não estão assinados digitalmente. O Windows SmartScreen pode apresentar avisos na primeira execução. A assinatura requer certificados próprios, configurados como segredos no GitHub Actions.
 
@@ -189,9 +189,9 @@ O MyOffice ainda não oferece todas as funcionalidades das suites comerciais. En
 - Coautoria em tempo real e armazenamento na nuvem.
 - Correio eletrónico e calendário.
 
-## Estado da versão Horizon
+## Estado da versão 1.5.0
 
-A versão publicada **1.4.0 — MyOffice Horizon** está disponível em [Releases](https://github.com/cadorio/myoffice/releases/tag/v1.4.0-independent.2). A branch `main` já inclui alterações posteriores, incluindo MyOffice Desenho e as novas ideias de design para diapositivos; essas alterações ainda requerem um novo instalador.
+A versão publicada **1.5.0 — MyOffice Desenho** fica disponível em [Releases](https://github.com/cadorio/myoffice/releases/tag/v1.5.0). A versão 1.5.0 inclui MyOffice Desenho e as novas ideias de design para diapositivos.
 
 ## Desenvolvimento
 
