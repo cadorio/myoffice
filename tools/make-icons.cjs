@@ -50,5 +50,14 @@ function ico(pngs) {
     }
     fs.writeFileSync(path.join(ROOT, 'build', 'icons', id + '.ico'), ico(pngs));
   }
+  // Ícone principal (build/icon.ico) a partir de build/icon.png: o MSI e o executável usam-no.
+  const png = fs.readFileSync(path.join(ROOT, 'build', 'icon.png')).toString('base64');
+  const main = [];
+  for (const size of SIZES) {
+    await page.setViewportSize({ width: size, height: size });
+    await page.setContent(`<html><body style="margin:0;background:transparent"><img src="data:image/png;base64,${png}" style="width:${size}px;height:${size}px;display:block"></body></html>`);
+    main.push([size, await page.screenshot({ omitBackground: true })]);
+  }
+  fs.writeFileSync(path.join(ROOT, 'build', 'icon.ico'), ico(main));
   await browser.close();
 })();
