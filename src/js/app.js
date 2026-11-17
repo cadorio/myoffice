@@ -550,7 +550,7 @@
     if (actions[action]) {
       closeBackstage();
       actions[action]();
-    } else if (action === 'home' || action === 'assistant' || MO.modules[action]) {
+    } else if (action === 'assistant' || MO.modules[action]) {
       show(action);
     }
   }
@@ -614,7 +614,7 @@
       ['Novo documento', 'new'], ['Abrir ficheiro…', 'open'], ['Guardar', 'save'], ['Guardar como…', 'saveAs'], ['Exportar como PDF', 'exportPdf'], ['Pré-visualizar impressão', 'printPreview'], ['Imprimir…', 'print'], ['Acerca do MyOffice', 'about']
     ];
     for (const [label, action] of actions) out.push({ label, hint: 'Ficheiro', run: () => run(action) });
-    for (const [label, id] of [['Ir para o Início', 'home'], ['Abrir Texto', 'writer'], ['Abrir Folhas', 'sheets'], ['Abrir Diapositivos', 'slides'], ['Abrir Desenho', 'draw'], ['Abrir Assistente', 'assistant']]) {
+    for (const [label, id] of [['Abrir Texto', 'writer'], ['Abrir Folhas', 'sheets'], ['Abrir Diapositivos', 'slides'], ['Abrir Desenho', 'draw'], ['Abrir PDF', 'pdf'], ['Abrir Bases de dados', 'db'], ['Abrir Assistente', 'assistant']]) {
       if (id === current) continue;
       out.push({ label, hint: 'Aplicações', run: () => show(id) });
     }

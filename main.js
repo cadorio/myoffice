@@ -32,6 +32,29 @@ const approvedPaths = new Set();
 const extOf = (p) => path.extname(p).slice(1).toLowerCase();
 const recentFile = () => path.join(app.getPath('userData'), 'recent.json');
 
+// Ícone próprio de cada programa (resources/icons/<id>.ico no Windows instalado).
+function windowIcon(appId) {
+  if (process.platform === 'linux') return path.join(__dirname, 'build', 'icon.png');
+  if (process.platform !== 'win32' || appId === 'home') return undefined;
+  const dir = app.isPackaged ? path.join(process.resourcesPath, 'icons') : path.join(__dirname, 'build', 'icons');
+  const file = path.join(dir, appId + '.ico');
+  return fsSync.existsSync(file) ? file : undefined;
+}
+
+// Sem menu inicial: sem programa indicado, abre o último usado (ou o Texto).
+function lastAppFile() { return path.join(app.getPath('userData'), 'last-app.txt'); }
+function lastApp() {
+  try {
+    const id = fsSync.readFileSync(lastAppFile(), 'utf8').trim();
+    if (APPS.includes(id) && id !== 'home') return id;
+  } catch (_) { /* primeira execução */ }
+  return 'writer';
+}
+function rememberApp(appId) {
+  if (appId === 'home') return;
+  try { fsSync.writeFileSync(lastAppFile(), appId); } catch (_) { /* não é essencial */ }
+}
+
 function viewFromArgv(argv) {
   const args = new Set(argv);
   for (const id of ['writer', 'sheets', 'slides', 'draw', 'pdf', 'db', 'assistant']) {
@@ -165,7 +188,6 @@ function buildMenu() {
     {
       label: 'Ver',
       submenu: [
-        { label: 'Início', accelerator: 'CmdOrCtrl+0', click: () => openApp('home') },
         { label: 'Texto', accelerator: 'CmdOrCtrl+1', click: () => openApp('writer') },
         { label: 'Folhas', accelerator: 'CmdOrCtrl+2', click: () => openApp('sheets') },
         { label: 'Diapositivos', accelerator: 'CmdOrCtrl+3', click: () => openApp('slides') },
@@ -203,7 +225,7 @@ function createWindow(appId) {
     // Branco: esta cor também preenche as margens das páginas exportadas para PDF.
     backgroundColor: '#ffffff',
     title: APP_TITLE[appId],
-    icon: process.platform === 'linux' ? path.join(__dirname, 'build', 'icon.png') : undefined,
+    icon: windowIcon(appId),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -216,13 +238,14 @@ function createWindow(appId) {
     }
   });
   const entry = { win, appId, dirty: false, ready: false, queue: [] };
+  rememberApp(appId);
   windows.set(appId, entry);
 
   // Windows: cada programa é um grupo próprio na barra de tarefas.
   if (process.platform === 'win32') {
     win.setAppDetails({
       appId: 'pt.myoffice.' + appId,
-      appIconPath: process.execPath,
+      appIconPath: windowIcon(appId) || process.execPath,
       relaunchCommand: `"${process.execPath}"${appId === 'home' ? '' : ' --' + appId}`,
       relaunchDisplayName: APP_TITLE[appId]
     });
@@ -585,7 +608,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('second-instance', (_event, argv) => {
     const p = fileFromArgv(argv);
     if (p) openInRenderer(p);
-    else openApp(viewFromArgv(argv) || 'home');
+    else openApp(viewFromArgv(argv) || lastApp());
   });
 
   // macOS: ficheiro aberto a partir do Finder.
@@ -601,12 +624,12 @@ if (!app.requestSingleInstanceLock()) {
     registerIpc();
     buildMenu();
     if (pendingFile) openInRenderer(pendingFile);
-    else openApp(pendingView || 'home');
+    else openApp(pendingView || lastApp());
     pendingFile = null;
     pendingView = null;
 
     app.on('activate', () => {
-      if (!windows.size) openApp('home');
+      if (!windows.size) openApp(lastApp());
     });
   });
 
