@@ -202,7 +202,8 @@
       h('div', { class: 'db-nav-head' }, h('span', null, 'Tabelas'), h('button', { type: 'button', class: 'db-nav-add', title: 'Nova tabela', 'aria-label': 'Nova tabela', onclick: newTable }, '＋')),
       ...(ts.length ? ts.map((t) => item('table', t, 'table')) : [h('p', { class: 'db-nav-empty' }, 'Ainda não há tabelas.')]),
       h('div', { class: 'db-nav-head' }, h('span', null, 'Consultas'), h('button', { type: 'button', class: 'db-nav-add', title: 'Nova consulta', 'aria-label': 'Nova consulta', onclick: () => open('query', null) }, '＋')),
-      ...(qs.length ? qs.map((r) => item('query', r.name, 'search')) : [h('p', { class: 'db-nav-empty' }, 'Sem consultas guardadas.')])
+      ...(qs.length ? qs.map((r) => item('query', r.name, 'search')) : [h('p', { class: 'db-nav-empty' }, 'Sem consultas guardadas.')]),
+      ...serverNav()
     );
   }
 
@@ -227,8 +228,11 @@
     if (!navBox || !db) return;
     renderNav();
     if (current.kind === 'table' && (!current.name || !tables().includes(current.name))) current = { kind: 'table', name: tables()[0] || null };
+    if ((current.kind === 'remote' || current.kind === 'remote-sql') && !servers.some((sv) => sv.id === current.conn)) current = { kind: 'table', name: tables()[0] || null };
     contentBox.replaceChildren();
-    if (mode === 'query') renderQuery();
+    if (current.kind === 'remote') renderRemoteTable();
+    else if (current.kind === 'remote-sql') renderRemoteSql();
+    else if (mode === 'query') renderQuery();
     else if (!current.name) renderEmpty();
     else if (mode === 'form') renderForm();
     else if (mode === 'design') renderDesign();
@@ -679,6 +683,7 @@
 
   // Dados da vista atual (tabela ou último resultado de uma consulta), para exportar e imprimir.
   function currentData() {
+    if (current.kind === 'remote' || current.kind === 'remote-sql') return remoteData;
     if (mode === 'query') {
       if (!lastResult) return null;
       return { title: current.name || 'Consulta', columns: lastResult.columns, values: lastResult.values.map((r) => r.map((v) => (v instanceof Uint8Array ? '' : v))) };
@@ -726,6 +731,291 @@
     document.querySelector('[data-action="printPreview"]')?.click();
   }
 
+  // ---------- Servidores (fase 2) ----------
+  // As ligações são abertas pelo processo principal (dbserver.js); aqui só se mostram os dados.
+
+  const KIND_LABEL = { mysql: 'MySQL / MariaDB', postgres: 'PostgreSQL', mssql: 'SQL Server' };
+  const PORTS = { mysql: 3306, postgres: 5432, mssql: 1433 };
+  let servers = []; // { id, kind, label, database, tables: [], open }
+  let savedServers = [];
+  let remoteData = null;
+  let remoteLimit = 200;
+  let remoteToken = 0;
+  const dbs = () => window.api && window.api.dbs;
+  const tableLabel = (t) => (t.schema ? t.schema + '.' : '') + t.name;
+
+  async function call(name, ...args) {
+    const res = await dbs()[name](...args);
+    if (!res || !res.ok) throw new Error((res && res.error) || 'Erro desconhecido.');
+    return res.result;
+  }
+
+  async function refreshSaved() {
+    if (!dbs()) return;
+    try { savedServers = await call('saved'); } catch { savedServers = []; }
+    renderNav();
+  }
+
+  function serverNav() {
+    if (!dbs()) return [];
+    const out = [h('div', { class: 'db-nav-head' }, h('span', null, 'Servidores'), h('button', { type: 'button', class: 'db-nav-add', title: 'Ligar a um servidor', 'aria-label': 'Ligar a um servidor', onclick: () => connectDialog() }, '＋'))];
+    for (const sv of servers) {
+      out.push(h('div', { class: 'db-server' },
+        h('button', { type: 'button', class: 'db-nav-item db-server-name', title: sv.version || sv.label, onclick: () => { sv.open = !sv.open; renderNav(); } }, h('span', { class: 'db-dot on' }), h('span', null, sv.label)),
+        h('button', { type: 'button', class: 'db-nav-add', title: 'Desligar', 'aria-label': `Desligar ${sv.label}`, onclick: () => disconnect(sv) }, '⏏')));
+      if (!sv.open) continue;
+      out.push(h('button', { type: 'button', class: 'db-nav-item sub' + (current.kind === 'remote-sql' && current.conn === sv.id ? ' on' : ''), onclick: () => { current = { kind: 'remote-sql', conn: sv.id }; remoteData = null; renderAll(); } }, MO.icon('search'), h('span', null, 'Consulta SQL')));
+      for (const t of sv.tables) {
+        const on = current.kind === 'remote' && current.conn === sv.id && tableLabel(current.table) === tableLabel(t);
+        out.push(h('button', { type: 'button', class: 'db-nav-item sub' + (on ? ' on' : ''), title: tableLabel(t), onclick: () => { current = { kind: 'remote', conn: sv.id, table: t }; sort = null; remoteLimit = 200; renderAll(); } }, MO.icon(t.view ? 'search' : 'table'), h('span', null, tableLabel(t))));
+      }
+    }
+    for (const sv of savedServers) {
+      if (servers.some((x) => x.savedId === sv.id)) continue;
+      out.push(h('div', { class: 'db-server' },
+        h('button', { type: 'button', class: 'db-nav-item db-server-name', title: `${KIND_LABEL[sv.kind]} · ${sv.host}`, onclick: () => connectDialog(sv) }, h('span', { class: 'db-dot' }), h('span', null, sv.name)),
+        h('button', { type: 'button', class: 'db-nav-add', title: 'Esquecer esta ligação', 'aria-label': `Esquecer ${sv.name}`, onclick: async () => { if (window.confirm(`Esquecer a ligação "${sv.name}"?`)) { await call('forget', sv.id); refreshSaved(); } } }, '×')));
+    }
+    if (!servers.length && !savedServers.length) out.push(h('p', { class: 'db-nav-empty' }, 'Ligue a MySQL, PostgreSQL ou SQL Server.'));
+    return out;
+  }
+
+  function connectDialog(saved) {
+    if (!dbs()) return MO.toast('A ligação a servidores só está disponível na aplicação instalada.');
+    const kind = h('select', { name: 'kind' }, Object.entries(KIND_LABEL).map(([k, l]) => h('option', { value: k, selected: saved ? saved.kind === k : k === 'mysql' }, l)));
+    const host = h('input', { type: 'text', name: 'host', value: saved ? saved.host : 'localhost', required: true, autocomplete: 'off', spellcheck: 'false' });
+    const port = h('input', { type: 'number', name: 'port', value: saved ? saved.port : PORTS[kind.value], min: 1, max: 65535 });
+    const database = h('input', { type: 'text', name: 'database', value: saved ? saved.database : '', autocomplete: 'off', spellcheck: 'false' });
+    const user = h('input', { type: 'text', name: 'user', value: saved ? saved.user : '', autocomplete: 'off', spellcheck: 'false' });
+    const password = h('input', { type: 'password', name: 'password', autocomplete: 'new-password', placeholder: saved && saved.hasPassword ? '(guardada)' : '' });
+    const ssl = h('input', { type: 'checkbox', checked: saved ? saved.ssl : false });
+    const trust = h('input', { type: 'checkbox', checked: saved ? saved.trustCert : false });
+    const name = h('input', { type: 'text', value: saved ? saved.name : '', placeholder: 'Ex.: Loja online', autocomplete: 'off' });
+    const remember = h('input', { type: 'checkbox', checked: Boolean(saved) });
+    const rememberPw = h('input', { type: 'checkbox', checked: Boolean(saved && saved.hasPassword) });
+    const err = h('p', { class: 'db-error', hidden: true });
+    kind.addEventListener('change', () => { port.value = PORTS[kind.value]; });
+    const L = (label, input, hint) => h('label', { class: 'db-conn-field' }, h('span', null, label), input, hint ? h('small', null, hint) : null);
+    const submit = h('button', { type: 'submit', class: 'btn primary' }, 'Ligar');
+    const dlg = h('dialog', { class: 'mo-dialog db-conn-dialog' },
+      h('form', { method: 'dialog' },
+        h('h2', null, saved ? `Ligar a ${saved.name}` : 'Ligar a um servidor'),
+        h('div', { class: 'db-conn-grid' },
+          L('Tipo', kind), L('Nome desta ligação', name),
+          L('Servidor', host, 'Endereço ou nome do computador (SQL Server: servidor\\instância)'), L('Porta', port),
+          L('Base de dados', database), L('Utilizador', user), L('Palavra-passe', password),
+          h('div', { class: 'db-conn-checks' },
+            h('label', { class: 'chart-check' }, ssl, 'Ligação encriptada (TLS)'),
+            h('label', { class: 'chart-check' }, trust, 'Confiar no certificado do servidor (servidores internos)'),
+            h('label', { class: 'chart-check' }, remember, 'Guardar esta ligação'),
+            h('label', { class: 'chart-check' }, rememberPw, 'Lembrar a palavra-passe (encriptada pelo sistema)'))),
+        h('p', { class: 'db-hint' }, 'A ligação é feita apenas a este servidor. Use um utilizador com as permissões mínimas necessárias.'),
+        err,
+        h('div', { class: 'mo-dialog-actions' }, h('button', { type: 'button', class: 'btn', onclick: () => dlg.close() }, 'Cancelar'), submit)));
+    dlg.querySelector('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const cfg = { kind: kind.value, host: host.value.trim(), port: Number(port.value), database: database.value.trim(), user: user.value.trim(), password: password.value, ssl: ssl.checked, trustCert: trust.checked, name: name.value.trim() || database.value.trim() || host.value.trim(), savedId: saved ? saved.id : undefined };
+      submit.disabled = true;
+      submit.textContent = 'A ligar…';
+      err.hidden = true;
+      let info = null;
+      try {
+        info = await call('connect', cfg);
+        let savedId = saved ? saved.id : undefined;
+        if (remember.checked) {
+          try {
+            savedId = (await call('save', cfg, rememberPw.checked && Boolean(cfg.password))).id;
+          } catch (saveError) {
+            // Sem cofre seguro no sistema: guarda a ligação sem a palavra-passe.
+            savedId = (await call('save', cfg, false)).id;
+            MO.toast(saveError.message + ' A ligação foi guardada sem a palavra-passe.');
+          }
+        } else if (saved) await call('forget', saved.id);
+        const tablesList = await call('tables', info.id);
+        servers.push({ ...info, label: cfg.name, savedId, tables: tablesList, open: true });
+        dlg.close();
+        await refreshSaved();
+        current = tablesList.length ? { kind: 'remote', conn: info.id, table: tablesList[0] } : { kind: 'remote-sql', conn: info.id };
+        sort = null;
+        renderAll();
+        MO.toast(`Ligado a ${cfg.name} (${KIND_LABEL[cfg.kind]}).`);
+      } catch (ex) {
+        if (info && !servers.some((x) => x.id === info.id)) call('disconnect', info.id).catch(() => {});
+        err.textContent = ex.message;
+        err.hidden = false;
+        submit.disabled = false;
+        submit.textContent = 'Ligar';
+      }
+    });
+    dlg.addEventListener('close', () => dlg.remove());
+    document.body.append(dlg);
+    dlg.showModal();
+    (saved ? password : host).focus();
+  }
+
+  async function disconnect(sv) {
+    await call('disconnect', sv.id).catch(() => {});
+    servers = servers.filter((x) => x !== sv);
+    if (current.conn === sv.id) current = { kind: 'table', name: tables()[0] || null };
+    renderAll();
+  }
+
+  const remoteGrid = (columns, data, cellFn) => h('table', { class: 'db-grid' + (cellFn ? '' : ' readonly') },
+    h('thead', null, h('tr', null, columns.map((c) => (typeof c === 'string' ? h('th', null, c) : c)))),
+    h('tbody', null, data));
+
+  async function renderRemoteTable() {
+    const token = ++remoteToken;
+    const sv = servers.find((x) => x.id === current.conn);
+    const t = current.table;
+    contentBox.append(h('p', { class: 'db-hint' }, 'A carregar…'));
+    let cols, res;
+    try {
+      cols = await call('columns', sv.id, t);
+      res = await call('rows', sv.id, t, { limit: remoteLimit, orderBy: sort ? sort.field : '', dir: sort ? sort.dir : 'asc' });
+    } catch (e) {
+      if (token !== remoteToken) return;
+      contentBox.replaceChildren(h('p', { class: 'db-error' }, e.message));
+      return;
+    }
+    if (token !== remoteToken) return;
+    const pk = cols.filter((c) => c.pk).map((c) => c.name);
+    const editable = pk.length > 0 && !t.view;
+    remoteData = { title: tableLabel(t), columns: res.columns, values: res.rows };
+    const keyOf = (row) => Object.fromEntries(pk.map((k) => [k, row[res.columns.indexOf(k)]]));
+    const head = res.columns.map((c) => {
+      const arrow = sort && sort.field === c ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : '';
+      const info = cols.find((x) => x.name === c);
+      return h('th', { title: `${info ? info.type : ''}${info && info.pk ? ' · chave primária' : ''} · clique para ordenar`, onclick: () => { sort = sort && sort.field === c && sort.dir === 'asc' ? { field: c, dir: 'desc' } : { field: c, dir: 'asc' }; renderAll(); } }, info && info.pk ? '🔑 ' : '', c + arrow);
+    });
+    const body = res.rows.map((row) => h('tr', null,
+      editable ? h('td', { class: 'db-rownum' }, h('button', { type: 'button', class: 'db-row-del', title: 'Eliminar registo', 'aria-label': 'Eliminar registo', onclick: async () => {
+        if (!window.confirm('Eliminar este registo no servidor? Esta operação não pode ser anulada.')) return;
+        try { await call('remove', sv.id, t, keyOf(row)); renderAll(); } catch (e) { MO.toast(e.message); }
+      } }, '×')) : null,
+      row.map((v, i) => {
+        const col = cols.find((x) => x.name === res.columns[i]);
+        if (!editable || !col || col.auto) return h('td', { class: typeof v === 'number' ? 'num' : null, style: 'padding:7px 10px' }, v == null ? '' : String(v));
+        const input = h('input', { type: 'text', value: v == null ? '' : String(v), 'aria-label': res.columns[i] });
+        input.addEventListener('change', async () => {
+          try {
+            await call('update', sv.id, t, keyOf(row), res.columns[i], input.value);
+            row[i] = input.value;
+            MO.toast('Guardado no servidor.');
+          } catch (e) {
+            MO.toast(e.message);
+            input.value = v == null ? '' : String(v);
+          }
+        });
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+        return h('td', { class: 'db-cell' }, input);
+      })));
+    const actions = h('div', { class: 'db-query-actions' },
+      editable ? h('button', { type: 'button', class: 'btn', onclick: async () => { try { await call('insert', sv.id, t); sort = null; remoteLimit = Math.max(remoteLimit, res.total + 1); renderAll(); } catch (e) { MO.toast(e.message); } } }, '＋ Novo registo') : null,
+      h('button', { type: 'button', class: 'btn', onclick: () => renderAll() }, '↻ Atualizar'),
+      h('button', { type: 'button', class: 'btn', onclick: () => copyToLocal(sv, t) }, 'Copiar para a base local'),
+      h('span', { class: 'db-hint' }, editable ? 'As alterações são gravadas logo no servidor.' : t.view ? 'Vista: só leitura.' : 'Sem chave primária: só leitura.'));
+    contentBox.replaceChildren(h('div', { class: 'db-grid-wrap' },
+      h('h2', { class: 'db-remote-title' }, `${sv.label} · ${tableLabel(t)}`),
+      actions,
+      remoteGrid(editable ? [h('th', { class: 'db-rownum' }, ''), ...head] : head, body, editable),
+      res.rows.length < res.total ? h('button', { type: 'button', class: 'btn db-more', onclick: () => { remoteLimit += 200; renderAll(); } }, `Mostrar mais (${res.total - res.rows.length} restantes)`) : null));
+    status(`${KIND_LABEL[sv.kind]} · ${tableLabel(t)} · ${res.total} registo(s)`);
+  }
+
+  function renderRemoteSql() {
+    const sv = servers.find((x) => x.id === current.conn);
+    const editor = h('textarea', { class: 'db-sql', spellcheck: 'false', rows: 7, 'aria-label': 'Consulta SQL', placeholder: sv.kind === 'mssql' ? 'SELECT TOP 100 * FROM clientes' : 'SELECT * FROM clientes LIMIT 100' });
+    editor.value = sv.lastSql || (sv.tables[0] ? (sv.kind === 'mssql' ? `SELECT TOP 100 * FROM ${tableLabel(sv.tables[0])}` : `SELECT * FROM ${tableLabel(sv.tables[0])} LIMIT 100`) : '');
+    const results = h('div', { class: 'db-results' });
+    const execute = async () => {
+      const sql = editor.value.trim();
+      sv.lastSql = editor.value;
+      results.replaceChildren();
+      if (!sql) return;
+      if (isWrite(sql) || /^\s*(truncate|grant|revoke|merge|exec|execute|call|use|set)\b/im.test(sql)) {
+        const risky = /^\s*(delete|update)\b(?![\s\S]*\bwhere\b)/im.test(sql) || /^\s*(drop|truncate)\b/im.test(sql);
+        if (!window.confirm((risky ? 'ATENÇÃO: esta instrução altera ou apaga dados SEM condição (WHERE), ou elimina uma tabela, ' : 'Esta instrução altera dados ') + `no servidor "${sv.label}". Não pode ser anulada aqui. Continuar?`)) return;
+      }
+      results.append(h('p', { class: 'db-hint' }, 'A executar…'));
+      try {
+        const res = await call('query', sv.id, sql);
+        results.replaceChildren();
+        if (!res.columns.length) { results.append(h('p', null, `Instrução executada. ${res.affected} registo(s) afetado(s).`)); remoteData = null; status('Executado'); sv.tables = await call('tables', sv.id).catch(() => sv.tables); renderNav(); return; }
+        remoteData = { title: 'Consulta', columns: res.columns, values: res.rows };
+        results.append(remoteGrid(res.columns, res.rows.slice(0, 2000).map((r) => h('tr', null, r.map((v) => h('td', { class: typeof v === 'number' ? 'num' : null }, v == null ? '' : String(v)))))));
+        if (res.truncated) results.append(h('p', { class: 'db-hint' }, 'Resultado limitado a 5000 linhas.'));
+        status(`${res.rows.length} resultado(s)`);
+      } catch (e) {
+        results.replaceChildren(h('p', { class: 'db-error' }, e.message));
+      }
+    };
+    editor.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); execute(); } });
+    contentBox.append(h('div', { class: 'db-query' },
+      h('h2', null, `Consulta SQL · ${sv.label}`),
+      h('p', { class: 'db-hint' }, `${KIND_LABEL[sv.kind]}${sv.version ? ' · ' + sv.version : ''}. As instruções correm diretamente no servidor.`),
+      editor,
+      h('div', { class: 'db-query-actions' }, h('button', { type: 'button', class: 'btn primary', onclick: execute, title: 'Executar (Ctrl+Enter)' }, '▶ Executar'), h('span', { class: 'db-hint' }, 'Exporte o resultado em Dados externos › Para Excel ou Para CSV.')),
+      results));
+    status(`${KIND_LABEL[sv.kind]} · consulta`);
+  }
+
+  // Copia uma tabela do servidor (até 100 000 registos) para a base de dados local.
+  async function copyToLocal(sv, t) {
+    try {
+      const cols = await call('columns', sv.id, t);
+      const all = [];
+      let res;
+      do {
+        res = await call('query', sv.id, sv.kind === 'mssql'
+          ? `SELECT * FROM ${t.schema ? `[${t.schema.replace(/]/g, ']]')}].` : ''}[${t.name.replace(/]/g, ']]')}] ORDER BY (SELECT NULL) OFFSET ${all.length} ROWS FETCH NEXT 5000 ROWS ONLY`
+          : `SELECT * FROM ${sv.kind === 'mysql' ? (t.schema ? '`' + t.schema.replace(/`/g, '``') + '`.' : '') + '`' + t.name.replace(/`/g, '``') + '`' : (t.schema ? q(t.schema) + '.' : '') + q(t.name)} LIMIT 5000 OFFSET ${all.length}`);
+        all.push(...res.rows);
+      } while (res.rows.length === 5000 && all.length < 100000);
+      const typeOf = (c) => (/int|serial|float|double|real|numeric|decimal|money/i.test(c.type) ? (/money|decimal|numeric/i.test(c.type) ? 'money' : 'number') : /date|time/i.test(c.type) ? 'date' : /bool|bit|tinyint/i.test(c.type) ? 'bool' : 'text');
+      let made = null;
+      if (change(() => { made = importRows(t.name, res.columns, all, res.columns.map((n) => { const c = cols.find((x) => x.name === n); return c ? typeOf(c) : 'text'; })); })) {
+        current = { kind: 'table', name: made };
+        mode = 'sheet';
+        renderAll();
+        MO.toast(`${all.length} registo(s) copiados para a tabela local "${made}".`);
+      }
+    } catch (e) {
+      MO.toast(e.message);
+    }
+  }
+
+  // Envia a tabela local aberta para um servidor ligado.
+  async function pushTable() {
+    if (current.kind !== 'table' || !current.name) return MO.toast('Abra primeiro uma tabela local.');
+    if (!servers.length) return MO.toast('Ligue primeiro a um servidor (Dados externos › Ligar a servidor).');
+    const select = h('select', null, servers.map((sv) => h('option', { value: sv.id }, sv.label)));
+    const name = h('input', { type: 'text', value: current.name });
+    const dlg = h('dialog', { class: 'mo-dialog' }, h('form', { method: 'dialog' },
+      h('h2', null, 'Enviar tabela para um servidor'),
+      h('label', { class: 'db-conn-field' }, h('span', null, 'Servidor'), select),
+      h('label', { class: 'db-conn-field' }, h('span', null, 'Nome da nova tabela no servidor'), name),
+      h('p', { class: 'db-hint' }, 'É criada uma tabela nova, com um campo "id" como chave primária. Não altera tabelas existentes.'),
+      h('div', { class: 'mo-dialog-actions' }, h('button', { type: 'button', class: 'btn', onclick: () => dlg.close() }, 'Cancelar'), h('button', { type: 'submit', class: 'btn primary', value: 'ok' }, 'Enviar'))));
+    dlg.addEventListener('close', async () => {
+      dlg.remove();
+      if (dlg.returnValue !== 'ok') return;
+      const sv = servers.find((x) => x.id === select.value);
+      const fs = fields(current.name);
+      const data = rows(`SELECT * FROM ${q(current.name)} ORDER BY rowid LIMIT 200000`).map((r) => fs.map((f) => r[f.name]));
+      try {
+        const res = await call('push', sv.id, name.value.trim(), fs.map((f) => ({ name: f.name, type: f.type })), data);
+        sv.tables = await call('tables', sv.id);
+        renderNav();
+        MO.toast(`${res.rows} registo(s) enviados para ${sv.label}.`);
+      } catch (e) {
+        MO.toast(e.message);
+      }
+    });
+    document.body.append(dlg);
+    dlg.showModal();
+  }
+
   // ---------- Fita ----------
 
   function buildRibbon() {
@@ -761,6 +1051,7 @@
         label: 'Dados externos',
         groups: [
           { label: 'Importar', rows: [[B('grid', 'Excel', 'Importar as folhas de um livro do Excel como tabelas', () => importFile('xlsx')), B('export', 'CSV', 'Importar um ficheiro CSV como tabela', () => importFile('csv'))], [B('folder', 'Access', 'Importar as tabelas de um ficheiro do Access (.accdb, .mdb)', () => importFile('accdb'))]] },
+          ...(window.api && window.api.dbs ? [{ label: 'Servidores', rows: [[B('branch', 'Ligar a servidor', 'Ligar a MySQL, MariaDB, PostgreSQL ou SQL Server', () => connectDialog())], [B('export', 'Enviar tabela', 'Copiar a tabela local aberta para um servidor ligado', pushTable)]] }] : []),
           { label: 'Exportar', rows: [[B('grid', 'Para Excel', 'Exportar a tabela ou o resultado da consulta para Excel', exportXlsx), B('export', 'Para CSV', 'Exportar a tabela ou o resultado da consulta para CSV', exportCsv)]] }
         ]
       }
@@ -794,7 +1085,7 @@
         if (mod && !e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
         else if (mod && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) { e.preventDefault(); redo(); }
       });
-      boot().then(() => { if (!db) { newEmpty(); renderAll(); } }).catch(() => status('O motor de base de dados não está disponível.'));
+      boot().then(() => { if (!db) { newEmpty(); renderAll(); } refreshSaved(); }).catch(() => status('O motor de base de dados não está disponível.'));
     },
 
     async newDoc(templateName) {
@@ -863,7 +1154,7 @@
     },
 
     // Usado pelos testes.
-    _debug: { sql: (s, p) => rows(s, p), tables: () => tables(), fields: (t) => fields(t), state: () => ({ current, mode }) },
+    _debug: { servers: () => servers, sql: (s, p) => rows(s, p), tables: () => tables(), fields: (t) => fields(t), state: () => ({ current, mode }) },
 
     show() { if (db) renderAll(); }
   };

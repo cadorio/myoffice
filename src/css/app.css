@@ -2251,3 +2251,16 @@ tr:hover .db-row-del, .db-row-del:focus { opacity: 1; }
 .db-report td.num { text-align: right; }
 :root[data-mode="dark"] .db-nav-item { color: #d6e2da; }
 @media (max-width: 760px) { .db-shell { grid-template-columns: 1fr; } .db-nav { display: flex; flex-wrap: wrap; border-right: 0; } .db-form-field { grid-template-columns: 1fr; } }
+.db-server { display: flex; align-items: center; gap: 2px; }
+.db-server .db-server-name { flex: 1; min-width: 0; font-weight: 600; }
+.db-nav-item.sub { padding-left: 26px; font-size: 12.5px; }
+.db-dot { width: 8px; height: 8px; border-radius: 50%; background: #c3cbc5; flex: none; }
+.db-dot.on { background: #16865b; }
+.db-remote-title { margin: 0; font-size: 17px; color: var(--studio-ink, #1d2622); }
+.db-conn-dialog { width: min(720px, calc(100vw - 32px)); }
+.db-conn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+.db-conn-field { display: grid; gap: 5px; font-size: 12px; color: var(--studio-muted, #5c6a62); }
+.db-conn-field input, .db-conn-field select { padding: 8px 10px; border: 1px solid var(--studio-line, #dde2da); border-radius: 8px; font: inherit; font-size: 14px; color: var(--studio-ink, #1d2622); background: var(--studio-panel, #fff); }
+.db-conn-field small { font-size: 11px; }
+.db-conn-checks { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 640px) { .db-conn-grid, .db-conn-checks { grid-template-columns: 1fr; } }

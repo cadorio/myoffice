@@ -44,7 +44,7 @@ Tons calmos de verde e papel, com modo claro e escuro.
 | **Diapositivos** | Apresentações com temas, esquemas, imagens, formas, transições e notas do orador | `.moslides` · PPTX · PDF |
 | **Desenho** | Fluxogramas, mapas mentais e organogramas | `.modraw` · SVG · PDF |
 | **PDF** | Ler, anotar, assinar, juntar e organizar ficheiros PDF | PDF · TXT |
-| **Bases de dados** | Tabelas, formulários, consultas e relatórios, como o Access | `.modb` (SQLite) · XLSX · CSV · importa Access |
+| **Bases de dados** | Tabelas, formulários, consultas e relatórios, como o Access; ligação a MySQL, PostgreSQL e SQL Server | `.modb` (SQLite) · XLSX · CSV · importa Access |
 | **Assistente** | Ajuda sobre a aplicação e análise de textos e tabelas, sem Internet | — |
 
 O ecrã inicial tem seis **modelos prontos a usar** (relatório, ata de reunião, orçamento mensal, gestor de tarefas, apresentação de projeto e apresentação de aula) e a lista de ficheiros recentes, com pesquisa.
@@ -110,7 +110,15 @@ Uma alternativa simples ao Access, num único ficheiro `.modb` (SQLite) no seu c
 - **Importar** do Excel (cada folha vira uma tabela), de CSV e do **Access** (`.accdb`, `.mdb`: tabelas e dados; consultas, formulários e macros do Access não são convertidos). **Exportar** para Excel e CSV.
 - Modelos: Clientes, Inventário e Encomendas. Anular e refazer com Ctrl+Z / Ctrl+Y.
 
-A ligação a servidores (MySQL, PostgreSQL, SQL Server) está prevista para uma próxima versão.
+**Ligação a servidores** (na aplicação instalada): em **Dados externos › Ligar a servidor**, ligue a **MySQL/MariaDB**, **PostgreSQL** ou **SQL Server**.
+
+- Ver as tabelas e vistas do servidor, ordenar, editar registos (em tabelas com chave primária), acrescentar e eliminar registos; as alterações são gravadas logo no servidor.
+- **Consulta SQL** diretamente no servidor, com confirmação antes de instruções que alteram dados (e aviso reforçado sem `WHERE` ou com `DROP`/`TRUNCATE`). Resultados até 5000 linhas, exportáveis para Excel e CSV.
+- **Passar dados** entre o servidor e a base local: copiar uma tabela do servidor para o ficheiro `.modb`, ou enviar uma tabela local para o servidor (cria uma tabela nova com a chave `id`).
+- **Ligações guardadas**, opcionalmente com a palavra-passe, que é encriptada pelo sistema operativo (nunca fica em texto).
+- **Segurança**: as ligações são feitas pelo processo principal da aplicação e só ao servidor indicado; a interface continua sem acesso à rede. Ligação encriptada (TLS) opcional. Use um utilizador com as permissões mínimas necessárias.
+
+A ligação ao MySQL/MariaDB e ao PostgreSQL foi testada com servidores reais; a ligação ao SQL Server ainda não foi testada com um servidor real.
 
 ### Desenho
 
@@ -208,7 +216,7 @@ Também existem funções de estatística (mediana, moda, desvio padrão e vari�
 
 ## Privacidade e segurança
 
-- **Sem rede:** a aplicação bloqueia todos os pedidos de rede e não abre páginas externas. Nada é enviado para a Internet, nem pelo Assistente.
+- **Sem rede:** a aplicação bloqueia todos os pedidos de rede (a única exceção são as ligações a servidores de bases de dados que o utilizador pede no programa Bases de dados, feitas pelo processo principal) e não abre páginas externas. Nada é enviado para a Internet, nem pelo Assistente.
 - **Interface isolada:** corre em sandbox, sem acesso direto ao sistema; só o processo principal toca no disco, e apenas em ficheiros escolhidos nos diálogos do Windows.
 - **Ficheiros abertos são limpos:** scripts, ligações perigosas e estilos capazes de imitar a interface são removidos antes de o conteúdo ser mostrado.
 - **Gravação segura:** os ficheiros são gravados primeiro numa cópia temporária, por isso uma falha a meio não corrompe o documento.

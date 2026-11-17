@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld('api', {
   onMenu: (callback) => ipcRenderer.on('menu', (_event, action) => callback(action)),
   onOpenFile: (callback) => ipcRenderer.on('open-file', (_event, file) => callback(file)),
   onOpenView: (callback) => ipcRenderer.on('open-view', (_event, view) => callback(view)),
+  // Bases de dados: ligações a servidores (MySQL, PostgreSQL, SQL Server), feitas pelo processo principal.
+  dbs: Object.fromEntries(['connect', 'tables', 'columns', 'rows', 'update', 'insert', 'remove', 'query', 'push', 'disconnect', 'saved', 'save', 'forget'].map((n) => [n, (...args) => ipcRenderer.invoke('dbs:' + n, ...args)])),
   // Cada programa vive na sua janela.
   openApp: (id, template) => ipcRenderer.send('app:open', id, template),
   openPath: (p) => ipcRenderer.send('app:openPath', p),
