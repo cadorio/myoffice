@@ -178,7 +178,7 @@ O MyOffice ainda não oferece todas as funcionalidades das suites comerciais. En
 
 ## Estado da versão Horizon
 
-A versão **1.4.0 — MyOffice Horizon** foi integrada na branch `main` através da PR [#11](https://github.com/cadorio/myoffice/pull/11). A pré-versão `v1.4.0-independent.2` acrescenta as alterações mais recentes da branch `codex/independent-local-ai`; a compilação será disponibilizada em [Releases](https://github.com/cadorio/myoffice/releases/tag/v1.4.0-independent.2) após a execução do workflow. A versão estável da branch `main` será publicada separadamente após validação.
+A versão **1.4.0 — MyOffice Horizon** foi integrada na branch `main` através da PR [#11](https://github.com/cadorio/myoffice/pull/11). A pré-versão `v1.4.0-independent.2` acrescenta as alterações mais recentes da branch `codex/independent-local-ai`; o instalador está disponível em [Releases](https://github.com/cadorio/myoffice/releases/tag/v1.4.0-independent.2). A versão estável da branch `main` será publicada separadamente após validação.
 
 ## Desenvolvimento
 
