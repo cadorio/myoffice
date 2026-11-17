@@ -49,3 +49,24 @@ assert.deepEqual(ok, { tips: [], suggestions: [] });
 assert.ok(A.suggest({ title: '', bullets: [] }).error);
 
 console.log('Testes do assistente passaram.');
+
+// Conversa: fórmulas, guias e apresentações
+const ask = (q) => A.assist({ module: 'assistant', task: 'chat', content: 'Utilizador: ' + q }).answer;
+assert.ok(ask('soma de B2 a B10').includes('=SOMA(B2:B10)'));
+assert.ok(ask('quantos valores maiores que 100 na coluna C').includes('=CONTAR.SE(C2:C100;">100")'));
+assert.ok(ask('média da coluna D').includes('=MÉDIA(D2:D100)'));
+assert.ok(ask('qual o máximo de A1:A20').includes('=MÁXIMO(A1:A20)'));
+assert.ok(ask('como unir células?').startsWith('Unir células'));
+assert.ok(ask('como imprimo').startsWith('Imprimir'));
+assert.ok(ask('quero pôr a página na horizontal').startsWith('Configurar a página'));
+assert.ok(ask('como ativo o controlo de alterações').startsWith('Controlo de alterações'));
+assert.ok(ask('cria uma apresentação sobre plano de marketing').includes('1. Contexto'));
+assert.ok(ask('qual a capital de frança').startsWith('Não tenho uma resposta'));
+assert.equal(A.assist({ module: 'assistant', task: 'chat', content: 'Utilizador: xyz', searchDocs: () => 'da documentação' }).answer, 'da documentação');
+
+// Revisão com reescritas e análise com tendência
+assert.ok(A.assist({ module: 'writer', task: 'review', content: 'É importante referir que a empresa cresceu. Os clientes gostam.' }).answer.includes('→ «A empresa cresceu.»'));
+const table = A.assist({ module: 'sheets', task: 'analyse', content: 'Mês | Vendas\nJan | 100\nFev | 120\nMar | 150' }).answer;
+assert.ok(table.includes('máximo 150 (Mar)') && table.includes('subiu 50%'));
+console.log('Testes da conversa do assistente passaram.');
+assert.ok(ask('o que ainda não faz?').startsWith('O que o MyOffice ainda não faz'));

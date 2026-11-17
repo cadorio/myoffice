@@ -336,8 +336,15 @@
     if (longSentences) suggestions.push(`${longSentences} frase(s) têm mais de 30 palavras; considere dividi-las.`);
     if (paragraphs.length === 1 && allWords.length > 180) suggestions.push('O documento é um único parágrafo longo; separe-o por assunto.');
     if (repeated.length) suggestions.push(`Termos repetidos com frequência: ${repeated.map(([word, count]) => `${word} (${count}×)`).join(', ')}.`);
-    if (!suggestions.length) suggestions.push('Não encontrei frases excessivamente longas nem repetições frequentes pelas regras locais.');
-    return { answer: `${observations.join('\n\n')}\n\nPontos a rever: ${suggestions.join(' ')}` };
+    const rewrites = sentences
+      .map((sentence) => ({ sentence, short: capitalise(shorten(sentence)) }))
+      .filter((x) => words(x.sentence).length - words(x.short).length >= 2)
+      .slice(0, 4);
+    if (!suggestions.length && !rewrites.length) suggestions.push('Não encontrei frases excessivamente longas nem repetições frequentes pelas regras locais.');
+    const rewriteText = rewrites.length
+      ? '\n\nPropostas mais diretas:\n' + rewrites.map((x) => `• «${x.sentence}»\n  → «${x.short}»`).join('\n')
+      : '';
+    return { answer: `${observations.join('\n\n')}${suggestions.length ? `\n\nPontos a rever: ${suggestions.join(' ')}` : ''}${rewriteText}` };
   }
 
   function numberValue(value) {
@@ -361,12 +368,28 @@
     })).filter((column) => column.values.length >= 2);
     const missing = data.reduce((sum, row) => sum + Math.max(0, headers.length - row.filter((cell) => cell !== '').length), 0);
     const findings = [`A seleção tem ${data.length} linha(s) de dados e ${headers.length} coluna(s).`];
+    const labelColumn = headers.findIndex((_h, column) => data.some((row) => row[column] && numberValue(row[column]) === null));
+    const fmt = (n) => n.toLocaleString('pt-PT', { maximumFractionDigits: 2 });
+    const labelOf = (row) => (labelColumn >= 0 && row[labelColumn]) || null;
     for (const column of numericColumns.slice(0, 6)) {
-      const values = column.values;
+      const index = headers.indexOf(column.header) >= 0 ? headers.indexOf(column.header) : headers.findIndex((h, i) => (h || `Coluna ${i + 1}`) === column.header);
+      const rowsWithValues = data.map((row) => ({ row, value: numberValue(row[index]) })).filter((x) => x.value !== null);
+      const values = rowsWithValues.map((x) => x.value);
       const total = values.reduce((sum, value) => sum + value, 0);
-      const minimum = Math.min(...values);
-      const maximum = Math.max(...values);
-      findings.push(`${column.header}: ${values.length} valores numéricos; mínimo ${minimum}, máximo ${maximum}, média ${(total / values.length).toLocaleString('pt-PT', { maximumFractionDigits: 2 })}.`);
+      const top = rowsWithValues.reduce((a, b) => (b.value > a.value ? b : a));
+      const low = rowsWithValues.reduce((a, b) => (b.value < a.value ? b : a));
+      const parts = [`total ${fmt(total)}`, `média ${fmt(total / values.length)}`,
+        `máximo ${fmt(top.value)}${labelOf(top.row) ? ` (${labelOf(top.row)})` : ''}`,
+        `mínimo ${fmt(low.value)}${labelOf(low.row) ? ` (${labelOf(low.row)})` : ''}`];
+      const first = values[0];
+      const last = values[values.length - 1];
+      let trend = '';
+      if (values.length >= 3 && first !== 0) {
+        const change = ((last - first) / Math.abs(first)) * 100;
+        if (Math.abs(change) >= 1) trend = ` Do primeiro ao último valor ${change > 0 ? 'subiu' : 'desceu'} ${fmt(Math.abs(change))}%.`;
+      }
+      const share = total > 0 && values.every((v) => v >= 0) && values.length >= 3 ? ` O maior valor representa ${fmt((top.value / total) * 100)}% do total.` : '';
+      findings.push(`${column.header}: ${parts.join(', ')}.${trend}${share}`);
     }
     if (missing) findings.push(`Há ${missing} célula(s) vazia(s) nas linhas de dados.`);
     if (!numericColumns.length) findings.push('Não encontrei colunas com pelo menos dois valores numéricos reconhecíveis.');
@@ -374,29 +397,134 @@
     return { answer: findings.join('\n\n') };
   }
 
-  function chat(content) {
+  // ---------- Guias passo a passo ----------
+
+  // Cada guia: palavras-chave (sem acentos), título e passos. A pontuação conta palavras-chave
+  // presentes na pergunta; as expressões com várias palavras valem mais.
+  const GUIDES = [
+    ['bordas borda linhas celulas contorno grelha', 'Pôr bordas em células (Folhas)', ['Selecione as células.', 'No painel Ferramentas › Base, secção Bordas, escolha Todas as bordas, Bordas exteriores, Borda inferior ou Sem bordas.', 'As bordas seguem para o Excel ao exportar em XLSX.']],
+    ['unir juntar fundir celulas merge centrar', 'Unir células (Folhas)', ['Selecione o intervalo a unir.', 'Em Base › Alinhamento, clique em Unir e centrar.', 'Para desfazer, selecione a célula unida e clique em Separar.']],
+    ['fixar congelar paineis linha cabecalho coluna rolar', 'Fixar linhas ou colunas (Folhas)', ['Abra Esquema de página › Fixar painéis.', 'Escolha Fixar linha superior, Fixar primeira coluna ou Fixar até à célula ativa.', 'Para voltar ao normal, use Libertar painéis.']],
+    ['largura coluna ajustar alargar redimensionar', 'Mudar a largura de uma coluna (Folhas)', ['Aponte para a linha entre duas letras de coluna, no cabeçalho.', 'Arraste para alargar ou estreitar.', 'Faça duplo clique nessa linha para ajustar ao conteúdo.']],
+    ['preencher preenchimento automatico serie arrastar sequencia meses dias numerar', 'Preenchimento automático (Folhas)', ['Escreva o início da série (por exemplo 1 e 2, Janeiro, ou segunda).', 'Selecione essas células e arraste o pequeno quadrado no canto inferior direito.', 'Números, meses, dias da semana e fórmulas continuam automaticamente.']],
+    ['formatacao condicional cores realcar destacar escala valores maior menor', 'Formatação condicional (Folhas)', ['Selecione os valores.', 'Em Base › Formatação condicional, clique em Realçar células.', 'Escolha a regra (maior que, menor que, entre, igual, contém texto ou escala de cores) e a cor.', 'Limpar regras remove a formatação da seleção.']],
+    ['grafico graficos barras colunas linhas visualizar', 'Criar um gráfico (Folhas)', ['Selecione as categorias e os valores, com os cabeçalhos.', 'Abra Dados › Gráfico.', 'Escolha colunas ou linhas e guarde o gráfico no livro; pode exportá-lo em SVG.']],
+    ['tabela dinamica resumo agrupar pivot', 'Resumo dinâmico (Folhas)', ['Selecione os dados com cabeçalhos.', 'Abra Dados › Tabela dinâmica.', 'Escolha a coluna para agrupar, a coluna de valores e o cálculo (soma, contagem ou média).']],
+    ['ordenar filtrar filtro ordem crescente decrescente', 'Ordenar e filtrar (Folhas)', ['Clique numa célula da coluna.', 'Em Dados › Ordenar, escolha Ascendente ou Descendente, ou use Filtrar.', 'Limpar filtro mostra de novo todas as linhas.']],
+    ['comentario comentarios anotar nota margem', 'Comentários (Texto)', ['Selecione o texto a comentar.', 'Abra o separador Rever e clique em Novo comentário.', 'Os comentários aparecem na lista do painel; Resolver remove-os. Seguem para o Word ao exportar.']],
+    ['controlo alteracoes revisoes registar aceitar rejeitar track', 'Controlo de alterações (Texto)', ['No separador Rever, ative Controlar alterações.', 'O texto novo fica sublinhado e o apagado riscado.', 'No fim da revisão, use Aceitar todas ou Rejeitar todas.']],
+    ['indice sumario conteudos toc', 'Índice automático (Texto)', ['Use estilos de título (Título 1, 2, 3) nos capítulos.', 'Em Inserir › Referências, clique em Índice.', 'Clique de novo para o atualizar depois de mudar os títulos.']],
+    ['nota rodape notas rodape referencia', 'Notas de rodapé (Texto)', ['Coloque o cursor onde quer a referência.', 'Em Inserir › Referências, clique em Nota de rodapé e escreva o texto da nota.', 'As notas aparecem no fim da página, no PDF e no DOCX.']],
+    ['margens orientacao horizontal vertical paisagem tamanho pagina a4 carta configurar', 'Configurar a página (Texto)', ['Abra Estrutura › Página › Configurar página.', 'Escolha o tamanho (A4, Carta, A5), a orientação e as margens.', 'A configuração vale para a impressão, o PDF e o DOCX.']],
+    ['cabecalho rodape numero pagina paginas', 'Cabeçalho, rodapé e números de página (Texto)', ['Abra Estrutura › Página › Cabeçalho e rodapé.', 'Escreva o texto e escolha a numeração de páginas (página atual e total).']],
+    ['tabela tabelas diapositivo slides linhas colunas', 'Tabela num diapositivo', ['Em Inserir › Tabela, indique linhas e colunas.', 'Faça duplo clique numa célula para escrever; Tab passa à seguinte.', 'Com a tabela selecionada, use Linha + ou Coluna + no painel.']],
+    ['alinhar distribuir agrupar objetos varios elementos', 'Alinhar e agrupar objetos (Diapositivos)', ['Clique num objeto e Shift+clique nos outros.', 'Em Base › Alinhar, escolha o alinhamento ou Distribuir.', 'Agrupar faz com que se movam juntos.']],
+    ['apresentador vista apresentador notas cronometro proximo apresentar', 'Vista do apresentador (Diapositivos)', ['Abra Apresentação › Vista do apresentador.', 'Vê o diapositivo atual, o seguinte, as notas e o tempo.', 'Durante a apresentação, a tecla P alterna esta vista.']],
+    ['organizar ordem reordenar diapositivos sorter mover', 'Organizar diapositivos', ['Abra Apresentação › Organizar diapositivos.', 'Arraste cada miniatura para a nova posição.']],
+    ['transicao transicoes animacao efeitos entrada', 'Transições e efeitos (Diapositivos)', ['Selecione o diapositivo ou o elemento.', 'Em Apresentação, escolha a transição ou o efeito de entrada.']],
+    ['tema temas cores design aspeto ideias', 'Temas e Ideias de design (Diapositivos)', ['Em Estrutura, escolha um dos 13 temas e a variante de cor.', 'Em Assistente › Ideias de design, aplique uma composição com um clique.']],
+    ['imprimir impressao impressora pre visualizar previsualizar', 'Imprimir', ['Ctrl+Shift+P abre a pré-visualização da impressão.', 'Ctrl+P imprime.', 'Também estão no menu Ficheiro.']],
+    ['pdf exportar exportacao converter', 'Exportar para PDF ou formatos do Office', ['Abra Ficheiro › Exportar (ou Ctrl+Shift+E para PDF).', 'Escolha PDF, DOCX, XLSX ou PPTX conforme a aplicação.', 'O ficheiro original não é alterado.']],
+    ['abrir word excel powerpoint docx xlsx pptx importar', 'Abrir ficheiros do Office', ['Use Ficheiro › Abrir ou Ctrl+O e escolha o ficheiro .docx, .xlsx ou .pptx.', 'O MyOffice avisa o que pode não ser convertido e guarda a conversão num ficheiro próprio.']],
+    ['guardar gravar salvar', 'Guardar', ['Ctrl+S guarda no formato próprio do MyOffice.', 'Para guardar como Word, Excel ou PowerPoint, use Ficheiro › Exportar.']],
+    ['recuperar perdido fechou crash rascunho', 'Recuperar trabalho não guardado', ['Se a aplicação fechar de repente, ao abrir de novo oferece-se para recuperar o trabalho.', 'Aceite e depois guarde o ficheiro.']],
+    ['escuro claro modo noite tema aparencia', 'Modo claro ou escuro', ['Clique no ícone da lua (ou do sol) no canto superior direito.', 'Também pode procurar "modo escuro" com Ctrl+K.']],
+    ['comando procurar atalho atalhos ctrl botao onde encontrar', 'Encontrar qualquer comando', ['Carregue em Ctrl+K.', 'Escreva o que quer fazer, por exemplo "borda" ou "PDF", e carregue em Enter.', 'Ctrl+. esconde ou mostra o painel de ferramentas.']],
+    ['zoom ampliar aumentar diminuir', 'Zoom', ['Use o controlo de zoom no canto inferior direito, de 50% a 200%.']],
+    ['instalar instalacao instalador windows smartscreen setup', 'Instalar o MyOffice', ['Descarregue MyOffice-Setup a partir da página de versões no GitHub.', 'Abra o ficheiro; se o Windows mostrar "O Windows protegeu o computador", clique em Mais informações › Executar mesmo assim (o instalador ainda não tem assinatura digital).', 'Siga os passos do instalador; o MyOffice fica no menu Iniciar.']],
+    ['limitacoes limites falta faltam suporta', 'O que o MyOffice ainda não faz', ['Tabelas dinâmicas compatíveis com o Excel (use o Resumo dinâmico).', 'Animações complexas e formatação condicional no XLSX exportado.', 'Coautoria em tempo real, nuvem, correio e calendário.', 'Instaladores oficiais para macOS e Linux.']],
+    ['ortografia ortografica erros revisao', 'Revisão ortográfica (Texto)', ['As palavras com erro ficam sublinhadas a vermelho, quando o Windows tem o dicionário de português.', 'Clique com o botão direito para ver sugestões.']]
+  ].map(([keys, title, steps]) => ({ keys: keys.split(' '), title, steps }));
+
+  function findGuide(query) {
+    const list = query.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+    const has = (key) => { const stem = key.length > 5 ? key.slice(0, key.length - 2) : key; return list.some((w) => w.startsWith(stem)); };
+    let best = null;
+    let bestScore = 0;
+    for (const guide of GUIDES) {
+      let score = 0;
+      for (const key of guide.keys) if (has(key)) score += key.length > 6 ? 2 : 1;
+      if (score > bestScore) { best = guide; bestScore = score; }
+    }
+    return bestScore >= 2 ? best : null;
+  }
+
+  const guideAnswer = (guide) => `${guide.title}:\n${guide.steps.map((step, i) => `${i + 1}. ${step}`).join('\n')}`;
+
+  // ---------- Fórmulas a partir de uma frase ----------
+
+  function rangeIn(question) {
+    const q = question.toUpperCase();
+    const direct = q.match(/\b([A-Z]{1,2}\d+):([A-Z]{1,2}\d+)\b/);
+    if (direct) return `${direct[1]}:${direct[2]}`;
+    const between = q.match(/\b([A-Z]{1,2}\d+)\s+(?:A|ATÉ|ATE|E)\s+([A-Z]{1,2}\d+)\b/);
+    if (between) return `${between[1]}:${between[2]}`;
+    const column = q.match(/\bCOLUNA\s+([A-Z]{1,2})\b/);
+    if (column) return `${column[1]}2:${column[1]}100`;
+    return null;
+  }
+
+  function buildFormula(question) {
+    const q = plain(question);
+    const range = rangeIn(question) || 'A2:A10';
+    const condition = q.match(/(maior(?:es)? (?:que|do que)|acima de|superior(?:es)? a|menor(?:es)? (?:que|do que)|abaixo de|inferior(?:es)? a|iguais? a)\s+(-?\d+(?:[.,]\d+)?)/);
+    const op = condition ? (/maior|acima|superior/.test(condition[1]) ? '>' : /menor|abaixo|inferior/.test(condition[1]) ? '<' : '=') : '';
+    const crit = condition ? `"${op}${condition[2].replace(',', '.')}"` : '';
+    const word = question.match(/["«“]([^"»”]+)["»”]/);
+    const pick = (name, explain) => ({ formula: `=${name}`, explain });
+    if (/\b(procv|procurar|buscar|encontrar o valor)\b/.test(q)) return pick(`PROCV(${word ? `"${word[1]}"` : 'A2'};${range};2;FALSO)`, 'procura o valor na primeira coluna do intervalo e devolve a coluna indicada (aqui a 2.ª).');
+    if (/\b(percentagem|percent|%)\b/.test(q)) return pick('B2/SOMA(B$2:B$10)', 'dá o peso de cada linha no total; formate a célula como percentagem.');
+    if (/\b(se|caso|quando)\b/.test(q) && /\b(aprovado|reprovado|sim|nao|mostrar|escrever|aparecer)\b/.test(q)) return pick(`SE(A2>=10;"Aprovado";"Reprovado")`, 'mostra um texto se a condição for verdadeira e outro se for falsa.');
+    if (/\b(media|medio)\b/.test(q)) return condition ? pick(`MÉDIA.SE(${range};${crit})`, 'faz a média só dos valores que cumprem a condição.') : pick(`MÉDIA(${range})`, 'calcula a média dos valores.');
+    if (/\b(contar|quantos|quantas|numero de)\b/.test(q)) {
+      if (condition || word) return pick(`CONTAR.SE(${range};${word ? `"${word[1]}"` : crit})`, 'conta só as células que cumprem a condição.');
+      if (/\b(vazias?|em branco)\b/.test(q)) return pick(`CONTAR.VAZIO(${range})`, 'conta as células vazias.');
+      if (/\b(texto|preenchidas?|nao vazias?)\b/.test(q)) return pick(`CONTAR.VAL(${range})`, 'conta as células preenchidas, com números ou texto.');
+      return pick(`CONTAR(${range})`, 'conta as células com números.');
+    }
+    if (/\b(maximo|maior valor|mais alto|maior)\b/.test(q)) return pick(`MÁXIMO(${range})`, 'devolve o maior valor.');
+    if (/\b(minimo|menor valor|mais baixo|menor)\b/.test(q)) return pick(`MÍNIMO(${range})`, 'devolve o menor valor.');
+    if (/\b(mediana)\b/.test(q)) return pick(`MEDIANA(${range})`, 'devolve o valor do meio.');
+    if (/\b(arredondar|arredonda|casas decimais)\b/.test(q)) return pick('ARRED(A2;2)', 'arredonda para 2 casas decimais.');
+    if (/\b(juntar|concatenar|unir texto|nome completo)\b/.test(q)) return pick('CONCATENAR(A2;" ";B2)', 'junta os textos das duas células com um espaço.');
+    if (/\b(hoje|data atual)\b/.test(q)) return pick('HOJE()', 'mostra a data de hoje.');
+    if (/\b(soma|somar|total|adicionar)\b/.test(q)) return condition || word ? pick(`SOMA.SE(${range};${word ? `"${word[1]}"` : crit})`, 'soma só os valores que cumprem a condição.') : pick(`SOMA(${range})`, 'soma os valores do intervalo.');
+    return null;
+  }
+
+  function chat(content, searchDocs) {
     const messages = [...String(content || '').matchAll(/(?:^|\n\n)Utilizador:\s*([\s\S]*?)(?=\n\n(?:Assistente|Utilizador):|$)/g)];
     const question = (messages.length ? messages[messages.length - 1][1] : content).trim();
     const query = plain(question);
-    if (/\b(formula|somar|soma|media|m[eé]dia|procv|contar|folhas)\b/.test(query)) {
-      const formula = /\b(media|m[eé]dia)\b/.test(query) ? '=MÉDIA(B2:B8)' : /\b(procv|procurar|buscar)\b/.test(query) ? '=PROCV("pera";A1:C9;3;FALSO)' : /\b(contar|quantos)\b/.test(query) ? '=CONTAR(A1:A10)' : '=SOMA(A1:A10)';
-      return { answer: `Posso ajudar com fórmulas suportadas pelo MyOffice. Exemplo: ${formula}. Substitua as referências pelo intervalo das suas células. Se indicar o resultado que pretende e onde estão os dados, posso sugerir uma fórmula mais adequada.` };
+    if (/^(ola|bom dia|boa tarde|boa noite|oi|obrigad[oa])\b/.test(query) && words(query).length <= 4) {
+      return { answer: /obrigad/.test(query) ? 'De nada! Se precisar de mais alguma coisa, é só perguntar.' : 'Olá! Pergunte-me como fazer algo no MyOffice, peça uma fórmula (por exemplo "soma de B2 a B10") ou a estrutura de uma apresentação.' };
     }
-    if (/\b(apresenta[cç][aã]o|diapositivos|slides)\b/.test(query)) {
-      const match = question.match(/\b(?:sobre|acerca de)\s+(.+)/i);
-      if (match && match[1] && !/[.…]$/.test(match[1])) {
-        const deck = generateDeck({ topic: match[1], count: 6 });
-        if (!deck.error) return { answer: `Para «${deck.title}», sugiro uma apresentação do tipo ${deck.type} com esta sequência: ${deck.slides.map((slide, index) => `${index + 1}. ${slide.title}`).join('; ')}. Use Diapositivos › Assistente › Criar apresentação para gerar esta estrutura no documento.` };
+    if (/\b(formula|calcular|somar|soma|media|procv|contar|quantos|maximo|minimo|percentagem|arredondar)\b/.test(query) && !/\b(apresentacao|diapositivos|slides)\b/.test(query)) {
+      const built = buildFormula(question);
+      if (built) {
+        const where = rangeIn(question) ? '' : ' Substitua o intervalo pelo das suas células.';
+        return { answer: `Fórmula: ${built.formula}\n\nO que faz: ${built.explain}${where}\n\nEscreva-a numa célula de Folhas e carregue em Enter. Os nomes em inglês (SUM, AVERAGE…) também funcionam.` };
       }
-      return { answer: 'Em Diapositivos, abra o separador Assistente e escolha “Criar apresentação”. Indique o tema e o público para obter uma estrutura com tópicos e notas, sem inventar dados.' };
     }
-    if (/\b(texto|documento|paragrafo|escrever|rever)\b/.test(query)) {
-      return { answer: 'Em Texto, escreva ou abra o documento e escolha “Rever com IA”. O Assistente local conta palavras, extrai frases relevantes e assinala frases longas ou termos repetidos; não altera o documento.' };
+    if (/\b(apresentacao|diapositivos|slides)\b/.test(query)) {
+      const match = question.match(/\b(?:sobre|acerca de|de|para)\s+(.+)/i);
+      const topic = match && match[1].replace(/[?.!…]+$/, '').trim();
+      if (topic && words(topic).length >= 1 && !/^(o|a|um|uma)$/i.test(topic) && /\b(cria|criar|faz|fazer|estrutura|ideias|preparar|prepara|monta)\b/.test(query)) {
+        const deck = generateDeck({ topic, count: 6 });
+        if (!deck.error) return { answer: `Proposta para «${deck.title}» (estrutura de ${deck.type.toLowerCase()}):\n${deck.slides.map((slide, i) => `${i + 1}. ${slide.title} — ${slide.bullets[0]}`).join('\n')}\n\nPara a criar com tópicos e notas do orador: Diapositivos › Assistente › Criar apresentação.` };
+      }
     }
-    if (/\b(folha|tabela|dados|analise|analisar)\b/.test(query)) {
-      return { answer: 'Em Folhas, selecione as células que pretende analisar e escolha “Analisar com IA”. O Assistente calcula estatísticas das colunas numéricas reconhecidas e indica células vazias.' };
+    const guide = /\b(nao faz|ainda nao|nao consegue|limitac)/.test(query) ? GUIDES.find((g) => g.keys[0] === 'limitacoes') : findGuide(query);
+    if (guide) return { answer: guideAnswer(guide) };
+    if (/\b(texto|documento|paragrafo|escrever|rever|melhorar)\b/.test(query) && /\b(rever|melhorar|corrigir|analisar)\b/.test(query)) {
+      return { answer: 'Em Texto, abra o documento e escolha Rever com IA. Recebe um resumo, as frases longas e propostas de reescrita mais curtas; o documento não é alterado.' };
     }
-    return { answer: 'Sou o Assistente independente do MyOffice e trabalho sem modelos descarregados nem serviços externos. Posso estruturar apresentações, sugerir melhorias de escrita, rever texto e calcular estatísticas de tabelas. Faça uma pergunta sobre uma destas tarefas para eu ajudar.' };
+    if (/\b(analisar|analise|estatistica)\b/.test(query)) {
+      return { answer: 'Em Folhas, selecione as células com os cabeçalhos e escolha Dados › Analisar com IA. Recebe totais, médias, a tendência e os valores máximo e mínimo de cada coluna.' };
+    }
+    const docs = typeof searchDocs === 'function' ? searchDocs(question) : null;
+    if (docs) return { answer: docs };
+    return { answer: 'Não tenho uma resposta para isso. Sei ajudar com o MyOffice: como fazer algo (por exemplo "como unir células" ou "como imprimir"), fórmulas ("média de C2 a C20"), estruturas de apresentação ("cria uma apresentação sobre…") e análise de texto e tabelas.' };
   }
 
   function assist(input) {
@@ -408,11 +536,11 @@
     }
     if (module === 'writer' && task === 'review') return reviewText(content);
     if (module === 'sheets' && task === 'analyse') return analyseTable(content);
-    if (module === 'assistant' && task === 'chat') return chat(content);
+    if (module === 'assistant' && task === 'chat') return chat(content, input.searchDocs);
     return { error: 'Esta tarefa não está disponível para este módulo.' };
   }
 
-  const api = { generateDeck, suggest, suggestVisuals, classify, assist };
+  const api = { generateDeck, suggest, suggestVisuals, classify, assist, buildFormula, findGuide: (q) => findGuide(plain(q)) };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else (root.MO = root.MO || {}).Assistant = api;
 })(typeof window !== 'undefined' ? window : globalThis);

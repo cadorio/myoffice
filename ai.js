@@ -54,14 +54,25 @@ function search(question) {
     .slice(0, 3);
 }
 
-function answerFromDocs(input) {
-  const question = latestQuestion(input && input.content);
+// Resposta curta a partir da documentação: as frases mais relevantes do melhor trecho.
+function docAnswer(question) {
   const hits = search(question);
-  if (!hits.length) {
-    return { answer: 'Não encontrei uma resposta na documentação do MyOffice. O meu conhecimento atual cobre apenas os textos deste projeto; indique o módulo ou a funcionalidade para eu procurar melhor.' };
-  }
-  const passages = hits.map((hit) => `Secção: ${hit.section}\n${hit.text}`);
-  return { answer: `Encontrei estes trechos relevantes na documentação do MyOffice:\n\n${passages.join('\n\n')}` };
+  if (!hits.length || hits[0].score < 2) return null;
+  const query = new Set(terms(question).filter((t) => !STOP_WORDS.has(t)));
+  const best = hits[0];
+  const sentences = best.text.split(/(?<=[.!?])\s+(?=[A-ZÀ-Ý"«(])/u).map((x) => x.trim()).filter(Boolean);
+  const ranked = sentences
+    .map((sentence, index) => ({ sentence, index, score: terms(sentence).filter((t) => query.has(t)).length }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .slice(0, 2)
+    .sort((a, b) => a.index - b.index)
+    .map((x) => x.sentence);
+  const more = hits.slice(1).filter((h) => h.section !== best.section).map((h) => h.section);
+  return `${ranked.join(' ')}\n\n(Da secção «${best.section}» da documentação${more.length ? `; veja também «${[...new Set(more)].join('», «')}»` : ''}.)`;
+}
+
+function answerFromDocs(input) {
+  return Assistant.assist({ ...input, searchDocs: docAnswer });
 }
 
 const operations = {

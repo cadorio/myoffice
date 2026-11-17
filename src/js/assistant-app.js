@@ -53,7 +53,7 @@
 
   function init(container) {
     messages = h('div', { class: 'mo-assistant-messages', 'aria-live': 'polite' },
-      h('p', { class: 'mo-assistant-empty' }, 'Olá! Sou o Assistente do MyOffice. Posso explicar como utilizar os programas, ajudar a escrever textos, criar fórmulas para Folhas ou estruturar apresentações.')
+      h('p', { class: 'mo-assistant-empty' }, 'Olá! Pergunte como fazer algo ("como unir células?"), peça uma fórmula ("média de C2 a C20") ou a estrutura de uma apresentação ("cria uma apresentação sobre…").')
     );
     input = h('textarea', { rows: 2, placeholder: 'Escreva a sua pergunta…', 'aria-label': 'Mensagem para o Assistente' });
     sendButton = h('button', { type: 'button', onclick: () => send() }, 'Enviar');
@@ -61,19 +61,19 @@
       if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); send(); }
     });
     const shortcuts = [
-      ['Texto', 'Ajuda-me a escrever um documento profissional sobre…'],
-      ['Folhas', 'Explica como criar uma fórmula em Folhas para…'],
-      ['Diapositivos', 'Cria uma estrutura de apresentação sobre…'],
-      ['MyOffice', 'Explica passo a passo como posso…']
+      ['Fórmula', 'Quantos valores maiores que 100 há de B2 a B20?'],
+      ['Folhas', 'Como fixar a primeira linha?'],
+      ['Texto', 'Como ativo o controlo de alterações?'],
+      ['Diapositivos', 'Cria uma apresentação sobre o lançamento do produto']
     ];
     root = h('main', { class: 'mo-assistant' },
       h('header', { class: 'mo-assistant-hero' },
         h('span', { class: 'mo-assistant-kicker' }, 'MYOFFICE · INTELIGÊNCIA ARTIFICIAL'),
         h('h1', null, 'Em que posso ajudar?'),
-        h('p', null, 'Um assistente independente para analisar texto e tabelas, criar estruturas de apresentação e ajudar com fórmulas. Funciona sem modelos descarregados ou serviços externos; as respostas seguem regras locais e têm limites.')
+        h('p', null, 'Guias passo a passo, fórmulas escritas a partir de uma frase, estruturas de apresentação e análise de texto e tabelas. Tudo no seu computador, sem Internet; as respostas seguem regras próprias e têm limites.')
       ),
       h('section', { class: 'mo-assistant-shortcuts', 'aria-label': 'Sugestões rápidas' },
-        shortcuts.map(([label, prompt]) => h('button', { type: 'button', onclick: () => { input.value = prompt; input.focus(); } },
+        shortcuts.map(([label, prompt]) => h('button', { type: 'button', onclick: () => send(prompt) },
           h('strong', null, label), h('small', null, prompt)
         ))
       ),
