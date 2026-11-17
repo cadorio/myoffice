@@ -33,8 +33,10 @@
     setBusy(true);
     try {
       const api = window.api && window.api.ai;
-      if (!api) throw new Error('O Assistente MyOffice só está disponível na aplicação instalada.');
-      const response = await api.assist({ module: 'assistant', task: 'chat', content: history.slice(-6).map((m) => (m.role === 'user' ? 'Utilizador: ' : 'Assistente: ') + m.content).join('\n\n') });
+      const request = { module: 'assistant', task: 'chat', content: history.slice(-6).map((m) => (m.role === 'user' ? 'Utilizador: ' : 'Assistente: ') + m.content).join('\n\n') };
+      const response = api
+        ? await api.assist(request)
+        : MO.Assistant.assist(request);
       if (response.error) throw new Error(response.error);
       const answer = response.answer || 'Não consegui formular uma resposta. Tente novamente.';
       history.push({ role: 'assistant', content: answer });
