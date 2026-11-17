@@ -5,7 +5,7 @@ const { pathToFileURL } = require('node:url');
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, deviceScaleFactor: 1 });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
   page.setDefaultTimeout(10000);
   page.on('console', (message) => console.log('BROWSER:', message.text()));
   const pageErrors = [];
@@ -24,7 +24,8 @@ const { pathToFileURL } = require('node:url');
       if (!button) throw new Error('Navegação não encontrada: ' + id);
       button.click();
     }, view);
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(1500);
+    await page.evaluate(() => { const t = document.getElementById('toast'); if (t) t.style.visibility = 'hidden'; });
     const visible = await page.locator('#view-' + view).evaluate((el) => !el.hidden);
     if (!visible) throw new Error('A vista não ficou visível: ' + view);
     await page.screenshot({ path: path.join(out, filename), fullPage: false });
@@ -88,12 +89,20 @@ const { pathToFileURL } = require('node:url');
   }
   if (pageErrors.length) throw new Error('Erros na interface: ' + pageErrors.join(' | '));
 
+  await capture('sheets', 'comandos.png');
+  await page.click('#palette-btn');
+  await page.fill('.palette-input', 'borda');
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: path.join(out, 'comandos.png'), fullPage: false });
+  await page.keyboard.press('Escape');
+
   await capture('home', 'modo-escuro.png');
   await page.evaluate(() => {
     const button = document.querySelector('#mode-toggle');
     if (document.documentElement.dataset.mode !== 'dark') button.click();
   });
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => { const t = document.getElementById('toast'); if (t) t.style.visibility = 'hidden'; });
   await page.screenshot({ path: path.join(out, 'modo-escuro.png'), fullPage: false });
 
   await browser.close();

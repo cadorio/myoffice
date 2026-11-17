@@ -2060,3 +2060,7 @@ body:not([data-current="home"]) .rail-btn .app-tile { width: 34px; height: 34px;
 @media print {
   html, body, #print-area, .print-document, .print-doc, .print-sheet { background: #fff !important; }
 }
+/* The rail now sits on the light studio canvas: readable labels */
+.rail-btn { color: var(--studio-ink); }
+.rail-btn:hover { background: var(--studio-soft); }
+#rail::before { color: var(--studio-muted); }
