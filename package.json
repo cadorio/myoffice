@@ -108,7 +108,8 @@
       ],
       "legalTrademarks": "MyOffice",
       "requestedExecutionLevel": "asInvoker",
-      "signAndEditExecutable": true
+      "signAndEditExecutable": true,
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
