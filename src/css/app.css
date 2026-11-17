@@ -2001,3 +2001,28 @@ body:not([data-current="home"]) .rail-btn .app-tile { width: 34px; height: 34px;
   background: var(--sheets); cursor: crosshair; box-sizing: border-box;
 }
 .mo-dialog select { width: 100%; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--field); color: var(--ink); font: inherit; }
+
+/* ---------- Texto: revisão, notas, índice ---------- */
+.page mark.mo-comment { background: #fff1b8; border-bottom: 2px solid #e8b100; color: inherit; padding: 0 1px; border-radius: 2px; }
+.page mark.mo-comment.flash { background: #ffd666; }
+.page ins.mo-ins { color: #0b6b3a; text-decoration: underline; text-decoration-color: #0b6b3a; background: #e6f6ec; }
+.page del.mo-del { color: #b42318; text-decoration: line-through; background: #fdeceb; }
+.page sup.mo-fn, .print-doc sup.mo-fn { color: var(--doc-accent, #1f5fbf); font-weight: 700; cursor: default; }
+.page .mo-toc, .print-doc .mo-toc { margin: 0 0 16pt; padding: 10pt 14pt; border: 1px solid #d9dee6; border-radius: 6px; background: #f8faf8; user-select: none; }
+.mo-toc .mo-toc-title { font-weight: 700; margin-bottom: 6pt; }
+.mo-toc p { margin: 2pt 0; }
+.mo-toc .mo-toc-2 { padding-left: 14pt; }
+.mo-toc .mo-toc-3 { padding-left: 28pt; font-size: 92%; }
+.page-notes { box-sizing: border-box; max-width: 100%; margin: 0 auto 32px; padding: 14px 20mm 18px; background: #fff; color: #1c2130; border-top: 1px solid #d9dee6; font-size: 10pt; }
+.page-notes h4 { margin: 0 0 6px; font-size: 10pt; color: #5b6475; }
+.page-notes ol { margin: 0; padding-left: 20px; }
+.page-notes .note-text { all: unset; cursor: pointer; }
+.page-notes .note-text:hover { text-decoration: underline; }
+.comments-box { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.comment-card { padding: 10px 12px; border: 1px solid var(--studio-line); border-left: 3px solid #e8b100; border-radius: 8px; background: var(--studio-soft); font-size: 13px; }
+.comment-card q { display: block; color: var(--studio-muted); font-size: 12px; margin-bottom: 4px; }
+.comment-card p { margin: 0 0 8px; color: var(--studio-ink); white-space: pre-wrap; }
+.comment-actions { display: flex; gap: 6px; }
+.comment-actions .btn { padding: 3px 10px; font-size: 12px; }
+.comments-empty { margin: 0; color: var(--studio-muted); font-size: 12px; line-height: 1.5; }
+@media print { .print-document .page-notes { border-top: 1px solid #999; padding: 8pt 0 0; } }

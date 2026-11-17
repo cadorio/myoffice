@@ -311,6 +311,117 @@ const cellText = (page, a) =>
     assert.deepEqual(back.freeze, { rows: 1, cols: 1 });
   });
 
+  // ---------------- Texto ----------------
+  const writerTab = (name) => page.click(`#view-writer .ribbon-tab:has-text("${name}")`);
+  const loadDoc = (html, extra = {}) => page.evaluate((d) => MO.modules.writer.load(JSON.stringify({ format: 'myoffice-doc', version: 3, ...d }), 'modoc'), { html, ...extra });
+  const selectText = (selector, text) => page.evaluate(({ selector, text }) => {
+    const el = document.querySelector(selector);
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const i = n.nodeValue.indexOf(text);
+      if (i < 0) continue;
+      const r = document.createRange();
+      r.setStart(n, i); r.setEnd(n, i + text.length);
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      return true;
+    }
+    return false;
+  }, { selector, text });
+
+  await go(page, 'writer');
+
+  await test('Texto: comentários ficam no documento e podem ser resolvidos', page, async () => {
+    await loadDoc('<p>O orçamento aumentou bastante este ano.</p>');
+    await page.click('.page');
+    await selectText('.page', 'aumentou bastante');
+    await writerTab('Rever');
+    await page.click('button[title="Comentar o texto selecionado"]');
+    await page.fill('.mo-dialog input', 'Confirmar o valor exato');
+    await page.click('.mo-dialog button[type=submit]');
+    assert.equal(await page.textContent('.page mark.mo-comment'), 'aumentou bastante');
+    assert.match(await page.textContent('.comments-box'), /Confirmar o valor exato/);
+    const saved = JSON.parse(await page.evaluate(() => MO.modules.writer.serialize()));
+    assert.equal(Object.values(saved.comments)[0].text, 'Confirmar o valor exato');
+    await page.click('.comment-card button:has-text("Resolver")');
+    assert.equal(await page.locator('.page mark.mo-comment').count(), 0);
+    assert.equal(await page.textContent('.page'), 'O orçamento aumentou bastante este ano.');
+  });
+
+  await test('Texto: controlar alterações marca inserções e eliminações', page, async () => {
+    await loadDoc('<p>Reunião na segunda-feira.</p>');
+    await writerTab('Rever');
+    await page.click('button[title="Ligar ou desligar o controlo de alterações"]');
+    await page.click('.page');
+    await selectText('.page', 'segunda');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('terça');
+    assert.equal(await page.textContent('.page del.mo-del'), 'segunda');
+    assert.equal(await page.textContent('.page ins.mo-ins'), 'terça');
+    await page.click('button[title="Aceitar todas as alterações controladas"]');
+    assert.equal(await page.textContent('.page'), 'Reunião na terça-feira.');
+    await page.click('button[title="Ligar ou desligar o controlo de alterações"]');
+    assert.equal(await page.evaluate(() => MO.modules.writer.review.tracking), false);
+  });
+
+  await test('Texto: rejeitar alterações repõe o original', page, async () => {
+    await loadDoc('<p>Prazo: março.</p>');
+    await page.click('button[title="Ligar ou desligar o controlo de alterações"]');
+    await page.click('.page');
+    await selectText('.page', 'março');
+    await page.keyboard.type('abril');
+    await page.click('button[title="Rejeitar todas as alterações controladas"]');
+    assert.equal(await page.textContent('.page'), 'Prazo: março.');
+    await page.click('button[title="Ligar ou desligar o controlo de alterações"]');
+  });
+
+  await test('Texto: notas de rodapé numeradas e índice a partir dos títulos', page, async () => {
+    await loadDoc('<h1>Relatório</h1><p>Dados oficiais.</p><h2>Vendas</h2><p>Subiram.</p><h2>Custos</h2>');
+    await page.click('.page');
+    await selectText('.page', 'oficiais');
+    await page.keyboard.press('ArrowRight');
+    await writerTab('Inserir');
+    await page.click('button[title="Inserir nota de rodapé no cursor"]');
+    await page.fill('.mo-dialog input', 'Fonte: INE, 2025.');
+    await page.click('.mo-dialog button[type=submit]');
+    assert.equal(await page.textContent('.page sup.mo-fn'), '1');
+    assert.match(await page.textContent('.page-notes'), /Fonte: INE, 2025\./);
+    await page.evaluate(() => { const p = document.querySelector('.page h1'); const r = document.createRange(); r.setStartBefore(p); r.collapse(true); getSelection().removeAllRanges(); getSelection().addRange(r); });
+    await page.click('button[title="Inserir ou atualizar o índice a partir dos títulos"]');
+    const toc = await page.locator('.page .mo-toc p').allTextContents();
+    assert.deepEqual(toc, ['Índice', 'Relatório', 'Vendas', 'Custos']);
+  });
+
+  await test('Texto: configurar página muda o tamanho no ecrã e fica guardado', page, async () => {
+    await writerTab('Estrutura');
+    await page.click('button[title="Tamanho do papel, orientação e margens"]');
+    await page.selectOption('#page-orient', 'landscape');
+    await page.selectOption('#page-margin', 'narrow');
+    await page.click('.mo-dialog button[type=submit]');
+    const w = await page.evaluate(() => document.querySelector('.page').style.width);
+    assert.equal(w, '297mm');
+    const saved = JSON.parse(await page.evaluate(() => MO.modules.writer.serialize()));
+    assert.deepEqual(saved.page, { size: 'A4', orient: 'landscape', margin: 'narrow' });
+  });
+
+  await test('Texto: Word exportado inclui comentários, alterações, notas e página', page, async () => {
+    await loadDoc('<p>A <mark class="mo-comment" data-id="c1">meta</mark> é <del class="mo-del">10%</del><ins class="mo-ins">12%</ins><sup class="mo-fn" data-id="n1">1</sup>.</p>', { comments: { c1: { text: 'Rever meta', date: '2026-11-17T10:00:00Z' } }, notes: { n1: 'Plano 2027' }, page: { size: 'A4', orient: 'landscape', margin: 'normal' } });
+    const parts = await page.evaluate(() => {
+      const bytes = MO.modules.writer.exports.find((e) => e.ext === 'docx').get();
+      const files = fflate.unzipSync(bytes);
+      const text = (name) => (files[name] ? new TextDecoder().decode(files[name]) : '');
+      const ok = (name) => !new DOMParser().parseFromString(text(name), 'application/xml').querySelector('parsererror');
+      return { doc: text('word/document.xml'), comments: text('word/comments.xml'), notes: text('word/footnotes.xml'), valid: ['word/document.xml', 'word/comments.xml', 'word/footnotes.xml', '[Content_Types].xml', 'word/_rels/document.xml.rels'].every(ok) };
+    });
+    assert.ok(parts.valid, 'XML bem formado');
+    assert.match(parts.doc, /<w:commentRangeStart w:id="0"\/>/);
+    assert.match(parts.doc, /<w:del [^>]*>.*<w:delText[^>]*>10%<\/w:delText>/);
+    assert.match(parts.doc, /<w:ins [^>]*>.*12%/);
+    assert.match(parts.doc, /<w:footnoteReference w:id="1"\/>/);
+    assert.match(parts.doc, /w:orient="landscape"/);
+    assert.match(parts.comments, /Rever meta/);
+    assert.match(parts.notes, /Plano 2027/);
+  });
+
   await test('Sem erros na consola da página', page, async () => {
     assert.deepEqual(errors, []);
   });

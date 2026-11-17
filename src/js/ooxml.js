@@ -275,6 +275,11 @@
     const media = {};
     const rels = [];
     let imageCount = 0;
+    // Comentários, alterações controladas e notas de rodapé, exportados como objetos nativos do Word.
+    const commentList = [];
+    const noteList = [];
+    let revision = 1;
+    const now = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
     const relId = (type, target, external) => {
       rels.push(`<Relationship Id="rId${rels.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/${type}" Target="${esc(target)}"${external ? ' TargetMode="External"' : ''}/>`);
       return 'rId' + rels.length;
@@ -343,12 +348,23 @@
           const pieces = child.nodeValue.split('\t');
           pieces.forEach((piece, i) => {
             if (i > 0) out += `<w:r>${runProps(fmt)}<w:tab/></w:r>`;
-            if (piece) out += `<w:r>${runProps(fmt)}<w:t xml:space="preserve">${esc(piece)}</w:t></w:r>`;
+            if (piece) out += fmt.del ? `<w:r>${runProps(fmt)}<w:delText xml:space="preserve">${esc(piece)}</w:delText></w:r>` : `<w:r>${runProps(fmt)}<w:t xml:space="preserve">${esc(piece)}</w:t></w:r>`;
           });
         } else if (child.nodeType === Node.ELEMENT_NODE) {
           if (child.tagName === 'BR') out += '<w:r><w:br/></w:r>';
           else if (child.tagName === 'IMG') out += imageRun(child);
           else if (BLOCKS.includes(child.tagName)) continue; // os blocos aninhados são tratados por blocks()
+          else if (child.tagName === 'MARK' && child.classList.contains('mo-comment') && pageParts.comments && pageParts.comments[child.dataset.id]) {
+            const id = commentList.push(pageParts.comments[child.dataset.id]) - 1;
+            out += `<w:commentRangeStart w:id="${id}"/>${inline(child, fmt)}<w:commentRangeEnd w:id="${id}"/><w:r><w:commentReference w:id="${id}"/></w:r>`;
+          } else if (child.tagName === 'INS' && child.classList.contains('mo-ins')) {
+            out += `<w:ins w:id="${revision++}" w:author="MyOffice" w:date="${now}">${inline(child, fmt)}</w:ins>`;
+          } else if (child.tagName === 'DEL' && child.classList.contains('mo-del')) {
+            out += `<w:del w:id="${revision++}" w:author="MyOffice" w:date="${now}">${inline(child, { ...fmt, del: true })}</w:del>`;
+          } else if (child.tagName === 'SUP' && child.classList.contains('mo-fn') && pageParts.notes && pageParts.notes[child.dataset.id] != null) {
+            const id = noteList.push(pageParts.notes[child.dataset.id]);
+            out += `<w:r><w:rPr><w:vertAlign w:val="superscript"/></w:rPr><w:footnoteReference w:id="${id}"/></w:r>`;
+          }
           else if (child.tagName === 'A' && /^(https?:|mailto:)/i.test(child.getAttribute('href') || '')) {
             out += `<w:hyperlink r:id="${relId('hyperlink', child.getAttribute('href'), true)}">${inline(child, formatOf(child, fmt))}</w:hyperlink>`;
           } else out += inline(child, formatOf(child, fmt));
@@ -424,11 +440,38 @@
       `<w:pPr><w:ind w:left="${720 * (i + 1)}" w:hanging="360"/></w:pPr>${font ? `<w:rPr><w:rFonts w:ascii="${font}" w:hAnsi="${font}" w:hint="default"/></w:rPr>` : ''}</w:lvl>`;
     const levels = (ordered) => Array.from({ length: 9 }, (_x, i) => (ordered ? level(i, 'decimal', `%${i + 1}.`) : level(i, 'bullet', '•', 'Arial'))).join('');
 
+    // Tamanho, orientação e margens da página (em vigésimos de ponto, como no Word).
+    function pageSize() {
+      const pg = pageParts.page || {};
+      const mm = (x) => Math.round(x * 56.6929);
+      const sizes = { A4: [210, 297], Letter: [215.9, 279.4], A5: [148, 210] };
+      let [w, hgt] = sizes[pg.size] || sizes.A4;
+      if (pg.orient === 'landscape') [w, hgt] = [hgt, w];
+      const m = { normal: [25, 20], narrow: [12.7, 12.7], wide: [25.4, 38.1] }[pg.margin] || [25, 20];
+      return `<w:pgSz w:w="${mm(w)}" w:h="${mm(hgt)}"${pg.orient === 'landscape' ? ' w:orient="landscape"' : ''}/><w:pgMar w:top="${mm(m[0])}" w:right="${mm(m[1])}" w:bottom="${mm(m[0])}" w:left="${mm(m[1])}" w:header="708" w:footer="708" w:gutter="0"/>`;
+    }
+    const textParagraphs = (text) => String(text || '').split(/\n/).map((line) => `<w:p><w:r><w:t xml:space="preserve">${esc(line)}</w:t></w:r></w:p>`).join('');
+    const extraParts = {};
+    const extraTypes = [];
+    const extraRels = [];
+    if (commentList.length) {
+      extraParts['word/comments.xml'] = XML_HEAD + `<w:comments ${W}>${commentList.map((c, i) => `<w:comment w:id="${i}" w:author="${esc(c.author || 'MyOffice')}" w:date="${esc(c.date || now)}" w:initials="MO">${textParagraphs(c.text)}</w:comment>`).join('')}</w:comments>`;
+      extraTypes.push('<Override PartName="/word/comments.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml"/>');
+      extraRels.push('<Relationship Id="rIdComments" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="comments.xml"/>');
+    }
+    if (noteList.length) {
+      extraParts['word/footnotes.xml'] = XML_HEAD + `<w:footnotes ${W}><w:footnote w:type="separator" w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:footnote><w:footnote w:type="continuationSeparator" w:id="0"><w:p><w:r><w:continuationSeparator/></w:r></w:p></w:footnote>` +
+        noteList.map((text, i) => `<w:footnote w:id="${i + 1}"><w:p><w:r><w:rPr><w:vertAlign w:val="superscript"/></w:rPr><w:footnoteRef/></w:r><w:r><w:t xml:space="preserve"> ${esc(text)}</w:t></w:r></w:p></w:footnote>`).join('') + '</w:footnotes>';
+      extraTypes.push('<Override PartName="/word/footnotes.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml"/>');
+      extraRels.push('<Relationship Id="rIdFootnotes" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes" Target="footnotes.xml"/>');
+    }
+
     return zip({
       '[Content_Types].xml':
         XML_HEAD +
         '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
         '<Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="jpg" ContentType="image/jpeg"/><Default Extension="gif" ContentType="image/gif"/>' +
+        extraTypes.join('') +
         '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
         '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
         '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>' +
@@ -440,7 +483,7 @@
       'word/document.xml':
         XML_HEAD +
         `<w:document ${W} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">` +
-        `<w:body>${body}<w:sectPr><w:headerReference w:type="default" r:id="rIdHeader"/><w:footerReference w:type="default" r:id="rIdFooter"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1134" w:bottom="1417" w:left="1134" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>`,
+        `<w:body>${body}<w:sectPr><w:headerReference w:type="default" r:id="rIdHeader"/><w:footerReference w:type="default" r:id="rIdFooter"/>${pageSize()}</w:sectPr></w:body></w:document>`,
       'word/styles.xml':
         XML_HEAD +
         `<w:styles ${W}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="${bodyFont}" w:hAnsi="${bodyFont}" w:cs="${bodyFont}"/><w:sz w:val="24"/><w:szCs w:val="24"/><w:lang w:val="pt-PT"/></w:rPr></w:rPrDefault>` +
@@ -462,7 +505,8 @@
         `<Relationship Id="rIdNumbering" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>` +
         '<Relationship Id="rIdHeader" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>' +
         '<Relationship Id="rIdFooter" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>' +
-        `${rels.join('')}</Relationships>`,
+        `${extraRels.join('')}${rels.join('')}</Relationships>`,
+      ...extraParts,
       'word/header1.xml': XML_HEAD + headerXml,
       'word/footer1.xml': XML_HEAD + footerXml,
       ...media

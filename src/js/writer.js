@@ -30,6 +30,15 @@
   let themeRow;
   let docHeader = '';
   let docFooter = '';
+  // Comentários, notas de rodapé e página: o texto fica aqui; no documento só fica a marca (data-id).
+  let docComments = {}; // id -> { text, date }
+  let docNotes = {}; // id -> texto
+  let docPage = { size: 'A4', orient: 'portrait', margin: 'normal' };
+  let tracking = false;
+  let commentsBox, notesBox, trackButton;
+  const newId = () => Math.random().toString(36).slice(2, 10);
+  const PAGE_SIZES = { A4: [210, 297], Letter: [215.9, 279.4], A5: [148, 210] };
+  const PAGE_MARGINS = { normal: [25, 20], narrow: [12.7, 12.7], wide: [25.4, 38.1] };
 
   function showTheme(node) {
     const look = T.docLook(theme);
@@ -306,15 +315,23 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
           label: 'Estrutura',
           groups: [
             { label: 'Temas do documento', rows: [themeRow] },
-            { label: 'Página', rows: [[bigButton('pageBreak', 'Cabeçalho e rodapé', 'Definir texto repetido e numeração de páginas', editPageParts)]] }
+            { label: 'Página', rows: [[bigButton('pageSetup', 'Configurar página', 'Tamanho do papel, orientação e margens', pageDialog), bigButton('pageBreak', 'Cabeçalho e rodapé', 'Definir texto repetido e numeração de páginas', editPageParts)]] }
           ]
         },
+        reviewTab(),
         {
           label: 'Inserir',
           groups: [
             { label: 'Tabelas', rows: [[bigButton('table', 'Tabela', 'Inserir tabela', insertTable)]] },
             { label: 'Ilustrações', rows: [[bigButton('image', 'Imagem', 'Inserir imagem', insertImage)]] },
             { label: 'Ligações', rows: [[bigButton('link', 'Ligação', 'Inserir ligação', insertLink)]] },
+            {
+              label: 'Referências',
+              rows: [[
+                bigButton('toc', 'Índice', 'Inserir ou atualizar o índice a partir dos títulos', insertToc),
+                bigButton('footnote', 'Nota de rodapé', 'Inserir nota de rodapé no cursor', addFootnote)
+              ]]
+            },
             {
               label: 'Elementos',
               rows: [
@@ -329,6 +346,298 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
       ],
       () => ctx.file()
     );
+  }
+
+  function reviewTab() {
+    commentsBox = h('div', { class: 'comments-box' });
+    trackButton = bigButton('track', 'Controlar alterações', 'Ligar ou desligar o controlo de alterações', () => setTracking(!tracking));
+    return {
+      label: 'Rever',
+      groups: [
+        { label: 'Comentários', rows: [[bigButton('comment', 'Novo comentário', 'Comentar o texto selecionado', addComment)], [commentsBox]] },
+        {
+          label: 'Controlar alterações',
+          rows: [[
+            trackButton,
+            bigButton('accept', 'Aceitar todas', 'Aceitar todas as alterações controladas', () => resolveChanges(true)),
+            bigButton('reject', 'Rejeitar todas', 'Rejeitar todas as alterações controladas', () => resolveChanges(false))
+          ]]
+        }
+      ]
+    };
+  }
+
+  // ---------- Comentários ----------
+
+  async function addComment() {
+    restoreSelection();
+    const sel = document.getSelection();
+    if (!sel.rangeCount || sel.isCollapsed || !editor.contains(sel.anchorNode)) return MO.toast('Selecione o texto a comentar.');
+    const range = sel.getRangeAt(0).cloneRange();
+    const res = await MO.dialog({ title: 'Novo comentário', fields: [{ name: 'text', label: 'Comentário', placeholder: 'Escreva o comentário' }], okLabel: 'Comentar' });
+    if (!res || !res.text.trim()) return;
+    const id = newId();
+    docComments[id] = { text: res.text.trim().slice(0, 2000), date: new Date().toISOString() };
+    const mark = h('mark', { class: 'mo-comment', 'data-id': id });
+    try {
+      range.surroundContents(mark);
+    } catch {
+      // A seleção atravessa vários parágrafos: marca-se o texto, sem a formatação interior.
+      mark.textContent = range.toString();
+      range.deleteContents();
+      range.insertNode(mark);
+    }
+    changed();
+    renderComments();
+  }
+
+  function resolveComment(id) {
+    editor.querySelectorAll(`mark.mo-comment[data-id="${id}"]`).forEach((m) => m.replaceWith(...m.childNodes));
+    delete docComments[id];
+    changed();
+    renderComments();
+  }
+
+  function renderComments() {
+    if (!commentsBox) return;
+    const marks = [...editor.querySelectorAll('mark.mo-comment[data-id]')];
+    const seen = new Set();
+    const items = [];
+    for (const m of marks) {
+      const id = m.dataset.id;
+      if (seen.has(id) || !docComments[id]) continue;
+      seen.add(id);
+      const c = docComments[id];
+      const quote = m.textContent.trim().slice(0, 60);
+      items.push(h('div', { class: 'comment-card' },
+        h('q', null, quote),
+        h('p', null, c.text),
+        h('div', { class: 'comment-actions' },
+          h('button', { type: 'button', class: 'btn', onclick: () => { m.scrollIntoView({ block: 'center', behavior: 'smooth' }); m.classList.add('flash'); setTimeout(() => m.classList.remove('flash'), 1200); } }, 'Ver'),
+          h('button', { type: 'button', class: 'btn', onclick: () => resolveComment(id) }, 'Resolver'))));
+    }
+    // Comentários cujo texto foi apagado deixam de existir.
+    for (const id of Object.keys(docComments)) if (!seen.has(id)) delete docComments[id];
+    commentsBox.replaceChildren(...(items.length ? items : [h('p', { class: 'comments-empty' }, 'Sem comentários. Selecione texto e use «Novo comentário».')]));
+  }
+
+  // ---------- Controlar alterações ----------
+  // Com o controlo ligado, o texto escrito fica marcado como inserido e o apagado fica riscado,
+  // até alguém aceitar ou rejeitar as alterações.
+
+  function setTracking(on) {
+    tracking = on;
+    if (trackButton) {
+      trackButton.classList.toggle('on', on);
+      trackButton.setAttribute('aria-pressed', String(on));
+    }
+    MO.toast(on ? 'Controlo de alterações ligado.' : 'Controlo de alterações desligado.');
+  }
+
+  const closestIn = (node, selector) => {
+    const el = node && (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement);
+    const found = el && el.closest(selector);
+    return found && editor.contains(found) ? found : null;
+  };
+
+  function placeCaret(node, after) {
+    const sel = document.getSelection();
+    const r = document.createRange();
+    if (after) r.setStartAfter(node);
+    else r.setStartBefore(node);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+  }
+
+  function trackedInsert(text) {
+    const sel = document.getSelection();
+    if (!sel.rangeCount) return;
+    let range = sel.getRangeAt(0);
+    if (!range.collapsed) {
+      trackedDelete(range.cloneRange(), true);
+      range = sel.getRangeAt(0);
+    }
+    const inside = closestIn(range.startContainer, 'ins.mo-ins');
+    const node = document.createTextNode(text);
+    if (inside) range.insertNode(node);
+    else range.insertNode(h('ins', { class: 'mo-ins' }, node));
+    placeCaret(node, true);
+  }
+
+  function trackedDelete(range, caretAfter) {
+    // Texto que já era uma inserção controlada é apagado de verdade.
+    if (closestIn(range.commonAncestorContainer, 'ins.mo-ins')) {
+      range.deleteContents();
+      return;
+    }
+    const content = range.extractContents();
+    content.querySelectorAll('ins.mo-ins').forEach((n) => n.remove());
+    content.querySelectorAll('del.mo-del').forEach((n) => n.replaceWith(...n.childNodes));
+    if (!content.textContent) return;
+    const del = h('del', { class: 'mo-del' });
+    del.append(content);
+    range.insertNode(del);
+    placeCaret(del, Boolean(caretAfter));
+  }
+
+  function onBeforeInput(e) {
+    if (!tracking) return;
+    const sel = document.getSelection();
+    if (!sel.rangeCount) return;
+    if (e.inputType === 'insertText' || e.inputType === 'insertReplacementText') {
+      e.preventDefault();
+      trackedInsert(e.data || (e.dataTransfer && e.dataTransfer.getData('text/plain')) || '');
+      changed();
+    } else if (/^delete/.test(e.inputType)) {
+      e.preventDefault();
+      const forward = /Forward/.test(e.inputType);
+      if (sel.isCollapsed) {
+        sel.modify('extend', forward ? 'forward' : 'backward', /Word/.test(e.inputType) ? 'word' : 'character');
+        if (sel.isCollapsed) return;
+      }
+      trackedDelete(sel.getRangeAt(0).cloneRange(), forward);
+      changed();
+    }
+  }
+
+  function resolveChanges(accept) {
+    const ins = editor.querySelectorAll('ins.mo-ins');
+    const del = editor.querySelectorAll('del.mo-del');
+    if (!ins.length && !del.length) return MO.toast('Não há alterações por rever.');
+    ins.forEach((n) => (accept ? n.replaceWith(...n.childNodes) : n.remove()));
+    del.forEach((n) => (accept ? n.remove() : n.replaceWith(...n.childNodes)));
+    editor.normalize();
+    changed();
+    MO.toast(accept ? 'Alterações aceites.' : 'Alterações rejeitadas.');
+  }
+
+  // ---------- Notas de rodapé ----------
+
+  async function addFootnote() {
+    restoreSelection();
+    const sel = document.getSelection();
+    if (!sel.rangeCount || !editor.contains(sel.anchorNode)) return MO.toast('Coloque o cursor onde quer a nota.');
+    const range = sel.getRangeAt(0).cloneRange();
+    const res = await MO.dialog({ title: 'Nova nota de rodapé', fields: [{ name: 'text', label: 'Texto da nota', placeholder: 'Ex.: Fonte: INE, 2025.' }], okLabel: 'Inserir' });
+    if (!res || !res.text.trim()) return;
+    const id = newId();
+    docNotes[id] = res.text.trim().slice(0, 2000);
+    range.collapse(false);
+    range.insertNode(h('sup', { class: 'mo-fn', 'data-id': id }, '0'));
+    changed();
+    renderNotes();
+  }
+
+  function renderNotes() {
+    if (!notesBox) return;
+    const marks = [...editor.querySelectorAll('sup.mo-fn[data-id]')];
+    const used = new Set();
+    const items = [];
+    marks.forEach((m) => {
+      const id = m.dataset.id;
+      if (docNotes[id] == null || used.has(id)) { m.remove(); return; }
+      used.add(id);
+      const n = items.length + 1;
+      if (m.textContent !== String(n)) m.textContent = String(n);
+      m.contentEditable = 'false';
+      items.push(h('li', null, h('button', { type: 'button', class: 'note-text', title: 'Editar a nota', onclick: () => editNote(id) }, docNotes[id])));
+    });
+    for (const id of Object.keys(docNotes)) if (!used.has(id)) delete docNotes[id];
+    notesBox.hidden = !items.length;
+    notesBox.replaceChildren(h('h4', null, 'Notas'), h('ol', null, items));
+  }
+
+  async function editNote(id) {
+    const res = await MO.dialog({ title: 'Editar nota de rodapé', fields: [{ name: 'text', label: 'Texto da nota (vazio para apagar)', value: docNotes[id] }], okLabel: 'Guardar' });
+    if (!res) return;
+    if (res.text.trim()) docNotes[id] = res.text.trim().slice(0, 2000);
+    else delete docNotes[id];
+    changed();
+    renderNotes();
+  }
+
+  // ---------- Índice automático ----------
+
+  function tocHTML() {
+    const heads = [...editor.querySelectorAll('h1, h2, h3')].filter((el) => !el.closest('.mo-toc') && el.textContent.trim());
+    if (!heads.length) return null;
+    return '<p class="mo-toc-title">Índice</p>' + heads.map((el) => `<p class="mo-toc-${el.tagName[1]}">${MO.escapeHTML(el.textContent.trim())}</p>`).join('');
+  }
+
+  function insertToc() {
+    const html = tocHTML();
+    if (!html) return MO.toast('Use estilos de Título 1, 2 ou 3 no documento para criar o índice.');
+    const existing = editor.querySelector('.mo-toc');
+    if (existing) {
+      existing.innerHTML = html;
+      MO.toast('Índice atualizado.');
+    } else {
+      insertHTML(`<div class="mo-toc">${html}</div>${EMPTY}`);
+    }
+    lockToc();
+    changed();
+  }
+
+  function lockToc() {
+    editor.querySelectorAll('.mo-toc').forEach((el) => (el.contentEditable = 'false'));
+  }
+
+  // ---------- Configurar página ----------
+
+  function applyPage() {
+    const [w, hgt] = PAGE_SIZES[docPage.size] || PAGE_SIZES.A4;
+    const [mv, mh] = PAGE_MARGINS[docPage.margin] || PAGE_MARGINS.normal;
+    const landscape = docPage.orient === 'landscape';
+    editor.style.width = (landscape ? hgt : w) + 'mm';
+    editor.style.minHeight = (landscape ? w : hgt) + 'mm';
+    editor.style.padding = `${mv}mm ${mh}mm`;
+    if (notesBox) notesBox.style.width = editor.style.width;
+  }
+
+  function pageDialog() {
+    const select = (id, label, options, value) => {
+      const el = h('select', { id }, options.map(([v, text]) => h('option', { value: v, selected: v === value }, text)));
+      return [el, h('label', null, h('span', null, label), el)];
+    };
+    const [size, sizeLabel] = select('page-size', 'Tamanho do papel', [['A4', 'A4 (210 × 297 mm)'], ['Letter', 'Carta (216 × 279 mm)'], ['A5', 'A5 (148 × 210 mm)']], docPage.size);
+    const [orient, orientLabel] = select('page-orient', 'Orientação', [['portrait', 'Vertical'], ['landscape', 'Horizontal']], docPage.orient);
+    const [margin, marginLabel] = select('page-margin', 'Margens', [['normal', 'Normais (2,5 × 2 cm)'], ['narrow', 'Estreitas (1,27 cm)'], ['wide', 'Largas (2,54 × 3,81 cm)']], docPage.margin);
+    const dlg = h('dialog', { class: 'mo-dialog' }, h('form', { method: 'dialog' },
+      h('h2', null, 'Configurar página'),
+      h('p', null, 'Aplica-se ao ecrã, à impressão, ao PDF e ao Word.'),
+      sizeLabel, orientLabel, marginLabel,
+      h('div', { class: 'dialog-actions' }, h('button', { type: 'button', class: 'btn', onclick: () => dlg.close() }, 'Cancelar'), h('button', { type: 'submit', class: 'btn primary' }, 'Aplicar'))));
+    dlg.querySelector('form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      docPage = { size: size.value, orient: orient.value, margin: margin.value };
+      applyPage();
+      ctx.dirty();
+      dlg.close();
+    });
+    dlg.addEventListener('close', () => dlg.remove());
+    document.body.append(dlg);
+    dlg.showModal();
+  }
+
+  function cleanPage(input) {
+    const p = input && typeof input === 'object' ? input : {};
+    return {
+      size: Object.hasOwn(PAGE_SIZES, p.size) ? p.size : 'A4',
+      orient: p.orient === 'landscape' ? 'landscape' : 'portrait',
+      margin: Object.hasOwn(PAGE_MARGINS, p.margin) ? p.margin : 'normal'
+    };
+  }
+
+  function cleanTextMap(input, kind) {
+    const out = {};
+    for (const [id, value] of Object.entries(input && typeof input === 'object' ? input : {}).slice(0, 2000)) {
+      if (!/^[a-z0-9]{1,24}$/.test(id)) continue;
+      const text = typeof value === 'string' ? value : value && typeof value.text === 'string' ? value.text : null;
+      if (text == null) continue;
+      out[id] = kind === 'comment' ? { text: text.slice(0, 2000), date: value && typeof value.date === 'string' && !Number.isNaN(Date.parse(value.date)) ? value.date : new Date().toISOString() } : text.slice(0, 2000);
+    }
+    return out;
   }
 
   async function editPageParts() {
@@ -370,7 +679,15 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
       statusEl = h('span', { class: 'status-text' });
       const ribbon = buildRibbon();
       const bar = h('div', { class: 'statusbar' }, statusEl, MO.zoomControl((k) => (editor.style.zoom = k)));
-      container.append(ribbon, h('div', { class: 'page-scroll' }, editor), bar);
+      notesBox = h('aside', { class: 'page-notes', hidden: true, 'aria-label': 'Notas de rodapé' });
+      container.append(ribbon, h('div', { class: 'page-scroll' }, editor, notesBox), bar);
+      editor.addEventListener('beforeinput', onBeforeInput);
+      // Comentários e notas atualizam-se depois de cada alteração (no máximo uma vez por fotograma).
+      let refreshFrame = 0;
+      editor.addEventListener('input', () => {
+        if (refreshFrame) return;
+        refreshFrame = requestAnimationFrame(() => { refreshFrame = 0; renderComments(); renderNotes(); });
+      });
       showStates = MO.toolStates(ribbon, STATE_TITLES);
       document.addEventListener('selectionchange', updateStates);
 
@@ -403,17 +720,21 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
     newDoc(template) {
       setTheme(T.LIST[0]);
       docHeader = ''; docFooter = '';
+      docComments = {}; docNotes = {}; docPage = cleanPage(null); tracking = false;
       const templates = {
         report: '<h1>Relatório de projeto</h1><p><strong>Responsável:</strong> [Nome]</p><p><strong>Data:</strong> [Data]</p><h2>1. Resumo executivo</h2><p>Apresente aqui os principais objetivos, resultados e conclusões.</p><h2>2. Objetivos</h2><p>Descreva o que se pretende alcançar.</p><h2>3. Desenvolvimento</h2><p>Registe as atividades realizadas, os recursos utilizados e os resultados obtidos.</p><h2>4. Conclusões e próximos passos</h2><p>Resuma as conclusões e identifique as ações seguintes.</p>',
         meeting: '<h1>Ata de reunião</h1><p><strong>Data:</strong> [Data] &nbsp; <strong>Hora:</strong> [Hora]</p><p><strong>Participantes:</strong> [Nomes]</p><h2>Agenda</h2><ul><li>[Tema 1]</li><li>[Tema 2]</li></ul><h2>Decisões</h2><p>Registe as decisões tomadas.</p><h2>Ações a realizar</h2><table><tbody><tr><th>Ação</th><th>Responsável</th><th>Prazo</th></tr><tr><td>[Ação]</td><td>[Nome]</td><td>[Data]</td></tr></tbody></table><h2>Próxima reunião</h2><p>[Data e hora]</p>'
       };
       editor.innerHTML = templates[template] || EMPTY;
       savedRange = null;
-      updateStats();
+      applyPage();
+      afterLoad();
     },
 
     serialize() {
-      return JSON.stringify({ format: 'myoffice-doc', version: 2, theme: theme.id, html: editor.innerHTML, header: docHeader, footer: docFooter });
+      renderComments();
+      renderNotes();
+      return JSON.stringify({ format: 'myoffice-doc', version: 3, theme: theme.id, html: editor.innerHTML, header: docHeader, footer: docFooter, comments: docComments, notes: docNotes, page: docPage });
     },
 
     load(text, ext) {
@@ -426,29 +747,35 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
         docHeader = String(data.header || '').slice(0, 180);
         docFooter = String(data.footer || '').slice(0, 180);
         nextTheme = T.byId(data.theme);
+        docComments = cleanTextMap(data.comments, 'comment');
+        docNotes = cleanTextMap(data.notes, 'note');
+        docPage = cleanPage(data.page);
       } else if (ext === 'docx') {
+        docComments = {}; docNotes = {}; docPage = cleanPage(null);
         const doc = MO.OOXML.importDocx(text);
         html = doc.html;
         docHeader = String(doc.header || '').slice(0, 180);
         docFooter = String(doc.footer || '').slice(0, 180);
       } else if (ext === 'txt') {
-        docHeader = ''; docFooter = '';
+        docHeader = ''; docFooter = ''; docComments = {}; docNotes = {}; docPage = cleanPage(null);
         html = text
           .split(/\r?\n/)
           .map((line) => `<p>${MO.escapeHTML(line) || '<br>'}</p>`)
           .join('');
       } else {
-        docHeader = ''; docFooter = '';
+        docHeader = ''; docFooter = ''; docComments = {}; docNotes = {}; docPage = cleanPage(null);
         html = text;
       }
       editor.innerHTML = MO.sanitizeHTML(html) || EMPTY;
       setTheme(nextTheme);
       savedRange = null;
-      updateStats();
+      tracking = false;
+      applyPage();
+      afterLoad();
     },
 
     exports: [
-      { label: 'Documento do Word (.docx)', ext: 'docx', filterName: 'Documento do Word', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', get: () => MO.OOXML.exportDocx(editor, T.docLook(theme), { header: docHeader, footer: docFooter }) },
+      { label: 'Documento do Word (.docx)', ext: 'docx', filterName: 'Documento do Word', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', get: () => { renderNotes(); return MO.OOXML.exportDocx(editor, T.docLook(theme), { header: docHeader, footer: docFooter, comments: docComments, notes: docNotes, page: docPage }); } },
       { label: 'Página web (.html)', ext: 'html', filterName: 'Página web', mime: 'text/html', get: (title) => standaloneHTML(title) },
       { label: 'Texto simples (.txt)', ext: 'txt', filterName: 'Texto simples', mime: 'text/plain', get: () => editor.innerText }
     ],
@@ -457,15 +784,42 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
       const node = h('div', { class: 'print-document' });
       if (docHeader) node.append(h('div', { class: 'print-running-header' }, docHeader));
       const body = h('div', { class: 'print-doc' });
+      renderNotes();
       body.innerHTML = editor.innerHTML;
+      // Na impressão os comentários não aparecem; as alterações controladas mostram-se marcadas.
+      body.querySelectorAll('mark.mo-comment').forEach((m) => m.replaceWith(...m.childNodes));
       showTheme(body);
       node.append(body);
+      if (Object.keys(docNotes).length) {
+        const notes = notesBox.cloneNode(true);
+        notes.hidden = false;
+        notes.style.width = '';
+        notes.querySelectorAll('button').forEach((b) => b.replaceWith(b.textContent));
+        node.append(notes);
+      }
       if (docFooter) node.append(h('div', { class: 'print-running-footer' }, docFooter));
-      return { node, page: 'A4 portrait', margin: '24mm 20mm 25mm', pageRule: '@bottom-right { content: counter(page) " / " counter(pages); font: 9pt Arial; color: #667085; }' };
+      const [mv, mh] = PAGE_MARGINS[docPage.margin] || PAGE_MARGINS.normal;
+      return { node, page: `${docPage.size === 'Letter' ? 'letter' : docPage.size} ${docPage.orient}`, margin: `${mv}mm ${mh}mm`, pageRule: '@bottom-right { content: counter(page) " / " counter(pages); font: 9pt Arial; color: #667085; }' };
     },
 
     show() {
       editor.focus();
     }
+  };
+
+  function afterLoad() {
+    lockToc();
+    renderComments();
+    renderNotes();
+    updateStats();
+    if (trackButton) trackButton.classList.toggle('on', tracking);
+  }
+
+  // Estado das funcionalidades de revisão (usado pelos testes).
+  MO.modules.writer.review = {
+    get tracking() { return tracking; },
+    comments: () => ({ ...docComments }),
+    notes: () => ({ ...docNotes }),
+    page: () => ({ ...docPage })
   };
 })();

@@ -43,7 +43,7 @@
     'text-align', 'text-decoration', 'text-decoration-line', 'text-indent', 'line-height', 'vertical-align',
     'margin-left', 'margin-right', 'padding-left', 'list-style-type', 'width', 'height', 'max-width', 'white-space'
   ];
-  const SAFE_CLASSES = ['page-break'];
+  const SAFE_CLASSES = ['page-break', 'mo-comment', 'mo-ins', 'mo-del', 'mo-fn', 'mo-toc', 'mo-toc-title', 'mo-toc-1', 'mo-toc-2', 'mo-toc-3'];
 
   function cleanStyle(el) {
     const kept = [];
@@ -76,6 +76,9 @@
           const classes = value.split(/\s+/).filter((c) => SAFE_CLASSES.includes(c));
           if (classes.length) n.setAttribute('class', classes.join(' '));
           else keep = false;
+        } else if (name === 'data-id') {
+          // Liga comentários e notas de rodapé ao seu texto; só identificadores simples.
+          keep = /^[a-z0-9]{1,24}$/.test(value);
         } else if (name === 'style' || name === 'hidden' || name === 'tabindex' || name === 'draggable' || name.startsWith('data-') || name.startsWith('aria-')) {
           keep = name === 'style';
         }
@@ -285,6 +288,13 @@
     search: 'M10.5 4a6.5 6.5 0 1 0 .1 0zM15.5 15.5 20 20',
     pageBreak: 'M6 3v6h12V3M6 21v-6h12v6M3 12h2M8 12h2M13 12h2M18 12h3',
     lookup: 'M3 5h18v14H3zM3 10h18M9 5v14M13 14.5h5M16 12.5l2 2-2 2',
+    pageSetup: 'M6 3h9l4 4v14H6zM9 9h6M9 13h6M9 17h3',
+    toc: 'M4 6h2M9 6h11M6 11h2M11 11h9M6 16h2M11 16h9',
+    footnote: 'M5 7h10M5 11h10M5 15h6M17 4v5M15.5 5.5 17 4',
+    comment: 'M4 5h16v11H9l-5 4z',
+    track: 'M4 20l4-1 11-11-3-3L5 16zM14 6l3 3M4 20h16',
+    accept: 'M5 12l5 5L20 7',
+    reject: 'M6 6l12 12M18 6 6 18',
     merge: 'M3 6h18v12H3zM8 12h8M13 9l3 3-3 3M11 9l-3 3 3 3',
     unmerge: 'M3 6h7v12H3zM14 6h7v12h-7zM6 12h1M17 12h1',
     borderAll: 'M4 4h16v16H4zM4 12h16M12 4v16',
