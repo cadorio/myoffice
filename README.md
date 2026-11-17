@@ -4,9 +4,9 @@
 
 Texto, folhas de cálculo, apresentações, diagramas e PDF numa só aplicação. Os documentos ficam no seu computador: não é precisa conta, nuvem nem ligação à Internet. Abre e grava ficheiros do Word, Excel e PowerPoint.
 
-**[⬇ Descarregar MyOffice 1.9.0 para Windows (64 bits)](https://github.com/cadorio/myoffice/releases/download/v1.9.0/MyOffice-Setup-1.9.0.exe)**
+**[⬇ Descarregar MyOffice 1.10.0 para Windows (64 bits)](https://github.com/cadorio/myoffice/releases/download/v1.10.0/MyOffice-Setup-1.10.0.exe)**
 
-[Notas da versão](https://github.com/cadorio/myoffice/releases/tag/v1.9.0) · [Versões anteriores](https://github.com/cadorio/myoffice/releases) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
+[Notas da versão](https://github.com/cadorio/myoffice/releases/tag/v1.10.0) · [Versões anteriores](https://github.com/cadorio/myoffice/releases) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
 ![Ecrã inicial do MyOffice](docs/screenshots/inicio.png)
 
@@ -127,7 +127,7 @@ O ecrã inicial tem seis **modelos prontos a usar** (relatório, ata de reunião
 | **Memória** | 4 GB no mínimo, 8 GB recomendados |
 | **Internet** | não é necessária para usar a aplicação |
 
-1. [Descarregue o instalador](https://github.com/cadorio/myoffice/releases/download/v1.9.0/MyOffice-Setup-1.9.0.exe) (`MyOffice-Setup-1.9.0.exe`, 122 MB).
+1. [Descarregue o instalador](https://github.com/cadorio/myoffice/releases/download/v1.10.0/MyOffice-Setup-1.10.0.exe) (`MyOffice-Setup-1.10.0.exe`, 122 MB).
 2. Abra o ficheiro e siga o assistente de instalação.
 3. **Aviso do Windows:** o instalador ainda não tem assinatura digital, por isso o SmartScreen mostra "O Windows protegeu o computador". Clique em **Mais informações** e depois em **Executar mesmo assim**.
 
