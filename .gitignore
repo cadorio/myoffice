@@ -4,3 +4,4 @@ dist/
 license-private.pem
 *.p12
 *.pfx
+test/falha-*.png
