@@ -74,7 +74,7 @@ const { pathToFileURL } = require('node:url');
   await page.locator('.mo-chart-dialog').waitFor({ state: 'visible' });
   await page.locator('.mo-chart-preview svg').waitFor({ state: 'visible' });
   await page.locator('.mo-chart-close').click();
-  if (!(await page.locator('#view-sheets button[aria-label*="Analisar os dados"]').count())) {
+  if (!(await page.locator('#view-sheets button').filter({ hasText: 'Analisar com IA' }).count())) {
     throw new Error('O assistente IA de Folhas não está disponível na faixa.');
   }
   await capture('slides', 'diapositivos.png');
