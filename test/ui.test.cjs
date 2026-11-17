@@ -422,6 +422,98 @@ const cellText = (page, a) =>
     assert.match(parts.notes, /Plano 2027/);
   });
 
+  // ---------------- Diapositivos ----------------
+  const slidesTab = (name) => page.click(`#view-slides .ribbon-tab:has-text("${name}")`);
+  const deck = async () => JSON.parse(await page.evaluate(() => MO.modules.slides.serialize())).slides;
+  const loadDeck = (slides) => page.evaluate((d) => MO.modules.slides.load(JSON.stringify({ format: 'myoffice-slides', version: 1, slides: d }), 'moslides'), slides);
+  const box = (x, y, w, hh, extra = {}) => ({ type: 'rect', x, y, w, h: hh, fill: '#4f5bd5', ...extra });
+
+  await go(page, 'slides');
+
+  await test('Diapositivos: tabela com edição de células e linhas/colunas', page, async () => {
+    await loadDeck([{ bg: '#ffffff', els: [] }]);
+    await slidesTab('Inserir');
+    await page.click('button[title="Inserir tabela no diapositivo"]');
+    await page.fill('.mo-dialog input >> nth=0', '3');
+    await page.fill('.mo-dialog input >> nth=1', '2');
+    await page.click('.mo-dialog button[type=submit]');
+    await page.waitForSelector('.stage table.el-table', { timeout: 3000 });
+    assert.equal(await page.locator('.stage table.el-table tr').count(), 3);
+    await page.dblclick('.stage .el-table td[data-r="1"][data-c="0"]');
+    await page.keyboard.type('Lisboa');
+    await page.keyboard.press('Enter');
+    await page.click('button[title="Acrescentar coluna à tabela"]');
+    await page.click('button[title="Acrescentar linha à tabela"]');
+    const t = (await deck())[0].els[0];
+    assert.equal(t.type, 'table');
+    assert.equal(t.rows[1][0], 'Lisboa');
+    assert.equal(t.rows.length, 4);
+    assert.equal(t.rows[0].length, 3);
+  });
+
+  await test('Diapositivos: alinhar, distribuir e agrupar vários elementos', page, async () => {
+    await loadDeck([{ bg: '#ffffff', els: [box(100, 50, 100, 50), box(300, 200, 100, 50), box(700, 120, 100, 50)] }]);
+    const els = page.locator('.stage .el');
+    await els.nth(0).click();
+    await els.nth(1).click({ modifiers: ['Shift'] });
+    await els.nth(2).click({ modifiers: ['Shift'] });
+    await slidesTab('Base');
+    await page.click('button[title="Alinhar acima (elementos)"]');
+    let d = (await deck())[0].els;
+    assert.deepEqual(d.map((e) => e.y), [50, 50, 50]);
+    await page.click('button[title="Distribuir na horizontal"]');
+    d = (await deck())[0].els;
+    assert.deepEqual(d.map((e) => e.x), [100, 400, 700]);
+    await page.click('button[title="Agrupar elementos"]');
+    d = (await deck())[0].els;
+    assert.ok(d[0].group && d.every((e) => e.group === d[0].group), 'todos no mesmo grupo');
+    // Clicar num elemento do grupo e arrastar move o grupo inteiro.
+    await page.click('.stage-box', { position: { x: 5, y: 5 } });
+    const b = await els.nth(1).boundingBox();
+    await page.mouse.move(b.x + 20, b.y + 20);
+    await page.mouse.down();
+    await page.mouse.move(b.x + 20, b.y + 80, { steps: 5 });
+    await page.mouse.up();
+    d = (await deck())[0].els;
+    assert.ok(d.every((e) => e.y > 80), 'o grupo moveu-se junto: ' + d.map((e) => e.y));
+  });
+
+  await test('Diapositivos: organizar reordena arrastando', page, async () => {
+    await loadDeck(['A', 'B', 'C'].map((t) => ({ bg: '#ffffff', els: [{ type: 'text', x: 60, y: 40, w: 840, h: 80, html: t, fs: 40, color: '#1c2130', align: 'left' }] })));
+    await slidesTab('Apresentação');
+    await page.click('button[title^="Ver todos os diapositivos em grelha"]');
+    assert.equal(await page.locator('.sorter-card').count(), 3);
+    await page.dragAndDrop('.sorter-card[data-index="2"]', '.sorter-card[data-index="0"]');
+    const order = (await deck()).map((sl) => sl.els[0].html);
+    assert.deepEqual(order, ['C', 'A', 'B']);
+    await page.click('.sorter-head button');
+    assert.equal(await page.locator('.slide-sorter').count(), 0);
+  });
+
+  await test('Diapositivos: vista do apresentador mostra notas, seguinte e tempo', page, async () => {
+    await loadDeck([{ bg: '#ffffff', notes: 'Cumprimentar a direção', els: [] }, { bg: '#eeeeee', els: [] }]);
+    await slidesTab('Apresentação');
+    await page.click('button[title^="Apresentar com notas"]');
+    await page.waitForSelector('.present.presenter .pv');
+    assert.match(await page.textContent('.pv-notes'), /Cumprimentar a direção/);
+    assert.equal(await page.locator('.pv-side .pv-frame').count(), 1, 'mostra o diapositivo seguinte');
+    assert.match(await page.textContent('.pv-clock'), /^\d\d:\d\d$/);
+    await page.keyboard.press('ArrowRight');
+    assert.match(await page.textContent('.pv-end'), /Fim/);
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('.present').count(), 0);
+  });
+
+  await test('Diapositivos: tabela exportada como tabela nativa do PowerPoint', page, async () => {
+    await loadDeck([{ bg: '#ffffff', els: [{ type: 'table', x: 80, y: 140, w: 800, h: 160, rows: [['Região', 'Vendas'], ['Norte', '82']], fs: 20, accent: '#1f5fbf' }] }]);
+    const xml = await page.evaluate(() => {
+      const files = fflate.unzipSync(MO.modules.slides.exports.find((e) => e.ext === 'pptx').get());
+      return new TextDecoder().decode(files['ppt/slides/slide1.xml']);
+    });
+    assert.match(xml, /<a:tbl>/);
+    assert.match(xml, /Norte/);
+  });
+
   await test('Sem erros na consola da página', page, async () => {
     assert.deepEqual(errors, []);
   });

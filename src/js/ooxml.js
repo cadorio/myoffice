@@ -1081,6 +1081,20 @@
           parts['ppt/media/' + name] = data.bytes;
           rels.push(`<Relationship Id="rId${rels.length + 1}" Type="${REL}image" Target="../media/${name}"/>`);
           shapes += `<p:pic><p:nvPicPr><p:cNvPr id="${id}" name="Imagem ${id}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="rId${rels.length}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr>${xfrm(el)}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
+        } else if (el.type === 'table') {
+          // Tabela nativa do PowerPoint: cabeçalho na cor de destaque e linhas alternadas.
+          const rows = Array.isArray(el.rows) ? el.rows : [];
+          const cols = rows[0] ? rows[0].length : 0;
+          if (!rows.length || !cols) continue;
+          const colW = Math.round((el.w * EMU) / cols);
+          const rowH = Math.round((el.h * EMU) / rows.length);
+          const size = Math.max(800, Math.round(el.fs * 75));
+          const cell = (text, header, odd) => `<a:tc><a:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="pt-PT" sz="${size}" b="${header ? 1 : 0}" dirty="0">${fill(header ? '#ffffff' : '#1c2130')}</a:rPr><a:t>${esc(text)}</a:t></a:r></a:p></a:txBody><a:tcPr>${fill(header ? el.accent || '#1f5fbf' : odd ? '#f3f6fa' : '#ffffff')}</a:tcPr></a:tc>`;
+          shapes += `<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="${id}" name="Tabela ${id}"/><p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr><p:nvPr/></p:nvGraphicFramePr>` +
+            `<p:xfrm><a:off x="${emu(el.x)}" y="${emu(el.y)}"/><a:ext cx="${emu(el.w)}" cy="${emu(el.h)}"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr firstRow="1" bandRow="1"/>` +
+            `<a:tblGrid>${Array(cols).fill(`<a:gridCol w="${colW}"/>`).join('')}</a:tblGrid>` +
+            rows.map((row, r) => `<a:tr h="${rowH}">${row.map((text) => cell(text, r === 0, r % 2 === 1)).join('')}</a:tr>`).join('') +
+            '</a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
         } else {
           shapes += `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Forma ${id}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr>${xfrm(el)}<a:prstGeom prst="${el.type === 'ellipse' ? 'ellipse' : 'rect'}"><a:avLst/></a:prstGeom>${fill(el.fill)}<a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang="pt-PT"/></a:p></p:txBody></p:sp>`;
         }
