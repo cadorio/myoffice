@@ -3,7 +3,7 @@
 Esta aplicação inclui os seguintes componentes.
 
 ```
-MyOffice 1.8.1
+MyOffice 1.9.0
 https://github.com/cadorio/myoffice
 Licenciado sob a Licença Apache, versão 2.0. O texto completo está no ficheiro LICENSE.
 

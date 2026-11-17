@@ -10,6 +10,11 @@
   // Ações que a resposta pode trazer: inserir uma fórmula nas Folhas ou um rascunho no Texto.
   function actionButton(action) {
     const run = () => {
+      // Na aplicação instalada, as Folhas e o Texto estão noutras janelas.
+      if (MO.solo && window.api) {
+        window.api.deliver(action.kind === 'formula' ? 'sheets' : 'writer', action);
+        return;
+      }
       if (action.kind === 'formula' && MO.modules.sheets.assist) {
         MO.showView('sheets');
         MO.modules.sheets.assist.put(action.value);
@@ -54,12 +59,12 @@
       // Pedidos sobre o documento ou a folha abertos usam o conteúdo real.
       const q = prompt.toLocaleLowerCase('pt-PT').normalize('NFD').replace(/\p{M}/gu, '');
       if (/\b(resum|rev|analis|melhor|corrig)\w*\b.*\b(documento|texto)\b|\b(meu|este|o) (documento|texto)\b/.test(q)) {
-        const text = MO.modules.writer.assist ? MO.modules.writer.assist.text().trim() : '';
-        if (!text) throw new Error('O documento do Texto está vazio. Escreva ou abra um documento e volte a perguntar.');
+        const text = (MO.solo && window.api ? await window.api.contentOf('writer') : MO.modules.writer.assist ? MO.modules.writer.assist.text() : '').trim();
+        if (!text) throw new Error('Não encontrei texto. Abra o documento no Texto e volte a perguntar.');
         request = { module: 'writer', task: 'review', content: text.slice(0, 6000) };
       } else if (/\b(analis|resum|estatistic|tendencia)\w*\b.*\b(folha|tabela|dados|livro)\b|\b(minha|esta|a) (folha|tabela)\b/.test(q)) {
-        const table = MO.modules.sheets.assist ? MO.modules.sheets.assist.table() : '';
-        if (!table) throw new Error('A folha está vazia. Abra ou escreva dados em Folhas e volte a perguntar.');
+        const table = MO.solo && window.api ? await window.api.contentOf('sheets') : MO.modules.sheets.assist ? MO.modules.sheets.assist.table() : '';
+        if (!table) throw new Error('Não encontrei dados. Abra a folha nas Folhas e volte a perguntar.');
         request = { module: 'sheets', task: 'analyse', content: table };
       }
       const response = api

@@ -4,9 +4,9 @@
 
 Texto, folhas de cálculo, apresentações e diagramas numa só aplicação. Os documentos ficam no seu computador: não é precisa conta, nuvem nem ligação à Internet. Abre e grava ficheiros do Word, Excel e PowerPoint.
 
-**[⬇ Descarregar MyOffice 1.8.1 para Windows (64 bits)](https://github.com/cadorio/myoffice/releases/download/v1.8.1/MyOffice-Setup-1.8.1.exe)**
+**[⬇ Descarregar MyOffice 1.9.0 para Windows (64 bits)](https://github.com/cadorio/myoffice/releases/download/v1.9.0/MyOffice-Setup-1.9.0.exe)**
 
-[Notas da versão](https://github.com/cadorio/myoffice/releases/tag/v1.8.1) · [Versões anteriores](https://github.com/cadorio/myoffice/releases) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
+[Notas da versão](https://github.com/cadorio/myoffice/releases/tag/v1.9.0) · [Versões anteriores](https://github.com/cadorio/myoffice/releases) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
 ![Ecrã inicial do MyOffice](docs/screenshots/inicio.png)
 
@@ -90,6 +90,7 @@ Comece por um modelo de fluxo, mapa mental ou organograma e acrescente caixas, c
 
 ### Em todas as aplicações
 
+- **Cada programa na sua janela**: Texto, Folhas, Diapositivos, Desenho e Assistente abrem em janelas separadas, cada uma com a sua entrada na barra de tarefas do Windows, como o Word e o Excel. Fechar um programa não fecha os outros, e cada um recupera o seu próprio trabalho se fechar inesperadamente.
 - **Painel de ferramentas** à direita, em secções, e barra de aplicações à esquerda. Ctrl+. esconde ou mostra o painel.
 - **Ctrl+K** abre a procura de comandos: escreva o que quer fazer.
 - Modo claro e escuro, que acompanha o Windows ou se escolhe na aplicação.
@@ -107,7 +108,7 @@ Comece por um modelo de fluxo, mapa mental ou organograma e acrescente caixas, c
 | **Memória** | 4 GB no mínimo, 8 GB recomendados |
 | **Internet** | não é necessária para usar a aplicação |
 
-1. [Descarregue o instalador](https://github.com/cadorio/myoffice/releases/download/v1.8.1/MyOffice-Setup-1.8.1.exe) (`MyOffice-Setup-1.8.1.exe`, 122 MB).
+1. [Descarregue o instalador](https://github.com/cadorio/myoffice/releases/download/v1.9.0/MyOffice-Setup-1.9.0.exe) (`MyOffice-Setup-1.9.0.exe`, 122 MB).
 2. Abra o ficheiro e siga o assistente de instalação.
 3. **Aviso do Windows:** o instalador ainda não tem assinatura digital, por isso o SmartScreen mostra "O Windows protegeu o computador". Clique em **Mais informações** e depois em **Executar mesmo assim**.
 

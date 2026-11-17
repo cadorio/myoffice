@@ -7,6 +7,12 @@
   // Dentro do Electron existe window.api (ver preload.js). Sem ela, a aplicação
   // funciona num browser com transferências e o seletor de ficheiros normal.
   const api = window.api || null;
+  // Na aplicação instalada, cada programa tem a sua janela: ?app=sheets mostra só as Folhas.
+  const SOLO = (() => {
+    const id = api ? new URLSearchParams(location.search).get('app') : null;
+    return ['home', 'writer', 'sheets', 'slides', 'draw', 'assistant'].includes(id) ? id : null;
+  })();
+  MO.solo = SOLO;
 
   const ORDER = ['writer', 'sheets', 'slides', 'draw'];
   const EXT_MODULE = { modoc: 'writer', html: 'writer', htm: 'writer', txt: 'writer', mosheet: 'sheets', csv: 'sheets', moslides: 'slides', modraw: 'draw', docx: 'writer', xlsx: 'sheets', pptx: 'slides' };
@@ -30,7 +36,7 @@
       const state = d.dirty ? ' • Por guardar' : d.path || d.name ? ' • Guardado' : '';
       $('#app-name').textContent = MO.modules[current].label;
       $('#doc-title').textContent = titleOf(current) + state;
-      document.title = `${titleOf(current)}${d.dirty ? ' •' : ''} — ${MO.BRAND.name}`;
+      document.title = `${titleOf(current)}${d.dirty ? ' •' : ''} — ${MO.BRAND.name}${SOLO ? ' ' + MO.modules[current].label : ''}`;
     } else if (current === 'assistant') {
       $('#app-name').textContent = 'Assistente IA';
       $('#doc-title').textContent = 'Ajuda para trabalhar melhor';
@@ -51,6 +57,11 @@
 
   MO.showView = (id) => show(id);
   function show(id) {
+    // Outro programa abre na sua própria janela.
+    if (SOLO && id !== SOLO) {
+      api.openApp(id);
+      return;
+    }
     current = id;
     document.querySelectorAll('.view').forEach((view) => (view.hidden = view.id !== 'view-' + id));
     document.body.dataset.current = id;
@@ -85,6 +96,11 @@
     const ext = file.name.split('.').pop().toLowerCase();
     const id = Object.hasOwn(EXT_MODULE, ext) ? EXT_MODULE[ext] : null;
     if (!id) return MO.toast('Tipo de ficheiro não suportado.');
+    if (SOLO && id !== SOLO) {
+      // O ficheiro pertence a outro programa: abre na janela dele.
+      if (file.path) api.openPath(file.path);
+      return;
+    }
     const importNotices = {
       docx: 'O Texto importa o conteúdo e a formatação mais comuns. Comentários, alterações controladas e alguns elementos avançados podem não ser transferidos. O original não será alterado; o documento convertido será guardado como .modoc.',
       xlsx: 'Folhas importa valores, fórmulas, formatação básica e gráficos simples de colunas/linhas. Tabelas dinâmicas Excel, gráficos avançados e fórmulas não suportadas podem não ser transferidos. O original não será alterado; o livro convertido será guardado como .mosheet.',
@@ -117,6 +133,10 @@
 
   // Inicia um documento a partir de um modelo real, pronto a editar.
   function createFromTemplate(id, template) {
+    if (SOLO && id !== SOLO) {
+      if (MO.modules[id]) api.openApp(id, template);
+      return;
+    }
     if (!MO.modules[id] || !confirmDiscard(id)) return;
     current = id;
     MO.modules[id].newDoc(template);
@@ -328,7 +348,8 @@
   }
 
   async function initRecovery() {
-    const drafts = await api.drafts.list();
+    // Cada janela recupera só o seu programa; o ecrã inicial e o Assistente não têm documentos.
+    const drafts = (await api.drafts.list()).filter((d) => !SOLO || d.module === SOLO);
     if (drafts.length) {
       const names = drafts.map((d) => `• ${d.name ? baseName(d.name) : MO.modules[d.module].defaultName + ' sem título'} (${MO.modules[d.module].label})`).join('\n');
       const res = await MO.dialog({
@@ -352,7 +373,7 @@
         if (last) show(last);
         updateChrome();
       } else {
-        api.drafts.clear();
+        for (const draft of drafts) api.drafts.clear(draft.module);
       }
     }
     // O rascunho é escrito num momento de inatividade, para não interromper quem está a escrever.
@@ -640,6 +661,20 @@
       api.onOpenView((view) => {
         if (ORDER.includes(view)) show(view);
       });
+      if (SOLO) {
+        api.onTemplate((template) => createFromTemplate(SOLO, template));
+        api.onDeliver((action) => {
+          if (action.kind === 'formula' && SOLO === 'sheets') {
+            MO.modules.sheets.assist.put(action.value);
+            MO.toast(`Fórmula do Assistente inserida em ${MO.modules.sheets.assist.activeAddr()}.`);
+          } else if (action.kind === 'draft' && SOLO === 'writer') {
+            MO.modules.writer.assist.insert(action.value);
+            MO.toast('Rascunho do Assistente inserido.');
+          }
+        });
+        api.onContentRequest(() => (SOLO === 'writer' ? MO.modules.writer.assist.text() : SOLO === 'sheets' ? MO.modules.sheets.assist.table() : ''));
+        document.body.dataset.solo = SOLO;
+      }
       api.ready();
       initLicense();
       initRecovery();
@@ -656,7 +691,7 @@
       });
     }
 
-    const requestedView = new URLSearchParams(location.search).get('view');
+    const requestedView = SOLO || new URLSearchParams(location.search).get('view');
     show(ORDER.includes(requestedView) || requestedView === 'assistant' ? requestedView : 'home');
   }
 
