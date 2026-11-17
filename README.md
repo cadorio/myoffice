@@ -2,7 +2,7 @@
 
 **Suite de escritório para Windows: simples, privada e leve.**
 
-Texto, folhas de cálculo, apresentações, diagramas e PDF numa só aplicação. Os documentos ficam no seu computador: não é precisa conta, nuvem nem ligação à Internet. Abre e grava ficheiros do Word, Excel e PowerPoint.
+Texto, folhas de cálculo, apresentações, diagramas, PDF e bases de dados numa só aplicação. Os documentos ficam no seu computador: não é precisa conta, nuvem nem ligação à Internet. Abre e grava ficheiros do Word, Excel e PowerPoint.
 
 **[⬇ Descarregar MyOffice 1.10.0 para Windows (64 bits)](https://github.com/cadorio/myoffice/releases/download/v1.10.0/MyOffice-Setup-1.10.0.exe)**
 
@@ -44,6 +44,7 @@ Tons calmos de verde e papel, com modo claro e escuro.
 | **Diapositivos** | Apresentações com temas, esquemas, imagens, formas, transições e notas do orador | `.moslides` · PPTX · PDF |
 | **Desenho** | Fluxogramas, mapas mentais e organogramas | `.modraw` · SVG · PDF |
 | **PDF** | Ler, anotar, assinar, juntar e organizar ficheiros PDF | PDF · TXT |
+| **Bases de dados** | Tabelas, formulários, consultas e relatórios, como o Access | `.modb` (SQLite) · XLSX · CSV · importa Access |
 | **Assistente** | Ajuda sobre a aplicação e análise de textos e tabelas, sem Internet | — |
 
 O ecrã inicial tem seis **modelos prontos a usar** (relatório, ata de reunião, orçamento mensal, gestor de tarefas, apresentação de projeto e apresentação de aula) e a lista de ficheiros recentes, com pesquisa.
@@ -95,6 +96,22 @@ O ecrã inicial tem seis **modelos prontos a usar** (relatório, ata de reunião
 - Guardar grava as alterações no próprio PDF (Ctrl+S) e anular/refazer funciona com Ctrl+Z e Ctrl+Y. Também exporta o texto do PDF.
 - Os ficheiros PDF abrem diretamente no MyOffice PDF a partir do Explorador do Windows.
 
+### Bases de dados
+
+![MyOffice Bases de dados](docs/screenshots/bases-de-dados.png)
+
+Uma alternativa simples ao Access, num único ficheiro `.modb` (SQLite) no seu computador.
+
+- **Tabelas** com tipos de campo: texto, número, moeda, data, sim/não, lista de opções e **ligação a outra tabela** (por exemplo, a encomenda ligada ao cliente e ao produto).
+- **Folha de dados** para editar como numa folha de cálculo, com procura e ordenação, e **Formulário** para ver e editar um registo de cada vez.
+- **Estrutura**: acrescentar, mudar o nome, mudar o tipo (os valores são convertidos) e eliminar campos.
+- **Consultas** sem escrever código (tabela, condição e ordenação) ou em **SQL**, guardadas na própria base. Instruções que alteram dados pedem confirmação e avisam quando não têm condição (`WHERE`).
+- **Relatórios** prontos a imprimir ou exportar para PDF.
+- **Importar** do Excel (cada folha vira uma tabela), de CSV e do **Access** (`.accdb`, `.mdb`: tabelas e dados; consultas, formulários e macros do Access não são convertidos). **Exportar** para Excel e CSV.
+- Modelos: Clientes, Inventário e Encomendas. Anular e refazer com Ctrl+Z / Ctrl+Y.
+
+A ligação a servidores (MySQL, PostgreSQL, SQL Server) está prevista para uma próxima versão.
+
 ### Desenho
 
 ![MyOffice Desenho](docs/screenshots/desenho.png)
@@ -109,7 +126,7 @@ O ecrã inicial tem seis **modelos prontos a usar** (relatório, ata de reunião
 
 ### Em todas as aplicações
 
-- **Programas independentes**: Texto, Folhas, Diapositivos, Desenho, PDF e Assistente abrem cada um na sua janela, com o seu atalho no menu Iniciar e a sua entrada na barra de tarefas, como o Word e o Excel. Cada programa começa no seu próprio ecrã de início (em branco, modelos e ficheiros recentes desse tipo) e não depende de um menu principal. Fechar um programa não fecha os outros, e cada um recupera o seu próprio trabalho. O atalho geral "MyOffice" abre apenas um pequeno ecrã para escolher o programa.
+- **Programas independentes**: Texto, Folhas, Diapositivos, Desenho, PDF, Bases de dados e Assistente abrem cada um na sua janela, com o seu atalho no menu Iniciar e a sua entrada na barra de tarefas, como o Word e o Excel. Cada programa começa no seu próprio ecrã de início (em branco, modelos e ficheiros recentes desse tipo) e não depende de um menu principal. Fechar um programa não fecha os outros, e cada um recupera o seu próprio trabalho. O atalho geral "MyOffice" abre apenas um pequeno ecrã para escolher o programa.
 - **Painel de ferramentas** à direita, em secções, e barra de aplicações à esquerda. Ctrl+. esconde ou mostra o painel.
 - **Ctrl+K** abre a procura de comandos: escreva o que quer fazer.
 - Modo claro e escuro, que acompanha o Windows ou se escolhe na aplicação.

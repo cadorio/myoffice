@@ -8,9 +8,9 @@ const path = require('path');
 const fs = require('fs/promises');
 const fsSync = require('fs');
 
-const NATIVE_EXT = ['modoc', 'mosheet', 'moslides', 'modraw', 'pdf'];
+const NATIVE_EXT = ['modoc', 'mosheet', 'moslides', 'modraw', 'pdf', 'modb'];
 // Formatos do Word, Excel e PowerPoint: são binários (ZIP) e convertidos na interface.
-const BINARY_EXT = ['docx', 'xlsx', 'pptx', 'pdf'];
+const BINARY_EXT = ['docx', 'xlsx', 'pptx', 'pdf', 'modb', 'accdb', 'mdb'];
 const OPEN_EXT = [...NATIVE_EXT, ...BINARY_EXT, 'html', 'htm', 'txt', 'csv'];
 const MAX_FILE_BYTES = 64 * 1024 * 1024;
 const MAX_RECENT = 8;
@@ -18,9 +18,9 @@ const APP_ROOT = path.join(__dirname, 'src') + path.sep;
 
 // Cada programa tem a sua janela, independente das outras (como o Word e o Excel):
 // 'home' é o ecrã inicial; os restantes são os programas.
-const APPS = ['home', 'writer', 'sheets', 'slides', 'draw', 'pdf', 'assistant'];
-const APP_TITLE = { home: 'MyOffice', writer: 'MyOffice Texto', sheets: 'MyOffice Folhas', slides: 'MyOffice Diapositivos', draw: 'MyOffice Desenho', pdf: 'MyOffice PDF', assistant: 'MyOffice Assistente' };
-const EXT_APP = { modoc: 'writer', docx: 'writer', html: 'writer', htm: 'writer', txt: 'writer', mosheet: 'sheets', xlsx: 'sheets', csv: 'sheets', moslides: 'slides', pptx: 'slides', modraw: 'draw', pdf: 'pdf' };
+const APPS = ['home', 'writer', 'sheets', 'slides', 'draw', 'pdf', 'db', 'assistant'];
+const APP_TITLE = { home: 'MyOffice', writer: 'MyOffice Texto', sheets: 'MyOffice Folhas', slides: 'MyOffice Diapositivos', draw: 'MyOffice Desenho', pdf: 'MyOffice PDF', db: 'MyOffice Bases de dados', assistant: 'MyOffice Assistente' };
+const EXT_APP = { modoc: 'writer', docx: 'writer', html: 'writer', htm: 'writer', txt: 'writer', mosheet: 'sheets', xlsx: 'sheets', csv: 'sheets', moslides: 'slides', pptx: 'slides', modraw: 'draw', pdf: 'pdf', modb: 'db', accdb: 'db', mdb: 'db' };
 const windows = new Map(); // app -> { win, dirty, ready, queue }
 let pendingFile = null;
 let pendingView = null;
@@ -33,7 +33,7 @@ const recentFile = () => path.join(app.getPath('userData'), 'recent.json');
 
 function viewFromArgv(argv) {
   const args = new Set(argv);
-  for (const id of ['writer', 'sheets', 'slides', 'draw', 'pdf', 'assistant']) {
+  for (const id of ['writer', 'sheets', 'slides', 'draw', 'pdf', 'db', 'assistant']) {
     if (args.has('--' + id)) return id;
   }
   return null;
@@ -170,7 +170,8 @@ function buildMenu() {
         { label: 'Diapositivos', accelerator: 'CmdOrCtrl+3', click: () => openApp('slides') },
         { label: 'Desenho', accelerator: 'CmdOrCtrl+4', click: () => openApp('draw') },
         { label: 'PDF', accelerator: 'CmdOrCtrl+5', click: () => openApp('pdf') },
-        { label: 'Assistente', accelerator: 'CmdOrCtrl+6', click: () => openApp('assistant') },
+        { label: 'Bases de dados', accelerator: 'CmdOrCtrl+6', click: () => openApp('db') },
+        { label: 'Assistente', accelerator: 'CmdOrCtrl+7', click: () => openApp('assistant') },
         { type: 'separator' },
         { role: 'zoomIn', label: 'Aumentar zoom' },
         { role: 'zoomOut', label: 'Diminuir zoom' },
@@ -450,6 +451,7 @@ function registerIpc() {
         { name: 'Ficheiros suportados', extensions: OPEN_EXT },
         { name: 'Documentos MyOffice', extensions: NATIVE_EXT },
         { name: 'PDF', extensions: ['pdf'] },
+        { name: 'Bases de dados (MyOffice, Access)', extensions: ['modb', 'accdb', 'mdb'] },
         { name: 'Word, Excel e PowerPoint', extensions: ['docx', 'xlsx', 'pptx'] }
       ]
     });

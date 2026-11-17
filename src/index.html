@@ -2,7 +2,7 @@
 <html lang="pt">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>MyOffice</title>
   <link rel="stylesheet" href="css/app.css">
@@ -23,6 +23,7 @@
             <button type="button" class="menu-item" data-view="slides"><span class="app-tile slides"><img src="assets/icon-slides.svg" alt=""></span>Diapositivos</button>
             <button type="button" class="menu-item" data-view="draw"><span class="app-tile draw"><img src="assets/icon-draw.svg" alt=""></span>Desenho</button>
             <button type="button" class="menu-item" data-view="pdf"><span class="app-tile pdf"><img src="assets/icon-pdf.svg" alt=""></span>PDF</button>
+            <button type="button" class="menu-item" data-view="db"><span class="app-tile db"><img src="assets/icon-db.svg" alt=""></span>Bases de dados</button>
             <button type="button" class="menu-item" data-view="assistant"><span class="app-tile assistant"><img src="assets/icon-assistant.svg" alt=""></span>Assistente IA</button>
           </div>
         </div>
@@ -44,6 +45,7 @@
         <button type="button" class="rail-btn" data-view="slides"><span class="app-tile slides"><img src="assets/icon-slides.svg" alt=""></span>Diapositivos</button>
         <button type="button" class="rail-btn" data-view="draw"><span class="app-tile draw"><img src="assets/icon-draw.svg" alt=""></span>Desenho</button>
         <button type="button" class="rail-btn" data-view="pdf"><span class="app-tile pdf"><img src="assets/icon-pdf.svg" alt=""></span>PDF</button>
+        <button type="button" class="rail-btn" data-view="db"><span class="app-tile db"><img src="assets/icon-db.svg" alt=""></span>Bases de dados</button>
         <button type="button" class="rail-btn" data-view="assistant"><span class="app-tile assistant"><img src="assets/icon-assistant.svg" alt=""></span>Assistente</button>
       </nav>
 
@@ -93,6 +95,9 @@
                 </button>
                 <button type="button" class="workspace-tool pdf" data-view="pdf">
                   <span class="tool-symbol"><img src="assets/icon-pdf.svg" alt=""></span><span class="tool-copy"><strong>PDF</strong><small>Leia, anote, assine e organize</small></span><span class="tool-arrow">↗</span>
+                </button>
+                <button type="button" class="workspace-tool db" data-view="db">
+                  <span class="tool-symbol"><img src="assets/icon-db.svg" alt=""></span><span class="tool-copy"><strong>Bases de dados</strong><small>Tabelas, formulários e consultas</small></span><span class="tool-arrow">↗</span>
                 </button>
                 <button type="button" class="workspace-tool assistant" data-view="assistant">
                   <span class="tool-symbol"><img src="assets/icon-assistant.svg" alt=""></span><span class="tool-copy"><strong>Assistente IA</strong><small>Peça ajuda aos seus programas</small></span><span class="tool-arrow">↗</span>
@@ -153,6 +158,7 @@
         <section id="view-slides" class="view module" hidden></section>
         <section id="view-draw" class="view module" hidden></section>
         <section id="view-pdf" class="view module" hidden></section>
+        <section id="view-db" class="view module" hidden></section>
         <section id="view-assistant" class="view" hidden></section>
       </div>
     </div>
@@ -203,6 +209,9 @@
   <script src="vendor/pdf.worker.js"></script>
   <script src="vendor/pdf.js"></script>
   <script src="js/pdf.js"></script>
+  <script src="vendor/sql.js"></script>
+  <script src="vendor/mdb-reader.js"></script>
+  <script src="js/db.js"></script>
   <script src="js/assistant-app.js"></script>
   <script src="js/app.js"></script>
 </body>

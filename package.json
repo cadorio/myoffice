@@ -82,6 +82,12 @@
         "name": "Documento PDF (MyOffice)",
         "description": "Abrir documentos PDF com MyOffice PDF",
         "role": "Editor"
+      },
+      {
+        "ext": "modb",
+        "name": "Base de dados MyOffice",
+        "description": "Base de dados MyOffice (tabelas, formulários e consultas)",
+        "role": "Editor"
       }
     ],
     "win": {
@@ -120,12 +126,15 @@
     }
   },
   "devDependencies": {
+    "buffer": "6.0.3",
     "electron": "^45.3.2",
     "electron-builder": "^26.18.0",
     "esbuild": "0.28.2",
     "fflate": "^0.8.3",
+    "mdb-reader": "3.2.1",
     "pdf-lib": "1.17.1",
-    "pdfjs-dist": "6.5.438"
+    "pdfjs-dist": "6.5.438",
+    "sql.js": "1.16.0"
   },
   "desktopName": "myoffice.desktop"
 }
