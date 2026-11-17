@@ -2,7 +2,7 @@
 
 **Suite de escritório para Windows: simples, privada e leve.**
 
-Texto, folhas de cálculo, apresentações, diagramas, PDF e bases de dados numa só aplicação. Os documentos ficam no seu computador: não é precisa conta, nuvem nem ligação à Internet. Abre e grava ficheiros do Word, Excel e PowerPoint.
+Sete programas independentes — **Texto, Folhas, Diapositivos, Desenho, PDF, Bases de dados e Assistente** — instalados de uma só vez. Os documentos ficam no seu computador: não é precisa conta, nuvem nem ligação à Internet. Abre e grava ficheiros do Word, Excel e PowerPoint, importa bases de dados do Access e liga a servidores MySQL, PostgreSQL e SQL Server.
 
 **[⬇ Descarregar MyOffice 1.10.0 para Windows (64 bits)](https://github.com/cadorio/myoffice/releases/download/v1.10.0/MyOffice-Setup-1.10.0.exe)**
 
@@ -28,7 +28,7 @@ O MyOffice não imita o Office. Em vez da faixa de separadores no topo, cada apl
 
 - **O documento ao centro**, com espaço para trabalhar e sem barras a ocupar o ecrã.
 - **Painel de ferramentas à direita**, organizado em secções (Tipo de letra, Bordas, Alinhar…). Esconde-se com **Ctrl+.** quando precisa de mais espaço.
-- **Barra de aplicações à esquerda**, sempre visível: passe de Texto para Folhas ou Diapositivos com um clique.
+- **Cada programa na sua janela**: abre no seu próprio ecrã de início, com documento em branco, modelos e ficheiros recentes desse tipo. O botão de grelha no canto abre outro programa.
 - **Procura de comandos (Ctrl+K)**: escreva o que quer fazer, como "borda", "gráfico" ou "PDF", e carregue em Enter. Não precisa de saber onde está cada botão.
 
 ![Procura de comandos nas Folhas](docs/screenshots/comandos.png)
@@ -39,15 +39,15 @@ Tons calmos de verde e papel, com modo claro e escuro.
 
 | Aplicação | Para quê | Formatos |
 | --- | --- | --- |
-| **Texto** | Cartas, relatórios e atas, com estilos, listas, tabelas, imagens, cabeçalhos, rodapés e números de página | `.modoc` · DOCX · PDF · HTML · TXT |
-| **Folhas** | Contas, orçamentos e análise de dados, com fórmulas, gráficos e várias folhas por livro | `.mosheet` · XLSX · CSV · PDF |
+| **Texto** | Cartas, relatórios e atas, com estilos, tabelas, imagens, gráficos, comentários, controlo de alterações, notas de rodapé, índice e mala direta | `.modoc` · DOCX · PDF · HTML · TXT |
+| **Folhas** | Contas, orçamentos e análise de dados, com fórmulas, gráficos de 8 tipos, formatação condicional e várias folhas por livro | `.mosheet` · XLSX · CSV · PDF |
 | **Diapositivos** | Apresentações com temas, esquemas, imagens, formas, transições e notas do orador | `.moslides` · PPTX · PDF |
-| **Desenho** | Fluxogramas, mapas mentais e organogramas | `.modraw` · SVG · PDF |
+| **Desenho** | Fluxogramas, mapas mentais, organogramas e esquemas | `.modraw` · SVG · PNG · PDF |
 | **PDF** | Ler, anotar, assinar, juntar e organizar ficheiros PDF | PDF · TXT |
 | **Bases de dados** | Tabelas, formulários, consultas e relatórios, como o Access; ligação a MySQL, PostgreSQL e SQL Server | `.modb` (SQLite) · XLSX · CSV · importa Access |
-| **Assistente** | Ajuda sobre a aplicação e análise de textos e tabelas, sem Internet | — |
+| **Assistente** | Guias passo a passo, fórmulas, rascunhos de cartas e análise de textos e tabelas, sem Internet | — |
 
-O ecrã inicial tem seis **modelos prontos a usar** (relatório, ata de reunião, orçamento mensal, gestor de tarefas, apresentação de projeto e apresentação de aula) e a lista de ficheiros recentes, com pesquisa.
+**Modelos prontos a usar** no início de cada programa: relatório e ata de reunião (Texto), orçamento mensal e gestor de tarefas (Folhas), apresentação de projeto e de aula (Diapositivos), fluxograma, mapa mental, organograma, linha temporal e SWOT (Desenho), clientes, inventário e encomendas (Bases de dados).
 
 ### Texto
 
@@ -141,10 +141,10 @@ A ligação ao MySQL/MariaDB e ao PostgreSQL foi testada com servidores reais; a
 ### Em todas as aplicações
 
 - **Programas independentes**: Texto, Folhas, Diapositivos, Desenho, PDF, Bases de dados e Assistente abrem cada um na sua janela, com o seu atalho no menu Iniciar e a sua entrada na barra de tarefas, como o Word e o Excel. Cada programa começa no seu próprio ecrã de início (em branco, modelos e ficheiros recentes desse tipo) e não depende de um menu principal. Fechar um programa não fecha os outros, e cada um recupera o seu próprio trabalho. O atalho geral "MyOffice" abre apenas um pequeno ecrã para escolher o programa.
-- **Painel de ferramentas** à direita, em secções, e barra de aplicações à esquerda. Ctrl+. esconde ou mostra o painel.
+- **Painel de ferramentas** à direita, em secções. Ctrl+. esconde ou mostra o painel.
 - **Ctrl+K** abre a procura de comandos: escreva o que quer fazer.
 - Modo claro e escuro, que acompanha o Windows ou se escolhe na aplicação.
-- Zoom de 50% a 200% em Texto e Folhas.
+- Zoom de 50% a 200% em Texto, Folhas, Desenho e PDF.
 - **Recuperação automática**: se a aplicação fechar inesperadamente, oferece-se para recuperar o trabalho por guardar.
 - Pré-visualizar impressão (Ctrl+Shift+P), imprimir (Ctrl+P) e exportar para PDF (Ctrl+Shift+E).
 
@@ -158,11 +158,11 @@ A ligação ao MySQL/MariaDB e ao PostgreSQL foi testada com servidores reais; a
 | **Memória** | 4 GB no mínimo, 8 GB recomendados |
 | **Internet** | não é necessária para usar a aplicação |
 
-1. [Descarregue o instalador](https://github.com/cadorio/myoffice/releases/download/v1.10.0/MyOffice-Setup-1.10.0.exe) (`MyOffice-Setup-1.10.0.exe`, 122 MB).
-2. Abra o ficheiro e siga o assistente de instalação.
+1. [Descarregue o instalador](https://github.com/cadorio/myoffice/releases/download/v1.10.0/MyOffice-Setup-1.10.0.exe) (`MyOffice-Setup-1.10.0.exe`).
+2. Abra o ficheiro e siga o assistente de instalação, em português; é mostrada a licença Apache 2.0 antes de instalar.
 3. **Aviso do Windows:** o instalador ainda não tem assinatura digital, por isso o SmartScreen mostra "O Windows protegeu o computador". Clique em **Mais informações** e depois em **Executar mesmo assim**.
 
-O instalador cria atalhos no menu Iniciar para abrir diretamente o Texto, as Folhas ou os Diapositivos. Os ficheiros `.modoc`, `.mosheet`, `.moslides` e `.modraw` passam a abrir com o MyOffice.
+O instalador cria um atalho no menu Iniciar para cada programa (MyOffice Texto, Folhas, Diapositivos, Desenho, PDF, Bases de dados e Assistente), cada um com a sua entrada na barra de tarefas. Os ficheiros `.modoc`, `.mosheet`, `.moslides`, `.modraw` e `.modb` passam a abrir com o MyOffice; `.docx`, `.pptx` e `.pdf` ficam disponíveis em "Abrir com".
 
 > Os requisitos de memória são objetivos e ainda não foram confirmados em computadores de diferentes idades.
 
@@ -176,7 +176,7 @@ A conversão cobre o conteúdo e a formatação mais comuns, mas **não substitu
 
 | Formato | É convertido | Perde-se |
 | --- | --- | --- |
-| **DOCX** | Títulos, parágrafos e alinhamento, formatação de caracteres, listas, tabelas com células unidas, ligações, imagens, quebras de página, cabeçalho, rodapé, campos de página, **comentários, notas de rodapé, alterações controladas e configuração da página** (nos dois sentidos) | Colunas, caixas de texto, formas; cabeçalhos e rodapés complexos; a formatação dos comentários e das notas (fica só o texto) |
+| **DOCX** | Títulos, parágrafos, alinhamento, espaçamentos e avanços, formatação de caracteres (incluindo expoente e índice), listas, tabelas com células unidas, cabeçalho de tabela e cor das células, ligações, imagens, quebras de página, cabeçalho, rodapé, campos de página, **comentários, notas de rodapé, alterações controladas, configuração da página e colunas** (nos dois sentidos) | Caixas de texto e formas; texto à volta das imagens (exportadas em linha); cabeçalhos e rodapés complexos; a formatação dos comentários e das notas (fica só o texto) |
 | **XLSX** | Até 100 folhas: valores, fórmulas (incluindo **referências a outras folhas**, como `Dados!A1`), estilos básicos, alinhamento, formatos de número e moeda, gráficos de colunas, barras, linhas, área, circular, anel e dispersão (com várias séries), bordas, células unidas, larguras de coluna, painéis fixos e **formatação condicional** (maior/menor que, entre, igual, contém texto, escala de cores) | Tabelas dinâmicas, gráficos avançados, alguns estilos, regras condicionais com fórmulas; funções não suportadas mostram `#NOME?` |
 | **PPTX** | Texto e posição das caixas, listas, imagens, retângulos e elipses, **tabelas**, **cores do tema** do PowerPoint, fundo de cor ou **imagem**, notas do orador, transições e efeitos de entrada simples | Animações complexas, gráficos, SmartArt, células unidas e formatação dentro das tabelas |
 
@@ -227,13 +227,18 @@ Também existem funções de estatística (mediana, moda, desvio padrão e vari�
 - **Ficheiros abertos são limpos:** scripts, ligações perigosas e estilos capazes de imitar a interface são removidos antes de o conteúdo ser mostrado.
 - **Gravação segura:** os ficheiros são gravados primeiro numa cópia temporária, por isso uma falha a meio não corrompe o documento.
 - **CSV seguro:** o texto que outras folhas de cálculo executariam como fórmula é neutralizado na exportação.
+- **PDF seguro:** o leitor de PDF (pdf.js, versão atual) nunca executa código contido nos ficheiros.
+- **Servidores de bases de dados:** as palavras-passe guardadas são encriptadas pelo Windows; todas as instruções usam parâmetros, têm limite de tempo e as que alteram dados pedem confirmação.
 
 **Ainda por fazer:** o instalador não tem assinatura digital (ver [instruções de assinatura](docs/assinatura-windows.md)) e a verificação de integridade do pacote não está ativa.
 
 ## O que ainda não faz
 
 - Tabelas dinâmicas compatíveis com o Excel (o resumo dinâmico é a alternativa).
-- Animações complexas.
+- No Texto: marca d'água, legendas e referências cruzadas, bibliografia, caixas de texto e formas, comparar documentos.
+- Animações complexas e gráficos nativos do PowerPoint (os gráficos dos Diapositivos são imagens).
+- Do Access importam-se tabelas e dados; consultas, formulários, relatórios e macros não são convertidos, e ficheiros Access protegidos por palavra-passe não são suportados.
+- A ligação ao SQL Server ainda não foi testada com um servidor real.
 - Coautoria em tempo real e armazenamento na nuvem.
 - Correio eletrónico e calendário.
 - Versões para macOS e Linux distribuídas oficialmente (o código suporta-as, mas só o instalador Windows é publicado).
@@ -247,10 +252,13 @@ git clone https://github.com/cadorio/myoffice.git
 cd myoffice
 npm install
 npm start          # abre a aplicação
-npm test           # testes do motor de fórmulas, do assistente e das licenças
+npm test           # testes do motor de fórmulas, do assistente, das licenças e das ligações a servidores
 npm run test:ui    # testes da interface no browser (requer o Playwright)
 npm run dist:win   # cria o instalador Windows na pasta dist/
 npm run train:ai   # reconstrói o índice do Assistente depois de alterar este README
+npm run notices    # atualiza os avisos de licença de terceiros
+node tools/vendor-pdf.js   # atualiza as bibliotecas de PDF em src/vendor
+node tools/vendor-db.js    # atualiza o SQLite e o leitor de Access em src/vendor
 ```
 
 O workflow **Instalador Windows** do GitHub Actions corre os testes e cria o instalador em cada alteração ao `main`. Uma tag `vX.Y.Z` (com `v` minúsculo) publica também uma release com o instalador anexado.
@@ -258,25 +266,31 @@ O workflow **Instalador Windows** do GitHub Actions corre os testes e cria o ins
 ### Estrutura
 
 ```text
-main.js            Processo principal: janela, menus, ficheiros, recuperação
+main.js            Processo principal: janelas dos programas, menus, ficheiros, recuperação
 preload.js         Ponte controlada entre a interface e o processo principal
 ai.js              Assistente: pesquisa na documentação e análises
+dbserver.js        Ligações a MySQL/MariaDB, PostgreSQL e SQL Server (só no processo principal)
 license.js         Chaves de licença e período experimental
 src/
   index.html       Interface
   ai-model.json    Índice do Assistente (gerado por npm run train:ai)
+  js/app.js        Janelas, ecrãs de início, ficheiros, impressão e procura de comandos
   js/writer.js     Texto
   js/sheets.js     Folhas
   js/slides.js     Diapositivos
   js/draw.js       Desenho
+  js/pdf.js        PDF
+  js/db.js         Bases de dados
+  js/charts.js     Motor de gráficos (Folhas, Texto e Diapositivos)
   js/formula.js    Motor de fórmulas
   js/ooxml.js      Conversão DOCX, XLSX e PPTX
   js/themes.js     Temas partilhados
-  js/assistant.js  Análise de texto, tabelas e diapositivos
+  js/assistant.js  Assistente: guias, fórmulas, rascunhos e análises
+  vendor/          pdf.js, pdf-lib, sql.js, mdb-reader e fflate (gerados pelas ferramentas)
 build/             Ícones e configuração do instalador
 docs/              Capturas de ecrã e instruções de assinatura
 test/              Testes automáticos
-tools/             Ferramentas de licenças, avisos de terceiros, capturas e índice do Assistente
+tools/             Licenças, avisos de terceiros, capturas, índice do Assistente e bibliotecas em src/vendor
 ```
 
 ## Licença
