@@ -281,6 +281,26 @@
     return { tips: tipsFor(title, bullets, notes), suggestions };
   }
 
+  // Imagens vetoriais simples que o editor pode desenhar localmente e inserir em DOCX/PPTX.
+  function suggestVisuals(input) {
+    const title = String((input && input.title) || '');
+    const bullets = Array.isArray(input && input.bullets) ? input.bullets.join(' ') : '';
+    const text = plain(`${title} ${bullets}`);
+    if (!text.trim()) return { error: 'Adicione um título ou alguns tópicos para receber ideias visuais.' };
+    const options = [
+      { kind: 'chart', label: 'Evolução dos resultados', reason: 'Um gráfico visual ajuda a mostrar tendências, vendas, metas ou indicadores.', terms: ['vendas', 'receita', 'crescimento', 'resultados', 'indicador', 'dados', 'evolucao', 'meta', 'orcamento'] },
+      { kind: 'team', label: 'Pessoas e colaboração', reason: 'Uma ilustração de equipa ajuda a apresentar clientes, participantes ou trabalho conjunto.', terms: ['equipa', 'pessoas', 'cliente', 'colaboracao', 'colaboradores', 'publico', 'formacao', 'comunidade'] },
+      { kind: 'process', label: 'Etapas do plano', reason: 'Uma sequência visual torna fases, processos e próximos passos mais fáceis de acompanhar.', terms: ['processo', 'etapa', 'fase', 'plano', 'implementacao', 'calendario', 'projeto', 'passos', 'metodo'] },
+      { kind: 'target', label: 'Objetivo e direção', reason: 'Um alvo visual destaca objetivos, prioridades e resultados pretendidos.', terms: ['objetivo', 'prioridade', 'estrategia', 'visao', 'proposta', 'direcao', 'foco', 'meta'] },
+      { kind: 'leaf', label: 'Natureza e sustentabilidade', reason: 'Uma ilustração natural funciona bem para ambiente, energia e sustentabilidade.', terms: ['ambiente', 'sustentabilidade', 'energia', 'natureza', 'clima', 'reciclagem', 'verde'] },
+      { kind: 'idea', label: 'Ideia principal', reason: 'Uma imagem simples pode reforçar o conceito central sem acrescentar dados inventados.', terms: [] }
+    ];
+    const matched = options.filter((option) => option.terms.some((term) => text.includes(term)));
+    const visuals = [...matched, ...options.filter((option) => !matched.includes(option))].slice(0, 3)
+      .map(({ kind, label, reason }) => ({ kind, label, reason }));
+    return { visuals };
+  }
+
   // ---------- Análise inteligente local de texto, tabelas e pedidos ----------
 
   const STOP_WORDS = new Set(('a ao aos as até com como da das de dela delas dele deles depois do dos e é em entre era essa essas esse esses esta estas este estes foi foram há isso isto já mais mas me mesmo meu minha muito na nas nem no nos nós o os ou para pela pelas pelo pelos por porque que se sem ser seu sua suas também tem ter um uma umas uns vai vão').split(' '));
@@ -392,7 +412,7 @@
     return { error: 'Esta tarefa não está disponível para este módulo.' };
   }
 
-  const api = { generateDeck, suggest, classify, assist };
+  const api = { generateDeck, suggest, suggestVisuals, classify, assist };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else (root.MO = root.MO || {}).Assistant = api;
 })(typeof window !== 'undefined' ? window : globalThis);

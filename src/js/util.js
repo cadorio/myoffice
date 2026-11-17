@@ -121,6 +121,31 @@
     return file.content;
   };
 
+  // DOCX e PPTX aceitam PNG, JPEG e GIF; converte WebP para PNG antes de o guardar no documento.
+  MO.officeImageDataURL = function (src) {
+    if (!MO.IMAGE_DATA_URL.test(src || '')) return Promise.reject(new Error('Formato de imagem inválido.'));
+    if (/^data:image\/(png|jpeg|gif);/i.test(src)) return Promise.resolve(src);
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => {
+        try {
+          const scale = Math.min(1, 4096 / Math.max(image.naturalWidth, image.naturalHeight));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+          const context = canvas.getContext('2d');
+          if (!context) throw new Error('Não foi possível preparar a imagem.');
+          context.drawImage(image, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/png'));
+        } catch (error) {
+          reject(error);
+        }
+      };
+      image.onerror = () => reject(new Error('Não foi possível ler a imagem.'));
+      image.src = src;
+    });
+  };
+
   MO.download = function (name, content, mime) {
     const url = URL.createObjectURL(new Blob([content], { type: mime || 'application/octet-stream' }));
     const a = h('a', { href: url, download: name });

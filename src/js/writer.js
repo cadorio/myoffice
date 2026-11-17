@@ -153,7 +153,13 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
   async function insertImage() {
     rememberSelection();
     const src = await MO.pickImage();
-    if (src) insertHTML(`<img src="${src}" alt="">`);
+    if (!src) return;
+    try {
+      const officeSrc = await MO.officeImageDataURL(src);
+      insertHTML(`<img src="${officeSrc}" alt="">`);
+    } catch {
+      MO.toast('Não foi possível preparar a imagem para o documento Office.');
+    }
   }
 
   async function insertTable() {

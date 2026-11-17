@@ -788,6 +788,8 @@ body[data-current="home"] #rail { display: flex; }
 .ai-card { border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
 .ai-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent-ink); }
 .ai-card h3 { font-size: 15px; margin: 4px 0 6px; }
+.ai-visual-heading { margin: 20px 0 10px; font-size: 15px; }
+.ai-visual-preview { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; margin: 8px 0 10px; background: var(--bg); }
 .ai-tips { background: var(--bg); }
 .ai-ok { color: var(--muted); }
 .ai-card ul { margin: 0 0 8px; padding-left: 18px; font-size: 13px; line-height: 1.4; }

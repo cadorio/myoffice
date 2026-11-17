@@ -443,8 +443,14 @@
   }
 
   async function addImage() {
-    const src = await MO.pickImage();
-    if (!src) return;
+    const picked = await MO.pickImage();
+    if (!picked) return;
+    let src;
+    try {
+      src = await MO.officeImageDataURL(picked);
+    } catch {
+      return MO.toast('Não foi possível preparar a imagem para o PowerPoint.');
+    }
     const img = new Image();
     img.onload = () => {
       const k = Math.min(1, 600 / img.naturalWidth, 380 / img.naturalHeight);
@@ -626,6 +632,141 @@
       h('button', { type: 'button', class: 'btn primary', onclick: () => applySuggestion(target, sug) }, 'Aplicar')
     );
 
+  function makeVisualPNG(kind) {
+    const canvas = h('canvas');
+    canvas.width = 960;
+    canvas.height = 540;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Não foi possível criar a ilustração.');
+    const accent = MO.HEX.test(theme.accent) ? theme.accent : '#6658d3';
+    const ink = '#27344d';
+    const pale = '#e7ebf4';
+    const soft = '#f5f7fb';
+    const box = (x, y, w, h_, r, color) => {
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h_, r);
+      ctx.fillStyle = color;
+      ctx.fill();
+    };
+    const circle = (x, y, radius, color) => {
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    };
+    ctx.fillStyle = soft;
+    ctx.fillRect(0, 0, 960, 540);
+    circle(860, 72, 145, '#edf0f8');
+    circle(94, 468, 105, '#eef1f8');
+    box(48, 42, 864, 456, 28, '#ffffff');
+    box(78, 74, 10, 46, 5, accent);
+    ctx.fillStyle = ink;
+    ctx.font = '600 22px Segoe UI, Arial, sans-serif';
+    ctx.fillText('VISUAL PARA A APRESENTAÇÃO', 108, 104);
+    ctx.strokeStyle = pale;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(88, 146);
+    ctx.lineTo(872, 146);
+    ctx.stroke();
+
+    if (kind === 'chart') {
+      ctx.strokeStyle = '#cbd3e2';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(180, 390); ctx.lineTo(780, 390);
+      ctx.moveTo(180, 195); ctx.lineTo(180, 390);
+      ctx.stroke();
+      [285, 335, 250, 198, 158].forEach((y, i) => box(235 + i * 105, y, 58, 390 - y, 12, i === 4 ? accent : '#cbd4ea'));
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 8;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      [[264, 278], [368, 270], [473, 235], [578, 218], [683, 168], [765, 176]].forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+      ctx.stroke();
+      [[264, 278], [368, 270], [473, 235], [578, 218], [683, 168], [765, 176]].forEach(([x, y]) => circle(x, y, 9, '#ffffff'));
+      [[264, 278], [368, 270], [473, 235], [578, 218], [683, 168], [765, 176]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fillStyle = accent; ctx.fill(); });
+    } else if (kind === 'process') {
+      const xs = [238, 480, 722];
+      ctx.strokeStyle = '#d4dbea'; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.moveTo(xs[0], 298); ctx.lineTo(xs[2], 298); ctx.stroke();
+      xs.forEach((x, i) => {
+        circle(x, 298, 74, i === 1 ? '#eef0fb' : '#f2f4f9');
+        circle(x, 298, 53, i === 1 ? accent : '#cbd4ea');
+        ctx.fillStyle = '#ffffff'; ctx.font = '700 36px Segoe UI, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(String(i + 1), x, 311);
+      });
+      ctx.textAlign = 'left';
+      [[183, 'DEFINIR'], [421, 'EXECUTAR'], [662, 'AVALIAR']].forEach(([x, text]) => { ctx.fillStyle = ink; ctx.font = '600 17px Segoe UI, Arial, sans-serif'; ctx.fillText(text, x, 405); });
+    } else if (kind === 'team') {
+      const people = [[285, '#cbd4ea'], [480, accent], [675, '#d7e8df']];
+      people.forEach(([x, color], i) => {
+        circle(x, 260 + (i === 1 ? -18 : 0), 48, i === 1 ? '#f5d9c8' : '#f2dcca');
+        box(x - 78, 318 + (i === 1 ? -18 : 0), 156, 110, 60, color);
+        box(x - 34, 230 + (i === 1 ? -18 : 0), 68, 18, 9, ink);
+      });
+      box(205, 420, 550, 10, 5, pale);
+    } else if (kind === 'target') {
+      [138, 106, 74, 42].forEach((radius, i) => circle(480, 305, radius, [pale, '#d5dcef', '#aab9dc', accent][i]));
+      ctx.strokeStyle = ink; ctx.lineWidth = 9; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(480, 305); ctx.lineTo(686, 178); ctx.stroke();
+      ctx.fillStyle = ink; ctx.beginPath(); ctx.moveTo(686, 178); ctx.lineTo(650, 183); ctx.lineTo(680, 211); ctx.closePath(); ctx.fill();
+      circle(480, 305, 14, '#ffffff');
+    } else if (kind === 'leaf') {
+      ctx.strokeStyle = '#6c9b7d'; ctx.lineWidth = 12; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(477, 410); ctx.bezierCurveTo(470, 340, 494, 262, 528, 188); ctx.stroke();
+      [[420, 332, -0.6], [548, 286, 0.7], [430, 244, -0.7], [552, 210, 0.7]].forEach(([x, y, turn], i) => {
+        ctx.save(); ctx.translate(x, y); ctx.rotate(turn); ctx.fillStyle = i % 2 ? accent : '#85b697';
+        ctx.beginPath(); ctx.ellipse(0, 0, 62, 28, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      });
+      box(390, 414, 180, 18, 9, '#b5c5ad');
+    } else {
+      circle(480, 295, 132, '#f2f0fb');
+      ctx.strokeStyle = accent; ctx.lineWidth = 16; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(423, 292); ctx.bezierCurveTo(423, 193, 538, 193, 538, 292); ctx.bezierCurveTo(538, 332, 504, 342, 502, 380); ctx.lineTo(458, 380); ctx.bezierCurveTo(456, 342, 423, 332, 423, 292); ctx.stroke();
+      box(454, 390, 52, 14, 7, ink); box(461, 414, 38, 12, 6, '#8390aa');
+      [[480, 184, 480, 160], [388, 220, 368, 204], [572, 220, 592, 204], [367, 300, 338, 300], [593, 300, 622, 300]].forEach(([x1, y1, x2, y2]) => { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); });
+    }
+    return canvas.toDataURL('image/png');
+  }
+
+  function insertSuggestedVisual(target, visual, src) {
+    if (!slides.includes(target)) return MO.toast('Esse diapositivo já não existe.');
+    commitTextEdit();
+    const parts = slideParts(target);
+    const image = { id: uid(), type: 'image', src, x: 550, y: 170, w: 350, h: 197 };
+    change(() => {
+      idx = slides.indexOf(target);
+      for (const body of parts.bodies) {
+        if (body.w > 500) {
+          body.x = 60;
+          body.w = 450;
+          body.fs = Math.min(body.fs, 24);
+        }
+      }
+      slide().els.push(image);
+      selId = image.id;
+    });
+    root.focus({ preventScroll: true });
+    MO.toast(`Ilustração «${visual.label}» inserida. Será exportada para PowerPoint (.pptx).`);
+  }
+
+  function visualSuggestionCard(target, visual) {
+    let src;
+    try {
+      src = makeVisualPNG(visual.kind);
+    } catch {
+      return h('p', { class: 'ai-error' }, 'Não foi possível criar a pré-visualização da ilustração.');
+    }
+    return h('article', { class: 'ai-card ai-visual-card' },
+      h('div', { class: 'ai-label' }, 'Ilustração local · PowerPoint'),
+      h('h3', null, visual.label),
+      h('img', { class: 'ai-visual-preview', src, alt: `Pré-visualização: ${visual.label}` }),
+      h('p', { class: 'ai-reason' }, visual.reason),
+      h('button', { type: 'button', class: 'btn primary', onclick: () => insertSuggestedVisual(target, visual, src) }, 'Inserir no diapositivo')
+    );
+  }
+
   async function aiSuggest() {
     commitTextEdit();
     const target = slide();
@@ -637,11 +778,14 @@
     };
     const out = MO.Assistant.suggest(input);
     if (out.error) return MO.toast(out.error);
+    const visualIdeas = MO.Assistant.suggestVisuals(input);
     const n = slides.indexOf(target) + 1;
     const cards = [
       h('p', { class: 'ai-hint' }, `Diapositivo ${n}. O motor próprio usa regras de escrita; reveja as sugestões antes de aplicar.`),
       out.tips.length ? h('article', { class: 'ai-card ai-tips' }, h('div', { class: 'ai-label' }, 'Dicas'), h('ul', null, out.tips.map((t) => h('li', null, t)))) : null,
-      out.suggestions.length ? out.suggestions.map((sug) => suggestionCard(target, sug)) : h('p', { class: 'ai-ok' }, 'As regras de escrita não têm alterações a propor para este diapositivo.')
+      out.suggestions.length ? out.suggestions.map((sug) => suggestionCard(target, sug)) : h('p', { class: 'ai-ok' }, 'As regras de escrita não têm alterações a propor para este diapositivo.'),
+      h('h3', { class: 'ai-visual-heading' }, 'Sugestões de imagem'),
+      visualIdeas.error ? h('p', { class: 'ai-hint' }, visualIdeas.error) : visualIdeas.visuals.map((visual) => visualSuggestionCard(target, visual))
     ];
     showAI(cards);
   }
