@@ -10,6 +10,7 @@ const APPS = {
   sheets: ['icon-sheets.svg', '#17806a'],
   slides: ['icon-slides.svg', '#c86d4d'],
   draw: ['icon-draw.svg', '#567c5e'],
+  notes: ['icon-notes.svg', '#a8659b'],
   pdf: ['icon-pdf.svg', '#b8443b'],
   db: ['icon-db.svg', '#6a4fa8'],
   assistant: ['icon-assistant.svg', '#183b34']
@@ -44,7 +45,7 @@ function ico(pngs) {
     for (const size of SIZES) {
       await page.setViewportSize({ width: size, height: size });
       await page.setContent(`<html><body style="margin:0;background:transparent">
-        <div style="width:${size}px;height:${size}px;border-radius:${size * 0.22}px;background:${color};display:grid;place-items:center">
+        <div style="width:${size}px;height:${size}px;border-radius:${size * 0.22}px;background:${color};display:grid;place-items:center;color:#fff">
         <div style="width:${size * 0.78}px;height:${size * 0.78}px">${svg.replace('<svg', '<svg width="100%" height="100%"')}</div></div></body></html>`);
       pngs.push([size, await page.screenshot({ omitBackground: true })]);
     }

@@ -11,8 +11,9 @@
   const MAX_NODES = 300;
   const MAX_LINKS = 400;
   const MAX_UNDO = 80;
-  const TYPES = ['rect', 'rounded', 'ellipse', 'diamond', 'parallelogram', 'cylinder', 'note', 'text'];
-  const TYPE_LABEL = { rect: 'Caixa', rounded: 'Arredondada', ellipse: 'Círculo', diamond: 'Decisão', parallelogram: 'Dados', cylinder: 'Base de dados', note: 'Nota', text: 'Texto' };
+  const TYPES = ['rect', 'rounded', 'ellipse', 'diamond', 'parallelogram', 'cylinder', 'note', 'text', 'triangle', 'hexagon', 'star', 'arrow', 'callout', 'cloud', 'image'];
+  const TYPE_LABEL = { rect: 'Caixa', rounded: 'Arredondada', ellipse: 'Círculo', diamond: 'Decisão', parallelogram: 'Dados', cylinder: 'Base de dados', note: 'Nota', text: 'Texto', triangle: 'Triângulo', hexagon: 'Hexágono', star: 'Estrela', arrow: 'Seta grossa', callout: 'Balão de fala', cloud: 'Nuvem', image: 'Imagem' };
+  const MAX_IMAGE = 4 * 1024 * 1024;
   const FILLS = ['#ffffff', '#e8efe5', '#e6ebf7', '#e4f1eb', '#f8f0dc', '#fae9e1', '#eee8f6', '#c5ef75', '#ffe9a8', '#1d2622'];
   const DEFAULT = { fill: '#e8efe5', stroke: '#9fb3a4', color: '#202a27', fontSize: 18 };
 
@@ -30,6 +31,12 @@
   let clipboard = null;
   let undoStack = [];
   let redoStack = [];
+  let strokes = []; // traços à mão livre (MO.Ink)
+  let tool = null; // null (selecionar) | 'pen' | 'marker' | 'eraser'
+  let penColor = '#1d2622';
+  let penWidth = 3;
+  let markerColor = '#ffe14d';
+  let toolButtons = {};
   let seq = 0;
   const uid = () => 'd' + Date.now().toString(36) + (seq++).toString(36);
   const s = (tag, attrs, ...kids) => {
@@ -45,7 +52,7 @@
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
   function node(type, x, y, text, fill = DEFAULT.fill, extra = {}) {
-    const size = type === 'ellipse' ? [180, 100] : type === 'diamond' ? [200, 120] : type === 'text' ? [220, 50] : type === 'note' ? [180, 140] : [200, 90];
+    const size = type === 'ellipse' ? [180, 100] : type === 'diamond' ? [200, 120] : type === 'text' ? [220, 50] : type === 'note' ? [180, 140] : ['triangle', 'star'].includes(type) ? [140, 130] : type === 'hexagon' ? [180, 110] : type === 'arrow' ? [200, 90] : type === 'callout' ? [220, 130] : type === 'cloud' ? [220, 140] : [200, 90];
     return { id: uid(), type, x, y, w: size[0], h: size[1], text, fill: type === 'text' ? '#ffffff' : fill, stroke: type === 'text' ? 'none' : DEFAULT.stroke, color: DEFAULT.color, fontSize: DEFAULT.fontSize, bold: type !== 'text', ...extra };
   }
   const link = (from, to, extra = {}) => ({ id: uid(), from, to, label: '', dashed: false, arrow: 'end', elbow: false, ...extra });
@@ -86,7 +93,7 @@
 
   // ---------- Histórico ----------
 
-  const snapshot = () => JSON.stringify({ nodes, links });
+  const snapshot = () => JSON.stringify({ nodes, links, strokes });
   function remember() {
     undoStack.push(snapshot());
     if (undoStack.length > MAX_UNDO) undoStack.shift();
@@ -96,6 +103,7 @@
     const data = JSON.parse(state);
     nodes = data.nodes;
     links = data.links;
+    strokes = data.strokes || [];
     selection = new Set([...selection].filter((id) => byId(id)));
     selectedLink = links.some((l) => l.id === selectedLink) ? selectedLink : null;
     render();
@@ -121,6 +129,24 @@
     }
     if (n.type === 'note') { const f = 22; return s('path', { d: `M${x},${y} H${x + w - f} L${x + w},${y + f} V${y + hh} H${x} Z M${x + w - f},${y} V${y + f} H${x + w}`, ...common, 'stroke-linejoin': 'round' }); }
     if (n.type === 'text') return s('rect', { x, y, width: w, height: hh, fill: 'transparent', stroke: 'none' });
+    if (n.type === 'triangle') return s('polygon', { points: `${x + w / 2},${y} ${x + w},${y + hh} ${x},${y + hh}`, ...common, 'stroke-linejoin': 'round' });
+    if (n.type === 'hexagon') { const k = w / 4; return s('polygon', { points: `${x + k},${y} ${x + w - k},${y} ${x + w},${y + hh / 2} ${x + w - k},${y + hh} ${x + k},${y + hh} ${x},${y + hh / 2}`, ...common }); }
+    if (n.type === 'star') {
+      const pts = [];
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + (i * Math.PI) / 5;
+        const r = i % 2 ? 0.42 : 1;
+        pts.push(`${(x + w / 2 + Math.cos(a) * r * w / 2).toFixed(1)},${(y + hh / 2 + 0.1 * hh + Math.sin(a) * r * hh / 1.9).toFixed(1)}`);
+      }
+      return s('polygon', { points: pts.join(' '), ...common, 'stroke-linejoin': 'round' });
+    }
+    if (n.type === 'arrow') { const t = hh * 0.28; const head = Math.min(w * 0.4, hh); return s('polygon', { points: `${x},${y + t} ${x + w - head},${y + t} ${x + w - head},${y} ${x + w},${y + hh / 2} ${x + w - head},${y + hh} ${x + w - head},${y + hh - t} ${x},${y + hh - t}`, ...common, 'stroke-linejoin': 'round' }); }
+    if (n.type === 'callout') { const b = hh * 0.78; return s('path', { d: `M${x + 10},${y} H${x + w - 10} Q${x + w},${y} ${x + w},${y + 10} V${y + b - 10} Q${x + w},${y + b} ${x + w - 10},${y + b} H${x + w * 0.42} L${x + w * 0.22},${y + hh} L${x + w * 0.26},${y + b} H${x + 10} Q${x},${y + b} ${x},${y + b - 10} V${y + 10} Q${x},${y} ${x + 10},${y} Z`, ...common, 'stroke-linejoin': 'round' }); }
+    if (n.type === 'cloud') {
+      const cx = (k) => x + k * w, cy = (k) => y + k * hh;
+      return s('path', { d: `M${cx(0.25)},${cy(0.8)} C${cx(0.02)},${cy(0.8)} ${cx(0.02)},${cy(0.45)} ${cx(0.22)},${cy(0.45)} C${cx(0.2)},${cy(0.15)} ${cx(0.5)},${cy(0.08)} ${cx(0.56)},${cy(0.3)} C${cx(0.66)},${cy(0.12)} ${cx(0.92)},${cy(0.2)} ${cx(0.84)},${cy(0.45)} C${cx(1.02)},${cy(0.5)} ${cx(0.98)},${cy(0.82)} ${cx(0.78)},${cy(0.8)} Z`, ...common, 'stroke-linejoin': 'round' });
+    }
+    if (n.type === 'image') return s('g', null, s('image', { x, y, width: w, height: hh, href: n.src, preserveAspectRatio: 'xMidYMid meet' }), s('rect', { x, y, width: w, height: hh, fill: 'transparent', stroke: 'none' }));
     return s('rect', { x, y, width: w, height: hh, rx: n.type === 'rounded' ? Math.min(22, hh / 2) : 4, ...common });
   }
 
@@ -142,9 +168,11 @@
   }
 
   function textOf(n) {
+    if (n.type === 'image') return null;
     const lines = wrap(n);
     const lh = n.fontSize * 1.25;
-    const top = n.y + n.h / 2 - ((lines.length - 1) * lh) / 2;
+    const middle = n.type === 'callout' ? n.y + n.h * 0.39 : n.type === 'triangle' ? n.y + n.h * 0.62 : n.type === 'star' ? n.y + n.h * 0.56 : n.y + n.h / 2;
+    const top = middle - ((lines.length - 1) * lh) / 2;
     return lines.map((line, i) => s('text', { x: n.x + n.w / 2, y: top + i * lh, 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: n.color, 'font-family': 'Arial, sans-serif', 'font-size': n.fontSize, 'font-weight': n.bold ? 700 : 400 }, line));
   }
 
@@ -230,6 +258,11 @@
       g.addEventListener('pointerdown', (e) => onNodeDown(e, n));
       svg.append(g);
     });
+    // Traços à mão por cima de tudo; só recebem o rato quando uma caneta está ativa.
+    const ink = s('g', { class: 'draw-ink' + (tool ? ' is-active' : '') });
+    strokes.forEach((st) => ink.append(MO.Ink.strokeEl(st)));
+    svg.append(ink);
+    svg.classList.toggle('is-inking', Boolean(tool));
     updateProps();
     updateStatus();
   }
@@ -437,11 +470,11 @@
 
   // ---------- Comandos ----------
 
-  function addShape(type) {
+  function addShape(type, extra = {}) {
     if (nodes.length >= MAX_NODES) return MO.toast('O desenho chegou ao limite de elementos.');
     remember();
     const r = scroller ? { x: (scroller.scrollLeft + scroller.clientWidth / 2) / zoom, y: (scroller.scrollTop + scroller.clientHeight / 2) / zoom } : { x: W / 2, y: H / 2 };
-    const n = node(type, 0, 0, type === 'diamond' ? 'Decisão' : type === 'text' ? 'Texto' : type === 'note' ? 'Nota' : 'Novo elemento', type === 'note' ? '#ffe9a8' : DEFAULT.fill);
+    const n = node(type, 0, 0, type === 'diamond' ? 'Decisão' : type === 'text' ? 'Texto' : type === 'note' ? 'Nota' : ['star', 'arrow', 'triangle'].includes(type) ? '' : type === 'callout' ? 'Olá!' : 'Novo elemento', type === 'note' ? '#ffe9a8' : type === 'star' ? '#ffe9a8' : DEFAULT.fill, extra);
     // Procura um lugar livre perto do centro da vista, em espiral.
     const free = (x, y) => nodes.every((m) => x + n.w + 20 <= m.x || m.x + m.w + 20 <= x || y + n.h + 20 <= m.y || m.y + m.h + 20 <= y);
     let spot = null;
@@ -459,6 +492,35 @@
     nodes.push(n);
     selection = new Set([n.id]);
     selectedLink = null;
+    changed();
+  }
+
+  async function addImage() {
+    const file = await MO.pickFile({ accept: 'image/png,image/jpeg,image/gif,image/webp', as: 'dataURL', maxBytes: MAX_IMAGE });
+    if (!file) return;
+    if (!MO.IMAGE_DATA_URL.test(file.content)) return MO.toast('Formato de imagem não suportado.');
+    const img = await new Promise((resolve) => { const i = new Image(); i.onload = () => resolve(i); i.onerror = () => resolve(null); i.src = file.content; });
+    if (!img) return MO.toast('Não foi possível ler a imagem.');
+    const scale = Math.min(1, 480 / img.width, 360 / img.height);
+    addShape('image', { src: file.content, w: Math.max(40, Math.round(img.width * scale)), h: Math.max(30, Math.round(img.height * scale)), text: '', fill: '#ffffff', stroke: 'none' });
+  }
+
+  function setTool(next) {
+    tool = tool === next ? null : next;
+    if (tool) { selection.clear(); selectedLink = null; if (linkMode) setLinkMode(false); }
+    for (const [k, b] of Object.entries(toolButtons)) b.classList.toggle('on', k === (tool || 'select'));
+    render();
+  }
+
+  function inkStyle(kind) {
+    if (kind === 'marker') return { color: markerColor, width: 18, alpha: 0.35 };
+    return { color: penColor, width: penWidth, alpha: 1 };
+  }
+
+  function clearInk() {
+    if (!strokes.length) return MO.toast('Não há traços à mão para apagar.');
+    remember();
+    strokes = [];
     changed();
   }
 
@@ -678,11 +740,14 @@
           groups: [
             { label: 'Anular', rows: [[I('undo', 'Anular (Ctrl+Z)', undo), I('redo', 'Refazer (Ctrl+Y)', redo)]] },
             { label: 'Formas', rows: [[shapeBtn('rect', 'rect'), shapeBtn('rounded', 'textBox')], [shapeBtn('ellipse', 'ellipse'), shapeBtn('diamond', 'branch')], [shapeBtn('parallelogram', 'slideNew'), shapeBtn('cylinder', 'grid')], [shapeBtn('note', 'comment'), shapeBtn('text', 'line')]] },
+            { label: 'Mais formas', rows: [[shapeBtn('triangle', 'branch'), shapeBtn('hexagon', 'grid')], [shapeBtn('star', 'sparkle'), shapeBtn('arrow', 'arrowLeft')], [shapeBtn('callout', 'comment'), shapeBtn('cloud', 'ellipse')]] },
+            { label: 'Imagem', rows: [[B('image', 'Imagem', 'Inserir uma imagem do computador (PNG, JPEG, GIF, WebP)', addImage)]] },
             { label: 'Ligar', rows: [[linkBtn]] },
             { label: 'Modelos', rows: [[tpl('flow', 'Fluxo', 'Fluxograma com decisão'), tpl('mind', 'Mapa mental', 'Mapa mental'), tpl('org', 'Organização', 'Organograma')], [tpl('timeline', 'Linha temporal', 'Etapas ao longo do tempo'), tpl('swot', 'SWOT', 'Forças, fraquezas, oportunidades e ameaças'), tpl('blank', 'Em branco', 'Começar sem elementos')]] }
           ]
         },
         { label: 'Formatar', groups: [{ label: 'Aspeto', rows: [[propBox]] }] },
+        desenharTab(),
         {
           label: 'Organizar',
           groups: [
@@ -694,6 +759,22 @@
       ],
       () => ctx.file()
     );
+  }
+
+  function desenharTab() {
+    const T = (key, icon, label, title) => (toolButtons[key] = MO.bigButton(icon, label, title, () => (key === 'select' ? (tool && setTool(tool)) : setTool(key))));
+    const swatch = (c, marker) => h('button', { type: 'button', class: 'draw-swatch', style: `background:${c}`, title: 'Cor ' + c, 'aria-label': 'Cor ' + c, onclick: () => { if (marker) { markerColor = c; if (tool !== 'marker') setTool('marker'); } else { penColor = c; if (tool !== 'pen') setTool('pen'); } } });
+    const width = h('select', { class: 'tool-select', 'aria-label': 'Espessura da caneta', title: 'Espessura da caneta' }, [[2, 'Fina'], [3, 'Média'], [6, 'Grossa'], [10, 'Muito grossa']].map(([v, t]) => h('option', { value: v, selected: v === penWidth || undefined }, t)));
+    width.addEventListener('change', () => { penWidth = Number(width.value); if (tool !== 'pen') setTool('pen'); });
+    return {
+      label: 'Desenhar',
+      groups: [
+        { label: 'Ferramentas', rows: [[T('select', 'cursor', 'Selecionar', 'Selecionar e mover elementos (Esc)'), T('pen', 'pen', 'Caneta', 'Desenhar à mão livre'), T('marker', 'highlight', 'Marcador', 'Realçar com cor transparente'), T('eraser', 'eraser', 'Borracha', 'Apagar traços à mão (passe por cima)')]] },
+        { label: 'Caneta', rows: [[h('div', { class: 'draw-swatches' }, MO.Ink.COLORS.map((c) => swatch(c, false)))], [width]] },
+        { label: 'Marcador', rows: [[h('div', { class: 'draw-swatches' }, MO.Ink.MARKER_COLORS.map((c) => swatch(c, true)))]] },
+        { label: 'Limpar', rows: [[MO.bigButton('trash', 'Apagar traços', 'Apagar todos os traços à mão', clearInk)]] }
+      ]
+    };
   }
 
   // ---------- Exportar ----------
@@ -726,6 +807,7 @@
   const num = (v, a, b, d) => (Number.isFinite(Number(v)) ? clamp(Number(v), a, b) : d);
   function cleanNode(item) {
     if (!item || !TYPES.includes(item.type) || !Number.isFinite(item.x) || !Number.isFinite(item.y)) return null;
+    if (item.type === 'image' && !(typeof item.src === 'string' && item.src.length < MAX_IMAGE * 1.4 && MO.IMAGE_DATA_URL.test(item.src))) return null;
     return {
       id: uid(),
       type: item.type,
@@ -738,7 +820,8 @@
       stroke: item.stroke === 'none' ? 'none' : MO.HEX.test(item.stroke) ? item.stroke : DEFAULT.stroke,
       color: MO.HEX.test(item.color) ? item.color : DEFAULT.color,
       fontSize: num(item.fontSize, 8, 72, DEFAULT.fontSize),
-      bold: item.bold == null ? item.type !== 'text' : Boolean(item.bold)
+      bold: item.bold == null ? item.type !== 'text' : Boolean(item.bold),
+      ...(item.type === 'image' ? { src: item.src } : {})
     };
   }
 
@@ -754,6 +837,14 @@
       zoomEl = MO.zoomControl((k) => { zoom = k; render(); });
       const bar = h('div', { class: 'statusbar' }, statusEl, zoomEl);
       container.append(buildRibbon(), board, bar);
+      toolButtons.select.classList.add('on');
+      MO.Ink.attach(svg, svgPoint, {
+        active: () => tool,
+        style: (kind) => inkStyle(kind),
+        strokes: () => strokes,
+        onAdd: (st) => { remember(); strokes.push(st); changed(); },
+        onErase: (idx) => { remember(); strokes = strokes.filter((_st, i) => !idx.includes(i)); changed(); }
+      });
       svg.addEventListener('pointerdown', onBoardDown);
       document.addEventListener('keydown', (e) => {
         if (!isActive() || ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable || document.querySelector('dialog[open]')) return;
@@ -768,6 +859,7 @@
         else if (mod && key === 'v') { if (clipboard) paste(); else handled = false; }
         else if (mod && key === 'a') { selection = new Set(nodes.map((n) => n.id)); selectedLink = null; render(); }
         else if (e.key === 'Delete' || e.key === 'Backspace') handled = deleteSelection();
+        else if (e.key === 'Escape' && tool) setTool(tool);
         else if (e.key === 'Escape') { selection.clear(); selectedLink = null; if (linkMode) setLinkMode(false); else render(); }
         else if (e.key === 'Enter' && selection.size === 1) editNodeText(selectedNodes()[0]);
         else if (e.key === 'ArrowLeft') handled = nudge(-step, 0);
@@ -783,6 +875,7 @@
       const model = templates(template || 'flow');
       nodes = model.nodes;
       links = model.links;
+      strokes = [];
       selection = new Set();
       selectedLink = null;
       undoStack = [];
@@ -793,7 +886,7 @@
     },
 
     serialize() {
-      return JSON.stringify({ format: 'myoffice-draw', version: 2, nodes: nodes.map(({ id, ...n }) => n), links: links.map(({ id, ...l }) => l) });
+      return JSON.stringify({ format: 'myoffice-draw', version: 2, nodes: nodes.map(({ id, ...n }) => n), links: links.map(({ id, ...l }) => l), strokes });
     },
 
     load(text) {
@@ -808,6 +901,7 @@
         .filter((l) => l && Number.isInteger(l.from) && Number.isInteger(l.to) && map.has(l.from) && map.has(l.to) && l.from !== l.to)
         .slice(0, MAX_LINKS)
         .map((l) => link(map.get(l.from), map.get(l.to), { label: String(l.label || '').slice(0, 40), dashed: Boolean(l.dashed), arrow: ['end', 'none', 'both'].includes(l.arrow) ? l.arrow : 'end', elbow: Boolean(l.elbow) }));
+      strokes = MO.Ink.clean(data.strokes, W, H);
       selection = new Set();
       selectedLink = null;
       undoStack = [];
@@ -828,7 +922,7 @@
     },
 
     // Usado pelos testes.
-    _debug: { select: (ids) => { selection = new Set(ids); selectedLink = null; render(); }, nodes: () => nodes, links: () => links },
+    _debug: { select: (ids) => { selection = new Set(ids); selectedLink = null; render(); }, nodes: () => nodes, links: () => links, strokes: () => strokes, tool: () => tool },
 
     show() {
       render();
