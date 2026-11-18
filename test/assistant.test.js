@@ -82,3 +82,26 @@ assert.ok(chatTo('Utilizador: escreve um email para a equipa sobre a reunião').
 const follow = chatTo('Utilizador: soma de B2 a B10\n\nAssistente: Fórmula: =SOMA(B2:B10)\n\nUtilizador: e a média?');
 assert.deepEqual(follow.action, { kind: 'formula', label: 'Inserir na célula ativa', value: '=MÉDIA(B2:B10)' });
 console.log('Testes de rascunhos e seguimento passaram.');
+
+// Contas feitas na resposta
+assert.match(A.calculate('quanto é 15% de 230'), /= 34,5/);
+assert.match(A.calculate('IVA de 100'), /23,00 €[\s\S]*123,00 €/);
+assert.match(A.calculate('tirar o iva a 246 euros'), /sem IVA 200,00 €/);
+assert.match(A.calculate('desconto de 20% em 50'), /→ 40/);
+assert.match(A.calculate('(250-30)/4'), /= 55$/);
+assert.match(A.calculate('2^10'), /= 1024$/);
+assert.match(A.calculate('dias entre 01/02/2026 e 15/03/2026'), /42 dias/);
+assert.equal(A.calculate('olá, tudo bem?'), null);
+assert.equal(A.calculate('quanto custa um café'), null);
+
+// Novos guias, rascunhos e sugestões
+assert.ok(ask('como uso a caneta?').startsWith('Desenhar à mão'));
+assert.ok(ask('como ponho uma marca de água').startsWith('Marca de água'));
+assert.ok(ask('como crio uma tabela dinâmica').startsWith('Tabela dinâmica'));
+assert.ok(ask('o antivírus bloqueou o instalador, como faço?').startsWith('O antivírus'));
+assert.ok(ask('escreve uma carta de candidatura a técnico de vendas').startsWith('Carta de candidatura'));
+assert.ok(ask('faz uma proposta comercial para manutenção de jardins').startsWith('Proposta comercial'));
+assert.ok(ask('fórmula para a idade').includes('DATADIF'));
+const unsure = chatTo('Utilizador: como faço para por bordas e unir');
+assert.ok(Array.isArray(unsure.suggestions));
+console.log('Testes de contas, guias novos e sugestões passaram.');

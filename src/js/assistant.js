@@ -409,7 +409,7 @@
     ['preencher preenchimento automatico serie arrastar sequencia meses dias numerar', 'Preenchimento automático (Folhas)', ['Escreva o início da série (por exemplo 1 e 2, Janeiro, ou segunda).', 'Selecione essas células e arraste o pequeno quadrado no canto inferior direito.', 'Números, meses, dias da semana e fórmulas continuam automaticamente.']],
     ['formatacao condicional cores realcar destacar escala valores maior menor', 'Formatação condicional (Folhas)', ['Selecione os valores.', 'Em Base › Formatação condicional, clique em Realçar células.', 'Escolha a regra (maior que, menor que, entre, igual, contém texto ou escala de cores) e a cor.', 'Limpar regras remove a formatação da seleção.']],
     ['grafico graficos barras colunas linhas circular pizza visualizar', 'Criar um gráfico', ['Selecione a tabela com os cabeçalhos: categorias na 1.ª coluna e uma ou mais colunas de valores.', 'Abra Dados › Gráfico e escolha o tipo: colunas, empilhadas, barras, linhas, área, circular, anel ou dispersão.', 'Dê um título e clique em Inserir na folha. Arraste para mover, use o canto para mudar o tamanho e faça duplo clique para editar.', 'No Texto e nos Diapositivos: Inserir › Gráfico, e escreva ou cole os dados.']],
-    ['tabela dinamica resumo agrupar pivot', 'Resumo dinâmico (Folhas)', ['Selecione os dados com cabeçalhos.', 'Abra Dados › Tabela dinâmica.', 'Escolha a coluna para agrupar, a coluna de valores e o cálculo (soma, contagem ou média).']],
+    ['tabela dinamica resumo agrupar pivot cruzar', 'Tabela dinâmica (Folhas)', ['Clique numa célula dos dados (com cabeçalhos na 1.ª linha).', 'Abra Dados › Tabela dinâmica.', 'Escolha o campo das Linhas, o das Colunas (opcional, para cruzar), o dos Valores e o resumo: soma, contagem, média, máximo ou mínimo.', 'Coloque-a numa folha nova ou ao lado dos dados. Tem totais e atualiza-se quando os dados mudam.']],
     ['ordenar filtrar filtro ordem crescente decrescente', 'Ordenar e filtrar (Folhas)', ['Clique numa célula da coluna.', 'Em Dados › Ordenar, escolha Ascendente ou Descendente, ou use Filtrar.', 'Limpar filtro mostra de novo todas as linhas.']],
     ['comentario comentarios anotar nota margem', 'Comentários (Texto)', ['Selecione o texto a comentar.', 'Abra o separador Rever e clique em Novo comentário.', 'Os comentários aparecem na lista do painel; Resolver remove-os. Seguem para o Word ao exportar.']],
     ['controlo alteracoes revisoes registar aceitar rejeitar track', 'Controlo de alterações (Texto)', ['No separador Rever, ative Controlar alterações.', 'O texto novo fica sublinhado e o apagado riscado.', 'No fim da revisão, use Aceitar todas ou Rejeitar todas.']],
@@ -447,8 +447,18 @@
     ['escuro claro modo noite tema aparencia', 'Modo claro ou escuro', ['Clique no ícone da lua (ou do sol) no canto superior direito.', 'Também pode procurar "modo escuro" com Ctrl+K.']],
     ['comando procurar atalho atalhos ctrl botao onde encontrar', 'Encontrar qualquer comando', ['Carregue em Ctrl+K.', 'Escreva o que quer fazer, por exemplo "borda" ou "PDF", e carregue em Enter.', 'Ctrl+. esconde ou mostra o painel de ferramentas.']],
     ['zoom ampliar aumentar diminuir', 'Zoom', ['Use o controlo de zoom no canto inferior direito, de 50% a 200%.']],
-    ['instalar instalacao instalador windows smartscreen setup', 'Instalar o MyOffice', ['Descarregue MyOffice-Setup a partir da página de versões no GitHub.', 'Abra o ficheiro; se o Windows mostrar "O Windows protegeu o computador", clique em Mais informações › Executar mesmo assim (o instalador ainda não tem assinatura digital).', 'Siga os passos do instalador; o MyOffice fica no menu Iniciar.']],
-    ['limitacoes limites falta faltam suporta', 'O que o MyOffice ainda não faz', ['Tabelas dinâmicas compatíveis com o Excel (use o Resumo dinâmico).', 'Animações complexas, gráficos e SmartArt do PowerPoint.', 'Coautoria em tempo real, nuvem, correio e calendário.', 'Instaladores oficiais para macOS e Linux.']],
+    ['instalar instalacao instalador windows smartscreen setup msi portatil zip empresa', 'Instalar o MyOffice', ['Na página de versões no GitHub escolha: MyOffice-Setup (.exe) para uso pessoal, o .msi para empresas (todos os utilizadores, GPO ou Intune) ou o ZIP portátil, que não precisa de instalação.', 'Se o Windows mostrar "O Windows protegeu o computador", clique em Mais informações › Executar mesmo assim (o instalador ainda não tem assinatura digital).', 'Cada programa fica com o seu atalho e ícone no menu Iniciar e no ambiente de trabalho.']],
+    ['antivirus antivirus virus bloqueou bloqueado defender falso positivo seguro sha256 hash', 'O antivírus bloqueou o MyOffice', ['É um falso positivo comum em programas novos sem assinatura digital.', 'Confirme que o ficheiro é o original: no PowerShell, Get-FileHash ficheiro.exe, e compare com o SHA256SUMS.txt da versão.', 'Reporte o falso positivo à Microsoft em microsoft.com/wdsi/filesubmission (Software developer › Incorrectly detected).']],
+    ['limitacoes limites falta faltam suporta', 'O que o MyOffice ainda não faz', ['Exportar tabelas dinâmicas para o Excel como tabelas dinâmicas (vão como valores).', 'Animações complexas, gráficos e SmartArt do PowerPoint.', 'Abrir ficheiros do OneNote; marca de água no Word exportado.', 'Coautoria em tempo real, nuvem, correio e calendário.', 'Instaladores oficiais para macOS e Linux.']],
+    ['notas caderno onenote seccao seccoes pagina paginas apontamentos', 'Tomar notas (Notas)', ['Abra o MyOffice Notas: à esquerda ficam as secções e a lista de páginas.', 'Clique em qualquer sítio da página para escrever; arraste a barra no topo do bloco para o mudar de lugar.', 'Base › Nova página e Nova secção organizam o caderno; duplo clique numa secção muda-lhe o nome.', 'Depois de guardar uma vez (Ctrl+S), o caderno grava sozinho.']],
+    ['tarefas checklist caixa marcar lista tarefa etiqueta etiquetas importante', 'Listas de tarefas e etiquetas (Notas)', ['Em Inserir › Lista de tarefas aparece uma lista com caixas; clique na caixa para marcar como feita.', 'Em Base › Etiquetas marque o parágrafo como Importante, A fazer, Pergunta ou Ideia.', 'Procurar no caderno (em cima, à esquerda) encontra o texto em todas as páginas.']],
+    ['caneta mao livre desenhar marcador borracha tatil escrever mao', 'Desenhar à mão (Desenho e Notas)', ['Abra o separador Desenhar e escolha Caneta ou Marcador; escolha a cor e, no Desenho, a espessura.', 'Desenhe com o rato, uma caneta ou o dedo. A Borracha apaga um traço ao passar por cima.', 'Esc ou Selecionar/Escrever volta ao modo normal. Ctrl+Z desfaz.']],
+    ['formas estrela triangulo hexagono nuvem balao seta imagem logotipo desenho', 'Formas e imagens (Desenho)', ['Em Inserir › Formas e Mais formas há caixa, decisão, círculo, triângulo, hexágono, estrela, seta grossa, balão de fala, nuvem e outras.', 'Inserir › Imagem acrescenta uma fotografia ou um logótipo que se redimensiona como as formas.', 'Em Formatar muda as cores; pode trocar o tipo de forma sem perder o texto.']],
+    ['marca agua confidencial rascunho copia fundo diagonal', 'Marca de água (Texto)', ['Abra Estrutura › Página › Marca de água.', 'Escreva o texto (por exemplo CONFIDENCIAL ou RASCUNHO) e clique em Aplicar.', 'Aparece no ecrã, na impressão e no PDF. Deixe vazio para a tirar.']],
+    ['legenda legendas figura figuras numerar numeracao imagem tabela', 'Legendas numeradas (Texto)', ['Clique por baixo da imagem ou da tabela.', 'Em Inserir › Referências › Legenda escolha Figura, Tabela, Gráfico ou Equação e escreva o texto.', 'A numeração atualiza-se sozinha quando acrescenta ou apaga legendas.']],
+    ['caixa destaque letra capital capitular limite sombreado moldura', 'Destaques no texto (Texto)', ['Caixa de destaque (Inserir › Elementos): selecione parágrafos e clique para os pôr numa caixa com fundo; clique outra vez para tirar.', 'Letra capital: com o cursor no parágrafo, faz a primeira letra grande.', 'Limite e sombreado (Base › Parágrafo, botão ▢) põe uma moldura à volta do parágrafo.']],
+    ['navegacao painel titulos leitura modo estatisticas palavras paginas contar contagem', 'Navegação, leitura e estatísticas (Texto)', ['Ver › Navegação mostra os títulos à esquerda; clique para saltar para a secção.', 'Ver › Modo de leitura esconde as ferramentas; Esc volta a editar.', 'Ver › Estatísticas mostra páginas, palavras, carateres, frases e tempo de leitura.']],
+    ['ordenar paragrafos alfabetica lista nomes az', 'Ordenar parágrafos (Texto)', ['Selecione os parágrafos ou os itens da lista.', 'Em Base › Parágrafo, clique em Ordenar de A a Z ou de Z a A.']],
     ['ortografia ortografica erros revisao', 'Revisão ortográfica (Texto)', ['As palavras com erro ficam sublinhadas a vermelho, quando o Windows tem o dicionário de português.', 'Clique com o botão direito para ver sugestões.']]
   ].map(([keys, title, steps]) => ({ keys: keys.split(' '), title, steps }));
 
@@ -465,7 +475,127 @@
     return bestScore >= 2 ? best : null;
   }
 
+  // Pontuação do melhor guia (para exigir mais certeza quando a pergunta não é um pedido de ajuda).
+  function guideScore(query, guide) {
+    const list = query.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+    const has = (key) => { const stem = key.length > 5 ? key.slice(0, key.length - 2) : key; return list.some((w) => w.startsWith(stem)); };
+    return guide.keys.reduce((n, key) => n + (has(key) ? (key.length > 6 ? 2 : 1) : 0), 0);
+  }
+
   const guideAnswer = (guide) => `${guide.title}:\n${guide.steps.map((step, i) => `${i + 1}. ${step}`).join('\n')}`;
+
+  // ---------- Contas feitas logo na resposta ----------
+
+  const fmt = (n) => {
+    if (!Number.isFinite(n)) return null;
+    const r = Math.round(n * 1e6) / 1e6;
+    return r.toLocaleString('pt-PT', { maximumFractionDigits: 6 });
+  };
+  const money = (n) => n.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+  const numIn = (t) => Number(String(t).replace(/\s/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.'));
+
+  // Avalia + - * / ^ ( ) e percentagens sem usar eval.
+  function evaluate(expr) {
+    const src = expr.replace(/×|x(?=\s*[\d(])/g, '*').replace(/÷|:/g, '/').replace(/\s+/g, '');
+    let i = 0;
+    const peek = () => src[i];
+    function number() {
+      const m = src.slice(i).match(/^\d+(?:[.,]\d+)?/);
+      if (!m) throw new Error('n');
+      i += m[0].length;
+      let v = Number(m[0].replace(',', '.'));
+      if (peek() === '%') { i++; v /= 100; }
+      return v;
+    }
+    function factor() {
+      if (peek() === '-') { i++; return -factor(); }
+      if (peek() === '+') { i++; return factor(); }
+      if (peek() === '(') { i++; const v = sum(); if (peek() !== ')') throw new Error(')'); i++; return v; }
+      return number();
+    }
+    function power() { const b = factor(); if (peek() === '^') { i++; return Math.pow(b, power()); } return b; }
+    function product() { let v = power(); while (peek() === '*' || peek() === '/') { const op = src[i++]; const r = power(); v = op === '*' ? v * r : v / r; } return v; }
+    function sum() { let v = product(); while (peek() === '+' || peek() === '-') { const op = src[i++]; const r = product(); v = op === '+' ? v + r : v - r; } return v; }
+    const v = sum();
+    if (i !== src.length) throw new Error('fim');
+    return v;
+  }
+
+  function parseDate(t) {
+    const m = String(t).match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/);
+    if (!m) return null;
+    const y = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+    const d = new Date(Date.UTC(y, Number(m[2]) - 1, Number(m[1])));
+    return d.getUTCDate() === Number(m[1]) ? d : null;
+  }
+
+  function calculate(question) {
+    const q = plain(question).replace(/\?+$/, '').trim();
+    const N = '(\\d[\\d.\\s]*(?:,\\d+)?)';
+    const re = (p) => new RegExp(p.replace(/N/g, N));
+    let m;
+    // Valor com IVA incluído: separa a base e o imposto.
+    if (/\biva\b/.test(q) && /\b(com iva|iva incluido|inclui iva|tirar o iva|retirar o iva|sem iva)\b/.test(q) && (m = q.match(/(\d[\d.\s]*(?:,\d+)?)\s*(?:€|euros?)?/))) {
+      const rateM = q.match(/(\d+)\s*%/);
+      const rate = rateM ? Number(rateM[1]) : 23;
+      const gross = numIn(m[1] === String(rate) && rateM ? q.replace(rateM[0], '').match(/(\d[\d.\s]*(?:,\d+)?)/)[1] : m[1]);
+      const net = gross / (1 + rate / 100);
+      return `Valor com IVA ${money(gross)} → sem IVA ${money(net)}; IVA (${rate}%) = ${money(gross - net)}.\n\nNas Folhas: =A2/(1+${rate}%) para o valor sem IVA.`;
+    }
+    // IVA (taxa normal em Portugal continental: 23%).
+    if ((m = q.match(re('\\biva\\b(?:\\s+(?:de|a)\\s+(\\d+)\\s*%)?.*?\\b(?:de|sobre|em|a)\\s+N\\s*(?:€|euros?)?$')))) {
+      const rate = m[1] ? Number(m[1]) : 23;
+      const base = numIn(m[2]);
+      if (/\b(com iva|incluido|inclui|retirar|tirar|sem iva)\b/.test(q) && /\b(com iva|incluido|inclui)\b/.test(q)) {
+        const net = base / (1 + rate / 100);
+        return `Valor com IVA ${money(base)} → sem IVA ${money(net)}; IVA (${rate}%) = ${money(base - net)}.`;
+      }
+      return `IVA de ${rate}% sobre ${money(base)} = ${money(base * rate / 100)}\nTotal com IVA: ${money(base * (1 + rate / 100))}\n\nNas Folhas: =A2*${rate}% para o IVA e =A2*(1+${rate}%) para o total.`;
+    }
+    if ((m = q.match(re('\\b(desconto|aumento|subida|reducao)\\s+de\\s+N\\s*%\\s+(?:em|sobre|a|de)\\s+N')))) {
+      const pct = numIn(m[2]);
+      const base = numIn(m[3]);
+      const up = /aumento|subida/.test(m[1]);
+      const result = base * (1 + (up ? pct : -pct) / 100);
+      return `${up ? 'Aumento' : 'Desconto'} de ${fmt(pct)}% em ${fmt(base)}: ${up ? '+' : '−'}${fmt(base * pct / 100)} → ${fmt(result)}.\n\nNas Folhas: =A2*(1${up ? '+' : '-'}${fmt(pct).replace(',', '.')}%)`;
+    }
+    if ((m = q.match(re('^(?:quanto (?:e|sao|da)\\s+)?N\\s*%\\s+de\\s+N$')))) {
+      const pct = numIn(m[1]);
+      const base = numIn(m[2]);
+      return `${fmt(pct)}% de ${fmt(base)} = ${fmt(base * pct / 100)}.\n\nNas Folhas: =${fmt(base).replace(/\s/g, '').replace(',', '.')}*${fmt(pct).replace(',', '.')}%`;
+    }
+    if ((m = q.match(re('^(?:que|qual a?)\\s+percentagem\\s+(?:e|representa)\\s+N\\s+de\\s+N$')))) {
+      const part = numIn(m[1]);
+      const total = numIn(m[2]);
+      return total ? `${fmt(part)} é ${fmt(part / total * 100)}% de ${fmt(total)}.\n\nNas Folhas: =A2/B2 e formate como percentagem.` : null;
+    }
+    if ((m = q.match(/(?:dias|semanas)\s+(?:entre|de)\s+(\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})\s+(?:e|a|ate)\s+(\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})/))) {
+      const a = parseDate(m[1]);
+      const b = parseDate(m[2]);
+      if (a && b) {
+        const days = Math.round((b - a) / 86400000);
+        return `Entre ${m[1]} e ${m[2]} há ${fmt(Math.abs(days))} dias (${fmt(Math.abs(days) / 7)} semanas).\n\nNas Folhas: =B2-A2, com as datas em A2 e B2.`;
+      }
+    }
+    if ((m = q.match(/(?:quantos dias faltam|dias ate|faltam quantos dias)\s+(?:para|ate|a)?\s*(?:o dia\s+)?(\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})/))) {
+      const b = parseDate(m[1]);
+      if (b) {
+        const t = new Date();
+        const today = Date.UTC(t.getFullYear(), t.getMonth(), t.getDate());
+        const days = Math.round((b - today) / 86400000);
+        return days >= 0 ? `Faltam ${fmt(days)} dias para ${m[1]}.\n\nNas Folhas: =DATA(…)-HOJE()` : `${m[1]} foi há ${fmt(-days)} dias.`;
+      }
+    }
+    // Conta simples: "quanto é 12*3+4", "(250-30)/4", "2^10".
+    const expr = q.replace(/^(?:quanto (?:e|sao|da|dá)|calcula(?:r)?|calcule|resultado de|resolve)\s+/, '').replace(/\bvezes\b/g, '*').replace(/\bmais\b/g, '+').replace(/\bmenos\b/g, '-').replace(/\b(?:a dividir por|dividido por)\b/g, '/').replace(/\belevado a\b/g, '^');
+    if (/^[\d\s.,+\-*/x×÷^()%]+$/.test(expr) && /\d\s*[+\-*/x×÷^]\s*[\d(]/.test(expr)) {
+      try {
+        const v = evaluate(expr.replace(/(\d)\.(?=\d{3}\b)/g, '$1'));
+        if (Number.isFinite(v)) return `${expr.trim()} = ${fmt(v)}`;
+      } catch { /* não é uma conta */ }
+    }
+    return null;
+  }
 
   // ---------- Fórmulas a partir de uma frase ----------
 
@@ -503,7 +633,12 @@
     if (/\b(mediana)\b/.test(q)) return pick(`MEDIANA(${range})`, 'devolve o valor do meio.');
     if (/\b(arredondar|arredonda|casas decimais)\b/.test(q)) return pick('ARRED(A2;2)', 'arredonda para 2 casas decimais.');
     if (/\b(juntar|concatenar|unir texto|nome completo)\b/.test(q)) return pick('CONCATENAR(A2;" ";B2)', 'junta os textos das duas células com um espaço.');
-    if (/\b(hoje|data atual)\b/.test(q)) return pick('HOJE()', 'mostra a data de hoje.');
+    if (/\b(hoje|data atual)\b/.test(q) && !/\bdias\b/.test(q)) return pick('HOJE()', 'mostra a data de hoje.');
+    if (/\b(dias entre|diferenca entre (?:duas )?datas|idade|anos entre)\b/.test(q)) return /\bidade|anos\b/.test(q) ? pick('DATADIF(A2;HOJE();"Y")', 'calcula os anos completos desde a data em A2 (por exemplo a idade).') : pick('B2-A2', 'dá o número de dias entre a data em A2 e a data em B2.');
+    if (/\b(erro|#n\/d|#div)\b/.test(q)) return pick('SE.ERRO(A2/B2;0)', 'mostra 0 (ou o que indicar) em vez de um erro.');
+    if (/\b(maiusculas)\b/.test(q)) return pick('MAIÚSCULAS(A2)', 'passa o texto para maiúsculas. MINÚSCULAS faz o contrário.');
+    if (/\b(posicao|classificacao|ranking|ordem)\b/.test(q)) return pick(`ORDEM(A2;${range.replace(/(\D+)(\d+):(\D+)(\d+)/, '$$$1$$$2:$$$3$$$4')})`, 'dá a posição do valor (1 = o maior) no intervalo.');
+    if (/\b(iva)\b/.test(q)) return pick('A2*23%', 'calcula o IVA à taxa normal de 23%; para o total com IVA use =A2*(1+23%).');
     if (/\b(soma|somar|total|adicionar)\b/.test(q)) return condition || word ? pick(`SOMA.SE(${range};${word ? `"${word[1]}"` : crit})`, 'soma só os valores que cumprem a condição.') : pick(`SOMA(${range})`, 'soma os valores do intervalo.');
     return null;
   }
@@ -519,6 +654,12 @@
     [['agradecimento', 'agradecer', 'obrigado'], 'Agradecimento', ['Caro(a) [Nome],', 'Quero agradecer-lhe {tema}. [Diga concretamente o que fez a diferença e porquê.]', '[Uma frase sobre o impacto ou sobre o futuro.]', 'Muito obrigado(a),', '[Nome]']],
     [['email', 'mail', 'mensagem'], 'Email', ['Assunto: {tema}', 'Olá [Nome],', '[Primeira frase: o motivo do email, sobre {tema}.]', '[Pormenores necessários, em dois ou três pontos curtos.]', '[O que precisa da outra pessoa e até quando.]', 'Obrigado(a),\n[Nome]']],
     [['carta', 'oficio'], 'Carta formal', ['[Nome]\n[Morada]', '[Destinatário]\n[Morada]', '[Localidade], [data]', 'Assunto: {tema}', 'Exmo(a). Senhor(a),', '[Primeiro parágrafo: o motivo da carta, sobre {tema}.]', '[Segundo parágrafo: os pormenores e os factos relevantes.]', '[Último parágrafo: o que pede ou propõe e como pode ser contactado(a).]', 'Com os melhores cumprimentos,', '[Nome]']],
+    [['curriculo', 'cv'], 'Currículo', ['[Nome completo]', '[Telefone] · [Email] · [Localidade]', 'Perfil\n[Duas frases sobre quem é, a experiência e o que procura, ligadas a {tema}.]', 'Experiência profissional\n[Cargo] — [Empresa], [ano]–[ano]\n• [Resultado concreto, com números]\n• [Responsabilidade principal]', 'Formação\n[Curso] — [Instituição], [ano]', 'Competências\n[Línguas, programas, certificações]']],
+    [['candidatura', 'motivacao', 'emprego', 'vaga'], 'Carta de candidatura', ['[Nome]\n[Contactos]', '[Empresa]\n[Ao cuidado de: Nome]', '[Localidade], [data]', 'Assunto: Candidatura a {tema}', 'Exmo(a). Senhor(a),', 'Venho apresentar a minha candidatura a {tema}, [onde viu o anúncio].', '[Porque é a pessoa certa: duas ou três provas concretas da sua experiência.]', '[Porque quer trabalhar nesta empresa em particular.]', 'Fico disponível para uma entrevista. Junto o meu currículo.', 'Com os melhores cumprimentos,', '[Nome]']],
+    [['justificacao', 'justificar', 'falta', 'ausencia'], 'Justificação de falta', ['[Nome]\n[Turma, número ou função]', 'Exmo(a). Senhor(a) [Nome e cargo],', 'Assunto: Justificação de falta — {tema}', 'Venho justificar a minha ausência no(s) dia(s) [datas], devido a [motivo].', 'Junto [atestado ou outro comprovativo], se aplicável.', 'Com os melhores cumprimentos,', '[Nome]', '[Localidade], [data]']],
+    [['demissao', 'rescisao', 'denuncia'], 'Carta de demissão', ['[Nome]\n[Morada]', '[Empresa]\n[Morada]', '[Localidade], [data]', 'Assunto: Denúncia do contrato de trabalho', 'Exmos. Senhores,', 'Venho comunicar a denúncia do meu contrato de trabalho {tema}, com efeitos a partir de [data], cumprindo o aviso prévio de [30/60] dias.', 'Agradeço a oportunidade e a colaboração ao longo deste período.', 'Com os melhores cumprimentos,', '[Nome]']],
+    [['proposta', 'orcamento', 'comercial'], 'Proposta comercial', ['Proposta: {tema}', 'Para: [Cliente] · Data: [data] · Validade: [30] dias', 'O que propomos\n[Descrição clara do serviço ou produto e do resultado para o cliente.]', 'Valores\n[Item] — [quantidade] × [preço] = [total]\nTotal: [valor] (acresce IVA à taxa legal)', 'Prazos\n[Início, entregas e conclusão.]', 'Condições\n[Pagamento, garantia e o que não está incluído.]', 'Para aceitar, basta responder a este documento. Ficamos ao dispor.', '[Nome] · [Empresa] · [Contactos]']],
+    [['aviso', 'comunicado', 'informacao', 'circular'], 'Comunicado', ['Comunicado: {tema}', '[Localidade], [data]', 'Informamos que {tema}. [O quê, quando e onde, numa frase.]', '[O que muda para quem lê e o que precisa de fazer.]', 'Para mais informações: [contacto].', '[Nome ou organização]']],
     [['relatorio', 'informe'], 'Relatório', ['Relatório: {tema}', 'Resumo\n[A conclusão principal em duas ou três frases.]', 'Contexto\n[Porque foi feito este relatório e que período ou área cobre.]', 'Resultados\n[Dados principais, com números e comparação com o objetivo.]', 'Análise\n[O que explica os resultados.]', 'Recomendações\n[Ações propostas, com responsável e prazo.]']]
   ].map(([keys, title, paragraphs]) => ({ keys, title, paragraphs }));
 
@@ -528,7 +669,16 @@
     // O tipo de documento é a palavra-chave que aparece primeiro ("email sobre a reunião" é um email).
     let draft = null;
     let at = Infinity;
-    for (const d of DRAFTS) for (const k of d.keys) { const i = q.indexOf(k); if (i >= 0 && i < at) { at = i; draft = d; } }
+    // Palavras genéricas (carta, email, pedido…) só contam se não houver um tipo mais concreto.
+    const GENERIC = new Set(['carta', 'oficio', 'email', 'mail', 'mensagem', 'pedido', 'modelo', 'informacao']);
+    for (const pass of [false, true]) {
+      // O tipo vem antes de "sobre" ("email sobre a reunião" é um email).
+      const head = q.split(/\b(?:sobre|acerca de)\b/)[0];
+      for (const d of DRAFTS) for (const k of d.keys) { if (!pass && GENERIC.has(k)) continue; const i = head.indexOf(k); if (i >= 0 && i < at) { at = i; draft = d; } }
+      if (draft) break;
+    }
+    // O assunto começa depois da primeira palavra do tipo escolhido ("pedido de férias" → férias).
+    if (draft) for (const k of draft.keys) { const i = q.indexOf(k); if (i >= 0 && i < at) at = i; }
     if (!draft) return null;
     // Assunto: o que vem depois de "sobre"; senão, o que vem depois do tipo de documento.
     const about = question.match(/\b(?:sobre|acerca de|a pedir)\s+(.+)$/i);
@@ -537,8 +687,20 @@
     const topic = stripEnd(rest.replace(/[?!…]+$/, '')).slice(0, 120) || '[assunto]';
     const filled = draft.paragraphs.map((p) => p.replace(/\{tema\}/g, topic));
     const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const html = filled.map((p, i) => (i === 0 && /^(Relatório|Ata|Convite):/.test(p) ? `<h1>${esc(p)}</h1>` : `<p>${esc(p).replace(/\n/g, '<br>')}</p>`)).join('');
+    const html = filled.map((p, i) => (i === 0 && /^(Relatório|Ata|Convite|Proposta|Comunicado):/.test(p) ? `<h1>${esc(p)}</h1>` : `<p>${esc(p).replace(/\n/g, '<br>')}</p>`)).join('');
     return { answer: `${draft.title} — rascunho pronto a completar (substitua o que está entre [ ]):\n\n${filled.join('\n\n')}`, action: { kind: 'draft', label: 'Inserir no Texto', html } };
+  }
+
+  // Outros guias parecidos com a pergunta, para sugerir a seguir (no máximo 3).
+  function relatedGuides(query, except) {
+    const list = query.split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2);
+    const has = (key) => { const stem = key.length > 5 ? key.slice(0, key.length - 2) : key; return list.some((w) => w.startsWith(stem)); };
+    return GUIDES.filter((g) => g !== except && g.keys[0] !== 'limitacoes')
+      .map((g) => ({ g, score: g.keys.filter(has).length }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((x) => 'Como fazer: ' + x.g.title.replace(/\s*\([^)]*\)$/, '').toLowerCase());
   }
 
   function chat(content, searchDocs) {
@@ -552,6 +714,8 @@
     const query = plain(question);
     const draft = draftFor(question);
     if (draft) return draft;
+    const calc = calculate(question);
+    if (calc) return { answer: calc };
     if (/^(ola|bom dia|boa tarde|boa noite|oi|obrigad[oa])\b/.test(query) && words(query).length <= 4) {
       return { answer: /obrigad/.test(query) ? 'De nada! Se precisar de mais alguma coisa, é só perguntar.' : 'Olá! Pergunte-me como fazer algo no MyOffice, peça uma fórmula (por exemplo "soma de B2 a B10") ou a estrutura de uma apresentação.' };
     }
@@ -570,8 +734,10 @@
         if (!deck.error) return { answer: `Proposta para «${deck.title}» (estrutura de ${deck.type.toLowerCase()}):\n${deck.slides.map((slide, i) => `${i + 1}. ${slide.title} — ${slide.bullets[0]}`).join('\n')}\n\nPara a criar com tópicos e notas do orador: Diapositivos › Assistente › Criar apresentação.` };
       }
     }
-    const guide = /\b(nao faz|ainda nao|nao consegue|limitac)/.test(query) ? GUIDES.find((g) => g.keys[0] === 'limitacoes') : findGuide(query);
-    if (guide) return { answer: guideAnswer(guide) };
+    const helpish = /\b(como|onde|posso|consigo|quero|queria|preciso|fazer|usar|uso|ponho|por|inserir|criar|mudar|ativar|tirar)\b/.test(query);
+    let guide = /\b(nao faz|ainda nao|nao consegue|limitac)/.test(query) ? GUIDES.find((g) => g.keys[0] === 'limitacoes') : findGuide(query);
+    if (guide && guide.keys[0] !== 'limitacoes' && !helpish && guideScore(query, guide) < 3) guide = null;
+    if (guide) return { answer: guideAnswer(guide), suggestions: relatedGuides(query, guide) };
     if (/\b(texto|documento|paragrafo|escrever|rever|melhorar)\b/.test(query) && /\b(rever|melhorar|corrigir|analisar)\b/.test(query)) {
       return { answer: 'Em Texto, abra o documento e escolha Rever com IA. Recebe um resumo, as frases longas e propostas de reescrita mais curtas; o documento não é alterado.' };
     }
@@ -580,7 +746,19 @@
     }
     const docs = typeof searchDocs === 'function' ? searchDocs(question) : null;
     if (docs) return { answer: docs };
-    return { answer: 'Não tenho uma resposta para isso. Sei ajudar com o MyOffice: como fazer algo (por exemplo "como unir células" ou "como imprimir"), fórmulas ("média de C2 a C20"), estruturas de apresentação ("cria uma apresentação sobre…") e análise de texto e tabelas.' };
+    // Sugestões só para pedidos de ajuda ("como…", "onde…", "quero…"), não para perguntas gerais.
+    const near = helpish ? relatedGuides(query, null) : [];
+    // Só um tema parecido: responde logo com ele.
+    if (near.length === 1) {
+      const only = GUIDES.find((g) => near[0] === 'Como fazer: ' + g.title.replace(/\s*\([^)]*\)$/, '').toLowerCase());
+      if (only) return { answer: guideAnswer(only) };
+    }
+    return {
+      answer: near.length
+        ? 'Não tenho a certeza do que procura. Será um destes temas?'
+        : 'Não tenho uma resposta para isso. Sei ajudar com o MyOffice: como fazer algo ("como unir células"), fórmulas ("média de C2 a C20"), contas ("15% de 230", "IVA de 100"), rascunhos ("escreve uma carta de candidatura a…") e estruturas de apresentação.',
+      suggestions: near
+    };
   }
 
   function assist(input) {
@@ -596,7 +774,7 @@
     return { error: 'Esta tarefa não está disponível para este módulo.' };
   }
 
-  const api = { generateDeck, suggest, suggestVisuals, classify, assist, buildFormula, findGuide: (q) => findGuide(plain(q)) };
+  const api = { generateDeck, suggest, suggestVisuals, classify, assist, buildFormula, calculate, findGuide: (q) => findGuide(plain(q)) };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else (root.MO = root.MO || {}).Assistant = api;
 })(typeof window !== 'undefined' ? window : globalThis);

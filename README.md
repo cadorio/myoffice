@@ -4,11 +4,11 @@
 
 Oito programas independentes — **Texto, Folhas, Diapositivos, Desenho, Notas, PDF, Bases de dados e Assistente** — instalados de uma só vez. Os documentos ficam no seu computador: não é precisa conta, nuvem nem ligação à Internet. Abre e grava ficheiros do Word, Excel e PowerPoint, importa bases de dados do Access e liga a servidores MySQL, PostgreSQL e SQL Server.
 
-**[⬇ Descarregar MyOffice 1.14.0 para Windows (64 bits)](https://github.com/cadorio/myoffice/releases/download/v1.14.0/MyOffice-Setup-1.14.0.exe)**
+**[⬇ Descarregar MyOffice 1.15.0 para Windows (64 bits)](https://github.com/cadorio/myoffice/releases/download/v1.15.0/MyOffice-Setup-1.15.0.exe)**
 
-Também disponível como [MSI para empresas](https://github.com/cadorio/myoffice/releases/download/v1.14.0/MyOffice-1.14.0-x64.msi) e [ZIP portátil](https://github.com/cadorio/myoffice/releases/download/v1.14.0/MyOffice-1.14.0-x64-portatil.zip) · [Somas SHA-256](https://github.com/cadorio/myoffice/releases/download/v1.14.0/SHA256SUMS.txt)
+Também disponível como [MSI para empresas](https://github.com/cadorio/myoffice/releases/download/v1.15.0/MyOffice-1.15.0-x64.msi) e [ZIP portátil](https://github.com/cadorio/myoffice/releases/download/v1.15.0/MyOffice-1.15.0-x64-portatil.zip) · [Somas SHA-256](https://github.com/cadorio/myoffice/releases/download/v1.15.0/SHA256SUMS.txt)
 
-[Notas da versão](https://github.com/cadorio/myoffice/releases/tag/v1.14.0) · [Versões anteriores](https://github.com/cadorio/myoffice/releases) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
+[Notas da versão](https://github.com/cadorio/myoffice/releases/tag/v1.15.0) · [Versões anteriores](https://github.com/cadorio/myoffice/releases) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
 ![MyOffice Bases de dados](docs/screenshots/bases-de-dados.png)
 
@@ -192,15 +192,15 @@ Cada versão traz três formatos. Escolha um:
 
 | Ficheiro | Para quem |
 | --- | --- |
-| [`MyOffice-Setup-1.14.0.exe`](https://github.com/cadorio/myoffice/releases/download/v1.14.0/MyOffice-Setup-1.14.0.exe) | Uso pessoal. Assistente em português; instala só para o utilizador atual, sem pedir administrador. |
-| [`MyOffice-1.14.0-x64.msi`](https://github.com/cadorio/myoffice/releases/download/v1.14.0/MyOffice-1.14.0-x64.msi) | Empresas. Instala para todos os utilizadores e pode ser distribuído por GPO, Intune ou `msiexec /i MyOffice-1.14.0-x64.msi /qn`. |
-| [`MyOffice-1.14.0-x64-portatil.zip`](https://github.com/cadorio/myoffice/releases/download/v1.14.0/MyOffice-1.14.0-x64-portatil.zip) | Sem instalação. Extraia e abra `MyOffice.exe` (por exemplo, numa pen USB). Não cria atalhos nem associações. |
+| [`MyOffice-Setup-1.15.0.exe`](https://github.com/cadorio/myoffice/releases/download/v1.15.0/MyOffice-Setup-1.15.0.exe) | Uso pessoal. Assistente em português; instala só para o utilizador atual, sem pedir administrador. |
+| [`MyOffice-1.15.0-x64.msi`](https://github.com/cadorio/myoffice/releases/download/v1.15.0/MyOffice-1.15.0-x64.msi) | Empresas. Instala para todos os utilizadores e pode ser distribuído por GPO, Intune ou `msiexec /i MyOffice-1.15.0-x64.msi /qn`. |
+| [`MyOffice-1.15.0-x64-portatil.zip`](https://github.com/cadorio/myoffice/releases/download/v1.15.0/MyOffice-1.15.0-x64-portatil.zip) | Sem instalação. Extraia e abra `MyOffice.exe` (por exemplo, numa pen USB). Não cria atalhos nem associações. |
 
 1. Descarregue o formato que quer na [página de versões](https://github.com/cadorio/myoffice/releases/latest).
 2. Abra o ficheiro e siga o assistente de instalação, em português; é mostrada a licença Apache 2.0 antes de instalar.
 3. **Aviso do Windows:** enquanto não houver assinatura digital, o SmartScreen mostra "O Windows protegeu o computador". Clique em **Mais informações** e depois em **Executar mesmo assim**.
 
-**Antivírus:** cada versão traz `SHA256SUMS.txt`. Confirme que o ficheiro descarregado é o original com `Get-FileHash .\MyOffice-Setup-1.14.0.exe` no PowerShell e compare o valor. Se o antivírus bloquear o MyOffice, é um falso positivo comum em programas novos sem assinatura; veja [docs/assinatura-windows.md](docs/assinatura-windows.md) para saber como o reportar.
+**Antivírus:** cada versão traz `SHA256SUMS.txt`. Confirme que o ficheiro descarregado é o original com `Get-FileHash .\MyOffice-Setup-1.15.0.exe` no PowerShell e compare o valor. Se o antivírus bloquear o MyOffice, é um falso positivo comum em programas novos sem assinatura; veja [docs/assinatura-windows.md](docs/assinatura-windows.md) para saber como o reportar.
 
 O instalador cria, no menu Iniciar (sem pasta) e no ambiente de trabalho, um atalho com ícone próprio para cada programa (MyOffice Texto, Folhas, Diapositivos, Desenho, Notas, PDF, Bases de dados e Assistente), cada um com a sua entrada na barra de tarefas. Não há menu inicial: abrir o `MyOffice.exe` diretamente (no ZIP portátil ou no MSI) abre o último programa usado. Os ficheiros `.modoc`, `.mosheet`, `.moslides`, `.modraw`, `.monotes` e `.modb` passam a abrir com o MyOffice; `.docx`, `.pptx` e `.pdf` ficam disponíveis em "Abrir com".
 
@@ -228,11 +228,13 @@ As imagens WebP são convertidas para PNG, para poderem seguir em DOCX e PPTX. O
 
 O Assistente funciona inteiramente no computador, sem Internet, contas nem descarregamentos. Os documentos não saem da máquina.
 
-- **Guias passo a passo** — pergunte "como unir células?", "como imprimo?" ou "como ativo o controlo de alterações?" e recebe os passos, com os nomes dos botões. Se a pergunta não tiver guia, procura na documentação e indica a secção.
-- **Fórmulas a partir de uma frase** — "soma de B2 a B10" dá `=SOMA(B2:B10)`; "quantos valores maiores que 100 na coluna C" dá `=CONTAR.SE(C2:C100;">100")`. Também média, máximo, mínimo, PROCV, SE, percentagens e arredondamentos.
-- **Rascunhos** — "escreve uma reclamação sobre a fatura da luz", "preciso de um pedido de férias", "faz um convite para o jantar de Natal": cartas, emails, reclamações, pedidos, atas, convites, agradecimentos e relatórios, com o assunto já preenchido. O botão **Inserir no Texto** coloca o rascunho no documento.
+- **Guias passo a passo** — pergunte "como unir células?", "como imprimo?" ou "como ativo o controlo de alterações?" e recebe os passos, com os nomes dos botões. Há guias para os oito programas, incluindo as Notas, o desenho à mão, a marca de água e a tabela dinâmica. Se a pergunta não tiver guia, procura na documentação ou sugere os temas mais parecidos, que se abrem com um clique.
+- **Contas feitas na hora** — "15% de 230", "IVA de 100" (23 %), "tirar o IVA a 246 euros", "desconto de 20% em 50", "(250-30)/4", "dias entre 01/02/2026 e 15/03/2026". A resposta mostra também a fórmula equivalente para as Folhas.
+- **Fórmulas a partir de uma frase** — "soma de B2 a B10" dá `=SOMA(B2:B10)`; "quantos valores maiores que 100 na coluna C" dá `=CONTAR.SE(C2:C100;">100")`. Também média, máximo, mínimo, PROCV, SE, SE.ERRO, idade (DATADIF), dias entre datas, posição (ORDEM), IVA, percentagens e arredondamentos.
+- **Rascunhos** — "escreve uma reclamação sobre a fatura da luz", "preciso de um pedido de férias", "faz um convite para o jantar de Natal": cartas, emails, reclamações, pedidos, atas, convites, agradecimentos, relatórios, currículos, cartas de candidatura, justificações de falta, cartas de demissão, propostas comerciais e comunicados, com o assunto já preenchido. O botão **Inserir no Texto** coloca o rascunho no documento.
 - **Trabalha com o que tem aberto** — "resume o meu documento" e "analisa a minha folha" usam o conteúdo real do Texto e das Folhas. As fórmulas têm o botão **Inserir na célula ativa**.
 - **Perguntas de seguimento** — depois de "soma de B2 a B10", basta "e a média?".
+- **Copiar e recomeçar** — cada resposta tem o botão **Copiar**, e **Nova conversa** limpa o histórico.
 - **Texto** — resume o documento, assinala frases longas e termos repetidos e propõe versões mais diretas das frases ("É importante referir que a empresa cresceu" → "A empresa cresceu").
 - **Folhas** — para cada coluna numérica: total, média, máximo e mínimo com a linha correspondente, tendência do primeiro ao último valor e peso do maior valor no total.
 - **Diapositivos** — propõe uma estrutura de apresentação a partir do tema e sugere versões mais concisas dos diapositivos.
