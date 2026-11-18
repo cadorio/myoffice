@@ -102,6 +102,20 @@ const { pathToFileURL } = require('node:url');
     n.load(JSON.stringify(data));
   });
   await capture('notes', 'notas.png');
+  // Plano de lançamento nos Projetos, com progresso e caminho crítico.
+  await page.evaluate(() => {
+    const p = MO.modules.projects;
+    p.newDoc('launch');
+    const data = JSON.parse(p.serialize());
+    data.name = 'Lançamento da loja online';
+    data.showCritical = true;
+    data.scale = 'weeks';
+    const who = ['', 'Ana', 'Rui', '', 'Equipa TI', 'Marta', '', 'Agência', 'Rui', ''];
+    const done = [0, 100, 60, 0, 25, 0, 0, 10, 0, 0];
+    data.tasks.forEach((t, i) => { t.who = who[i]; t.progress = done[i]; });
+    p.load(JSON.stringify(data));
+  });
+  await capture('projects', 'projetos.png');
   // PDF de exemplo, com uma anotação e um realce.
   await page.evaluate(async () => {
     const { PDFDocument, StandardFonts, rgb } = PDFLib;

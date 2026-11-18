@@ -552,6 +552,56 @@ const cellText = (page, a) =>
     await page.screenshot({ path: require('path').join(require('os').tmpdir(), 'mo-notas.png') });
   });
 
+  // ---------------- Projetos ----------------
+  await go(page, 'projects');
+  await test('Projetos: dependências, subtarefas, durações, caminho crítico e guardar', page, async () => {
+    await page.evaluate(() => MO.modules.projects.load(JSON.stringify({ format: 'myoffice-project', version: 1, name: 'Teste', start: '2026-03-02', workdays: true, tasks: [
+      { id: 'a', name: 'Análise', start: '2026-03-02', duration: 3, deps: [], level: 0 },
+      { id: 'b', name: 'Desenho', duration: 5, deps: ['a'], level: 0 },
+      { id: 'c', name: 'Documentação', duration: 2, deps: ['a'], level: 0 },
+      { id: 'd', name: 'Entrega', duration: 1, milestone: true, deps: ['b', 'c'], level: 0 }
+    ] })));
+    let sch = await page.evaluate(() => MO.modules.projects._debug.schedule());
+    // 2 mar 2026 é segunda: Análise 2–4, Desenho 5–11 (salta o fim de semana), Entrega a 12.
+    assert.deepEqual([sch.s[0], sch.e[0]], ['2026-03-02', '2026-03-04']);
+    assert.deepEqual([sch.s[1], sch.e[1]], ['2026-03-05', '2026-03-11']);
+    assert.equal(sch.s[3], '2026-03-12');
+    assert.deepEqual(sch.critical, [true, true, false, true], 'a Documentação tem folga');
+    // Mudar a duração na tabela empurra as seguintes.
+    const dur = page.locator('.proj-table tr[data-row="0"] input[data-key="duration"]');
+    await dur.fill('5');
+    await dur.press('Enter');
+    sch = await page.evaluate(() => MO.modules.projects._debug.schedule());
+    assert.equal(sch.s[1], '2026-03-09');
+    // Nova tarefa abaixo da selecionada, depois subtarefa.
+    await page.click('.proj-table tr[data-row="1"] .col-wbs');
+    await page.click('#view-projects button[title^="Nova tarefa abaixo"]');
+    assert.equal(await page.locator('.proj-table tbody tr').count(), 5);
+    await page.keyboard.press('Escape');
+    await page.click('.proj-table tr[data-row="2"] .col-wbs');
+    await page.click('#view-projects button[title^="Tornar subtarefa"]');
+    assert.equal(await page.textContent('.proj-table tr[data-row="2"] .col-wbs'), '2.1');
+    assert.ok(await page.locator('.proj-table tr[data-row="1"].is-summary').count(), 'Desenho passa a tarefa-resumo');
+    // Dependências escritas pelo número da linha (coluna visível em Ver › Colunas).
+    await page.locator('#view-projects .ribbon-tab', { hasText: /^Ver$/ }).click();
+    await page.check('#view-projects input[aria-label="Mostrar todas as colunas"]');
+    const deps = page.locator('.proj-table tr[data-row="3"] input[data-key="deps"]');
+    await deps.fill('3');
+    await deps.press('Enter');
+    const p = await page.evaluate(() => MO.modules.projects._debug.project());
+    assert.deepEqual(p.tasks[3].deps, [p.tasks[2].id]);
+    assert.ok(await page.locator('.proj-gantt .proj-bar').count() >= 3);
+    assert.equal(await page.locator('.proj-gantt .proj-milestone').count(), 1);
+    // Guardar e abrir.
+    const saved = await page.evaluate(() => MO.modules.projects.serialize());
+    await page.evaluate(() => MO.modules.projects.newDoc('launch'));
+    await page.evaluate((t) => MO.modules.projects.load(t, 'moproj'), saved);
+    assert.equal(await page.evaluate(() => MO.modules.projects._debug.project().tasks.length), 5);
+    assert.match(await page.evaluate(() => MO.modules.projects.exports[0].get()), /Documentação/);
+    await page.evaluate(() => MO.modules.projects.newDoc('launch'));
+    await page.screenshot({ path: require('path').join(require('os').tmpdir(), 'mo-projetos.png') });
+  });
+
   await go(page, 'writer');
 
   await test('Texto: caixa, letra capital, limite, legendas, ordenar, marca de água, navegação e estatísticas', page, async () => {

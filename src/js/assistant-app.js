@@ -128,7 +128,7 @@
       h('header', { class: 'mo-assistant-hero' },
         h('span', { class: 'mo-assistant-kicker' }, 'MYOFFICE · INTELIGÊNCIA ARTIFICIAL'),
         h('h1', null, 'Em que posso ajudar?'),
-        h('p', null, 'Guias passo a passo para os oito programas, contas feitas na hora, fórmulas a partir de uma frase, rascunhos de cartas e propostas, estruturas de apresentação e análise de texto e tabelas. Tudo no seu computador, sem Internet; as respostas seguem regras próprias e têm limites.')
+        h('p', null, 'Guias passo a passo para os nove programas, contas feitas na hora, fórmulas a partir de uma frase, rascunhos de cartas e propostas, estruturas de apresentação e análise de texto e tabelas. Tudo no seu computador, sem Internet; as respostas seguem regras próprias e têm limites.')
       ),
       h('section', { class: 'mo-assistant-shortcuts', 'aria-label': 'Sugestões rápidas' },
         shortcuts.map(([label, prompt]) => h('button', { type: 'button', onclick: () => send(prompt) },

@@ -11,6 +11,7 @@ const APPS = {
   slides: ['icon-slides.svg', '#c86d4d'],
   draw: ['icon-draw.svg', '#567c5e'],
   notes: ['icon-notes.svg', '#a8659b'],
+  projects: ['icon-projects.svg', '#2f8fa8'],
   pdf: ['icon-pdf.svg', '#b8443b'],
   db: ['icon-db.svg', '#6a4fa8'],
   assistant: ['icon-assistant.svg', '#183b34']
