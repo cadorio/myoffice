@@ -468,58 +468,197 @@
     renderCharts();
   }
 
+  // ---------- Tabelas dinâmicas ----------
+  // Configuração: origem (range com cabeçalhos), campo das linhas, campo das colunas (opcional),
+  // campo dos valores e resumo. O resultado é recalculado sempre que a folha muda.
+  const PIVOT_AGG = { sum: 'Soma', count: 'Contagem', avg: 'Média', max: 'Máximo', min: 'Mínimo' };
+
+  function pivotWidth(p) { return p.width || 4; }
+
+  function aggregate(list, agg) {
+    if (agg === 'count') return list.length;
+    const n = list.filter((v) => typeof v === 'number' && Number.isFinite(v));
+    if (!n.length) return agg === 'sum' ? 0 : '';
+    if (agg === 'sum') return n.reduce((x, y) => x + y, 0);
+    if (agg === 'avg') return Math.round((n.reduce((x, y) => x + y, 0) / n.length) * 1e6) / 1e6;
+    if (agg === 'max') return Math.max(...n);
+    return Math.min(...n);
+  }
+
   function rebuildPivotTables() {
     const configs = sheetList[activeSheet]?.pivots || [];
     if (!configs.length) return;
-    const sourceValues = F.compute(cells, ROWS, COLS, bookCells());
-    for (const pivot of configs) {
-      const { r0, r1, c0, c1 } = pivot.range;
-      const categories = new Map();
+    // As células antigas das tabelas saem antes do cálculo, para não entrarem na origem.
+    for (const p of configs) for (let r = 0; r < (p.rows || 0); r++) for (let c = 0; c < pivotWidth(p); c++) delete cells[F.addr(p.outRow + r, p.outCol + c)];
+    const here = F.compute(cells, ROWS, COLS, bookCells());
+    const computed = new Map();
+    const sourceOf = (p) => {
+      if (!p.source) return { vals: here, cells };
+      const sh = sheetList.find((x) => x.name === p.source);
+      if (!sh) return null;
+      if (!computed.has(sh)) computed.set(sh, F.compute(sh.cells, ROWS, COLS, bookCells()));
+      return { vals: computed.get(sh), cells: sh.cells };
+    };
+    const label = (v) => (v == null || v === '' ? '(vazio)' : String(v));
+    const sortKeys = (keys) => keys.sort((x, y) => x.localeCompare(y, 'pt-PT', { numeric: true }));
+    const head = { b: 1, bg: '#dff3eb' };
+    const total = { b: 1, bg: '#f1f6f2' };
+    for (const p of configs) {
+      const origin = sourceOf(p);
+      if (!origin) { cells[F.addr(p.outRow, p.outCol)] = { v: `A folha de origem «${p.source}» já não existe.` }; p.rows = 1; p.width = 1; continue; }
+      const val = (r, c) => { const v = origin.vals.get(F.addr(r, c)); return v instanceof F.FError ? null : v; };
+      const { r0, r1 } = p.range;
+      const rowF = p.rowField ?? p.range.c0;
+      const valF = p.valueField ?? p.range.c1;
+      const colF = p.colField ?? -1;
+      const agg = PIVOT_AGG[p.agg] ? p.agg : 'sum';
+      const groups = new Map();
+      const colKeys = new Set();
+      const all = [];
       for (let r = r0 + 1; r <= r1; r++) {
-        const value = sourceValues.get(F.addr(r, c0));
-        if (value == null || value === '' || value instanceof F.FError) continue;
-        const key = `${typeof value}:${String(value)}`;
-        if (!categories.has(key)) categories.set(key, value);
+        const rk = val(r, rowF);
+        const v = val(r, valF);
+        const rowEmpty = rk == null || rk === '';
+        if (rowEmpty && (v == null || v === '')) continue;
+        const rKey = label(rk);
+        const cKey = colF >= 0 ? label(val(r, colF)) : '';
+        colKeys.add(cKey);
+        if (!groups.has(rKey)) groups.set(rKey, new Map());
+        const g = groups.get(rKey);
+        if (!g.has(cKey)) g.set(cKey, []);
+        g.get(cKey).push(v);
+        all.push([rKey, cKey, v]);
       }
-      for (let r = 0; r < (pivot.rows || 0); r++) for (let c = 0; c < 4; c++) delete cells[F.addr(pivot.outRow + r, pivot.outCol + c)];
-      const headers = ['Categoria', 'Soma', 'Contagem', 'Média'];
-      headers.forEach((label, c) => { const a = F.addr(pivot.outRow, pivot.outCol + c); cells[a] = { v: label, s: { b: 1, bg: '#dff3eb' } }; });
-      const categoryRange = `$${F.colName(c0)}$${r0 + 2}:$${F.colName(c0)}$${r1 + 1}`;
-      const valueRange = `$${F.colName(c1)}$${r0 + 2}:$${F.colName(c1)}$${r1 + 1}`;
-      let row = pivot.outRow + 1;
-      for (const value of categories.values()) {
-        const categoryCell = F.addr(row, pivot.outCol);
-        cells[categoryCell] = { v: typeof value === 'string' && /^[=+\-@']/.test(value) ? `'${value}` : String(value) };
-        cells[F.addr(row, pivot.outCol + 1)] = { v: `=SOMA.SE(${categoryRange};${categoryCell};${valueRange})` };
-        cells[F.addr(row, pivot.outCol + 2)] = { v: `=CONTAR.SE(${categoryRange};${categoryCell})` };
-        cells[F.addr(row, pivot.outCol + 3)] = { v: `=MÉDIA.SE(${categoryRange};${categoryCell};${valueRange})` };
-        row++;
-      }
-      pivot.rows = row - pivot.outRow;
+      const cols = colF >= 0 ? sortKeys([...colKeys]) : [''];
+      const rows = sortKeys([...groups.keys()]);
+      const put = (r, c, v, st) => {
+        if (p.outRow + r >= ROWS || p.outCol + c >= COLS) return;
+        const text = typeof v === 'number' ? String(v) : typeof v === 'string' && /^[=+\-@']/.test(v) ? `'${v}` : String(v);
+        cells[F.addr(p.outRow + r, p.outCol + c)] = st ? { v: text, s: st } : { v: text };
+      };
+      const fieldName = (c) => label(val(r0, c));
+      const corner = colF >= 0 ? `${fieldName(rowF)} ↓ / ${fieldName(colF)} →` : fieldName(rowF);
+      put(0, 0, corner, head);
+      if (colF >= 0) cols.forEach((k, i) => put(0, i + 1, k, head));
+      else put(0, 1, `${PIVOT_AGG[agg]} de ${fieldName(valF)}`, head);
+      const width = colF >= 0 ? cols.length + 2 : 2;
+      if (colF >= 0) put(0, cols.length + 1, 'Total', head);
+      rows.forEach((rk, i) => {
+        put(i + 1, 0, rk, { b: 1 });
+        const g = groups.get(rk);
+        cols.forEach((ck, j) => { const list = g.get(ck); put(i + 1, j + 1, list ? aggregate(list, agg) : '', null); });
+        if (colF >= 0) put(i + 1, cols.length + 1, aggregate([...g.values()].flat(), agg), total);
+      });
+      const tr = rows.length + 1;
+      put(tr, 0, 'Total geral', total);
+      cols.forEach((ck, j) => put(tr, j + 1, aggregate(all.filter((x) => x[1] === ck).map((x) => x[2]), agg), total));
+      if (colF >= 0) put(tr, cols.length + 1, aggregate(all.map((x) => x[2]), agg), total);
+      p.rows = tr + 1;
+      p.width = width;
     }
   }
 
-  function createPivotTable() {
+  function uniqueSheetName(base) {
+    const taken = (n) => sheetList.some((sh, i) => i !== activeSheet && sh.name.toLocaleLowerCase('pt-PT') === n.toLocaleLowerCase('pt-PT'));
+    let name = base;
+    for (let i = 2; taken(name); i++) name = `${base} ${i}`;
+    return name.slice(0, 31);
+  }
+
+  // Seleção de uma só célula: usa a região de dados contígua à volta dela.
+  function dataRegion(sel) {
+    if (sel.r1 > sel.r0 || sel.c1 > sel.c0) return sel;
+    const filled = (r, c) => r >= 0 && c >= 0 && r < ROWS && c < COLS && cells[F.addr(r, c)] && cells[F.addr(r, c)].v !== '';
+    let { r0, r1, c0, c1 } = sel;
+    let grew = true;
+    while (grew) {
+      grew = false;
+      const rowHas = (r) => { for (let c = c0 - 1; c <= c1 + 1; c++) if (filled(r, c)) return true; return false; };
+      const colHas = (c) => { for (let r = r0 - 1; r <= r1 + 1; r++) if (filled(r, c)) return true; return false; };
+      if (rowHas(r0 - 1)) { r0--; grew = true; }
+      if (rowHas(r1 + 1)) { r1++; grew = true; }
+      if (colHas(c0 - 1)) { c0--; grew = true; }
+      if (colHas(c1 + 1)) { c1++; grew = true; }
+    }
+    return { r0, r1, c0, c1 };
+  }
+
+  function pivotDialog(region) {
+    const names = [];
+    for (let c = region.c0; c <= region.c1; c++) {
+      const v = cells[F.addr(region.r0, c)]?.v;
+      names.push([c, v ? String(v) : `Coluna ${F.colName(c)}`]);
+    }
+    // Sugestões: linhas no primeiro campo de texto; valores no último campo numérico.
+    const vals = F.compute(cells, ROWS, COLS, bookCells());
+    const isNum = (c) => { for (let r = region.r0 + 1; r <= Math.min(region.r1, region.r0 + 20); r++) if (typeof vals.get(F.addr(r, c)) === 'number') return true; return false; };
+    const numeric = names.filter(([c]) => isNum(c));
+    const text = names.filter(([c]) => !isNum(c));
+    const defRow = (text[0] || names[0])[0];
+    const defVal = (numeric[numeric.length - 1] || names[names.length - 1])[0];
+    const select = (name, opts, value) => h('select', { 'data-name': name }, opts.map(([v, l]) => h('option', { value: String(v), selected: String(v) === String(value) || undefined }, l)));
+    const fields = [
+      ['Linhas', select('row', names, defRow)],
+      ['Colunas (opcional)', select('col', [[-1, '(nenhuma)'], ...names], -1)],
+      ['Valores', select('val', names, defVal)],
+      ['Resumir por', select('agg', Object.entries(PIVOT_AGG), numeric.length ? 'sum' : 'count')],
+      ['Colocar em', select('where', [['sheet', 'Nova folha'], ['here', 'Ao lado dos dados']], 'sheet')]
+    ];
+    return new Promise((resolve) => {
+      let result = null;
+      const form = h('form', { method: 'dialog' },
+        h('h2', null, 'Tabela dinâmica'),
+        h('p', null, `Origem: ${F.addr(region.r0, region.c0)}:${F.addr(region.r1, region.c1)} (${region.r1 - region.r0} linhas de dados).`),
+        fields.map(([l, el]) => h('label', null, h('span', null, l), el)),
+        h('div', { class: 'dialog-actions' },
+          h('button', { type: 'button', class: 'btn', onclick: () => dlg.close() }, 'Cancelar'),
+          h('button', { type: 'submit', class: 'btn primary' }, 'Criar')));
+      const dlg = h('dialog', { class: 'mo-dialog pivot-dialog' }, form);
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        result = {};
+        for (const el of form.querySelectorAll('select')) result[el.dataset.name] = el.value;
+        dlg.close();
+      });
+      dlg.addEventListener('close', () => { dlg.remove(); resolve(result); });
+      document.body.append(dlg);
+      dlg.showModal();
+    });
+  }
+
+  async function createPivotTable() {
     if (editing) stopEdit(true);
-    const selectedRange = { ...range() };
-    if (selectedRange.r1 <= selectedRange.r0 || selectedRange.c1 <= selectedRange.c0) return MO.toast('Selecione cabeçalhos e pelo menos duas colunas: categoria e valores.');
-    const used = usedBounds();
-    const outCol = Math.max(selectedRange.c1, used.maxC) + 2;
-    if (outCol + 3 >= COLS) return MO.toast('Não há espaço à direita da folha para criar o resumo dinâmico.');
-    const sheet = sheetList[activeSheet];
-    sheet.pivots ||= [];
-    if (sheet.pivots.length >= 10) return MO.toast('Este livro já tem o limite de 10 tabelas dinâmicas por folha.');
-    const outRow = selectedRange.r0;
-    const intersects = sheet.pivots.some((p) => outCol <= p.outCol + 3 && outCol + 3 >= p.outCol && outRow <= p.outRow + p.rows && outRow + 500 >= p.outRow);
-    if (intersects) return MO.toast('O espaço de saída coincide com outra tabela dinâmica.');
-    undoStack.push(JSON.stringify({ cells, pivots: sheet.pivots }));
-    if (undoStack.length > MAX_UNDO) undoStack.shift();
-    redoStack = [];
-    sheet.pivots.push({ range: selectedRange, outCol, outRow, rows: 0 });
+    const region = dataRegion({ ...range() });
+    if (region.r1 <= region.r0) return MO.toast('Selecione uma célula dentro da tabela de dados (com cabeçalhos na primeira linha).');
+    const choice = await pivotDialog(region);
+    if (!choice) return;
+    const conf = { rowField: +choice.row, colField: +choice.col, valueField: +choice.val, agg: choice.agg, rows: 0, width: 0 };
+    if (choice.where === 'sheet') {
+      // A tabela fica numa folha nova e lê a origem da folha de dados, pelo nome.
+      if (sheetList.length >= 100) return MO.toast('Um livro pode ter até 100 folhas.');
+      const srcName = sheetList[activeSheet].name;
+      addSheet();
+      const sheet = sheetList[activeSheet];
+      sheet.name = uniqueSheetName('Tabela dinâmica');
+      Object.assign(conf, { range: region, outRow: 0, outCol: 0, source: srcName });
+      sheet.pivots = [conf];
+      showSheetTabs();
+    } else {
+      const outCol = region.c1 + 2;
+      if (outCol + 3 >= COLS) return MO.toast('Não há espaço à direita dos dados. Escolha «Nova folha».');
+      const sheet = sheetList[activeSheet];
+      sheet.pivots ||= [];
+      if (sheet.pivots.length >= 10) return MO.toast('Esta folha já tem o limite de 10 tabelas dinâmicas.');
+      undoStack.push(JSON.stringify({ cells, pivots: sheet.pivots }));
+      if (undoStack.length > MAX_UNDO) undoStack.shift();
+      redoStack = [];
+      Object.assign(conf, { range: region, outRow: region.r0, outCol });
+      sheet.pivots.push(conf);
+    }
     rebuildPivotTables();
     refresh();
     ctx.dirty();
-    MO.toast('Resumo dinâmico criado. As fórmulas acompanham os dados; as categorias atualizam-se ao editar a origem.');
+    MO.toast('Tabela dinâmica criada. Atualiza-se sozinha quando os dados mudam.');
   }
 
   function visibleStart() {
@@ -1197,6 +1336,8 @@
     const name = result.name.replace(/[\\/*?:\[\]]/g, '').trim().slice(0, 31) || sheet.name;
     const duplicate = sheetList.some((other, i) => i !== index && other.name.toLocaleLowerCase('pt-PT') === name.toLocaleLowerCase('pt-PT'));
     if (duplicate) return MO.toast('Já existe uma folha com esse nome.');
+    // As tabelas dinâmicas que leem esta folha passam a usar o nome novo.
+    for (const other of sheetList) for (const p of other.pivots || []) if (p.source === sheet.name) p.source = name;
     sheet.name = name;
     showSheetTabs(); ctx.dirty();
   }
@@ -1262,8 +1403,17 @@
       });
       const pivots = (Array.isArray(sheet && sheet.pivots) ? sheet.pivots : []).slice(0, 10).flatMap((pivot) => {
         const r = pivot && pivot.range;
-        if (!r || ![r.r0, r.r1, r.c0, r.c1, pivot.outCol, pivot.outRow, pivot.rows].every(Number.isInteger) || r.r0 < 0 || r.c0 < 0 || r.r1 <= r.r0 || r.c1 <= r.c0 || r.r1 >= ROWS || r.c1 >= COLS || pivot.outCol < 0 || pivot.outCol + 3 >= COLS || pivot.outRow < 0 || pivot.outRow >= ROWS) return [];
-        return [{ range: { r0: r.r0, r1: r.r1, c0: r.c0, c1: r.c1 }, outCol: pivot.outCol, outRow: pivot.outRow, rows: Math.max(0, Math.min(ROWS - pivot.outRow, pivot.rows)) }];
+        if (!r || ![r.r0, r.r1, r.c0, r.c1, pivot.outCol, pivot.outRow, pivot.rows].every(Number.isInteger) || r.r0 < 0 || r.c0 < 0 || r.r1 <= r.r0 || r.c1 < r.c0 || r.r1 >= ROWS || r.c1 >= COLS || pivot.outCol < 0 || pivot.outCol >= COLS || pivot.outRow < 0 || pivot.outRow >= ROWS) return [];
+        const field = (v, min) => (Number.isInteger(v) && v >= min && v < COLS ? v : undefined);
+        const out = { range: { r0: r.r0, r1: r.r1, c0: r.c0, c1: r.c1 }, outCol: pivot.outCol, outRow: pivot.outRow, rows: Math.max(0, Math.min(ROWS - pivot.outRow, pivot.rows)) };
+        const rowField = field(pivot.rowField, 0), valueField = field(pivot.valueField, 0), colField = field(pivot.colField, -1);
+        if (rowField !== undefined) out.rowField = rowField;
+        if (valueField !== undefined) out.valueField = valueField;
+        if (colField !== undefined) out.colField = colField;
+        if (Object.hasOwn(PIVOT_AGG, pivot.agg)) out.agg = pivot.agg;
+        if (Number.isInteger(pivot.width) && pivot.width > 0 && pivot.width <= COLS) out.width = pivot.width;
+        if (typeof pivot.source === 'string' && pivot.source.length <= 31) out.source = pivot.source;
+        return [out];
       });
       const okRange = (r) => r && [r.r0, r.r1, r.c0, r.c1].every(Number.isInteger) && r.r0 >= 0 && r.c0 >= 0 && r.r1 >= r.r0 && r.c1 >= r.c0 && r.r1 < ROWS && r.c1 < COLS;
       const merges = (Array.isArray(sheet && sheet.merges) ? sheet.merges : []).slice(0, 2000)
@@ -1555,7 +1705,7 @@
                   bigButton('filter', 'Filtrar', 'Filtrar as linhas da seleção pela coluna ativa', filterSelection),
                   bigButton('filter', 'Limpar filtro', 'Mostrar novamente todas as linhas', clearFilter),
                   bigButton('chart', 'Gráfico', 'Criar gráfico a partir da seleção', openChart),
-                  bigButton('chart', 'Tabela dinâmica', 'Agrupar categorias e resumir valores com fórmulas atualizadas', createPivotTable),
+                  bigButton('chart', 'Tabela dinâmica', 'Resumir os dados: escolha o campo das linhas, das colunas e dos valores', createPivotTable),
                   bigButton('sparkle', 'Analisar com IA', 'Calcular estatísticas e verificar células vazias com o motor próprio do MyOffice', aiAnalyseSelection)
                 ]
               ]

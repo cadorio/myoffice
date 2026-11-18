@@ -200,6 +200,49 @@ const cellText = (page, a) =>
     assert.ok(names[3].length <= 31, 'máximo de 31 carateres, como no Excel');
   });
 
+  await test('Folhas: tabela dinâmica escolhe campos, cruza colunas e vai para nova folha', page, async () => {
+    const cells = { A1: { v: 'Região' }, B1: { v: 'Mês' }, C1: { v: 'Valor' } };
+    [['Norte', 'Jan', 10], ['Sul', 'Jan', 5], ['Norte', 'Fev', 7], ['Sul', 'Fev', 3], ['Norte', 'Jan', 1]].forEach(([a, b, c], i) => {
+      cells['A' + (i + 2)] = { v: a }; cells['B' + (i + 2)] = { v: b }; cells['C' + (i + 2)] = { v: String(c) };
+    });
+    await page.evaluate((text) => MO.modules.sheets.load(text, 'mosheet'), JSON.stringify({ format: 'myoffice-sheet', version: 3, sheets: [{ name: 'Dados', cells }] }));
+    await page.click('.grid td[data-r="2"][data-c="1"]');
+    await page.click('#view-sheets .ribbon-tab:has-text("Dados")');
+    await page.locator('#view-sheets button.tool:has-text("Tabela dinâmica")').first().click();
+    const dlg = page.locator('dialog.pivot-dialog');
+    await dlg.waitFor();
+    assert.equal(await dlg.locator('select[data-name="row"]').inputValue(), '0', 'linhas sugeridas: Região');
+    assert.equal(await dlg.locator('select[data-name="val"]').inputValue(), '2', 'valores sugeridos: Valor');
+    await dlg.locator('select[data-name="col"]').selectOption('1');
+    await dlg.locator('button[type="submit"]').click();
+    await page.waitForFunction(() => document.querySelectorAll('.sheet-tab').length === 2);
+    assert.equal(await cellText(page, 'A2'), 'Norte');
+    assert.equal(await cellText(page, 'B1'), 'Fev');
+    assert.equal(await cellText(page, 'C2'), '11', 'Norte em Jan = 10 + 1');
+    assert.equal(await cellText(page, 'D2'), '18', 'total da linha Norte');
+    assert.equal(await cellText(page, 'D4'), '26', 'total geral');
+    // Muda a origem: a tabela acompanha.
+    await page.click('.sheet-tab >> nth=0');
+    await page.click('.grid td[data-r="1"][data-c="2"]');
+    await page.keyboard.type('20');
+    await page.keyboard.press('Enter');
+    await page.click('.sheet-tab >> nth=1');
+    assert.equal(await cellText(page, 'D4'), '36', 'total geral atualizado');
+    // Segunda tabela com campos diferentes dá um resultado diferente.
+    await page.locator('.sheet-tab').first().click();
+    await page.click('.grid td[data-r="1"][data-c="0"]');
+    const pivotBtn = page.locator('#view-sheets button.tool:has-text("Tabela dinâmica")').first();
+    if (!(await pivotBtn.isVisible())) await page.click('#view-sheets .ribbon-tab:has-text("Dados")');
+    await pivotBtn.click();
+    await dlg.waitFor();
+    await dlg.locator('select[data-name="row"]').selectOption('1');
+    await dlg.locator('select[data-name="agg"]').selectOption('count');
+    await dlg.locator('button[type="submit"]').click();
+    await page.waitForFunction(() => document.querySelectorAll('.sheet-tab').length === 3);
+    assert.equal(await cellText(page, 'A2'), 'Fev');
+    assert.equal(await cellText(page, 'B3'), '3', 'Jan aparece 3 vezes');
+  });
+
   await test('Folhas: livro com várias folhas sobrevive a exportar e importar .xlsx', page, async () => {
     const book = {
       format: 'myoffice-sheet',
