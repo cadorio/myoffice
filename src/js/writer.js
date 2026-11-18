@@ -557,6 +557,185 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
     return btn;
   }
 
+  // ---------- Destaques: caixa, letra capital, limite, legendas e ordenar ----------
+
+  // Blocos de topo (filhos diretos da página) tocados pela seleção.
+  function topBlocks() {
+    const blocks = selectedBlocks();
+    const tops = [];
+    for (const b of blocks) {
+      let el = b;
+      while (el.parentElement && el.parentElement !== editor) el = el.parentElement;
+      if (el.parentElement === editor && !tops.includes(el)) tops.push(el);
+    }
+    return tops;
+  }
+
+  function insertBox() {
+    const tops = topBlocks();
+    const inBox = tops.length && tops[0].classList.contains('mo-box');
+    if (inBox) {
+      // Já está numa caixa: tira a caixa e mantém o texto.
+      tops[0].replaceWith(...tops[0].childNodes);
+      return changed();
+    }
+    if (!tops.length || (tops.length === 1 && !tops[0].textContent.trim())) {
+      insertHTML('<div class="mo-box"><p>Texto em destaque</p></div>' + EMPTY);
+      return;
+    }
+    if (tops.some((b) => b.tagName === 'TABLE' || b.classList.contains('mo-toc'))) return MO.toast('Selecione parágrafos de texto (sem tabelas nem índice).');
+    const box = h('div', { class: 'mo-box' });
+    tops[0].before(box);
+    box.append(...tops);
+    changed();
+  }
+
+  function dropCap() {
+    const block = selectedBlocks()[0];
+    if (!block || block.tagName !== 'P') return MO.toast('Coloque o cursor num parágrafo.');
+    const existing = block.querySelector('.mo-dropcap');
+    if (existing) { existing.replaceWith(...existing.childNodes); block.normalize(); return changed(); }
+    const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode()) && !/\S/.test(node.data));
+    if (!node) return MO.toast('O parágrafo está vazio.');
+    const i = node.data.search(/\S/);
+    const letter = node.splitText(i);
+    letter.splitText(1);
+    const span = h('span', { class: 'mo-dropcap' });
+    letter.replaceWith(span);
+    span.append(letter);
+    changed();
+  }
+
+  function toggleBorder() {
+    const blocks = selectedBlocks().filter((b) => !['TD', 'TH', 'LI'].includes(b.tagName));
+    if (!blocks.length) return MO.toast('Coloque o cursor num parágrafo.');
+    const on = !blocks[0].classList.contains('mo-border');
+    for (const b of blocks) b.classList.toggle('mo-border', on);
+    changed();
+  }
+
+  const CAPTION_RE = /^(Figura|Tabela|Gráfico|Equação)\s+\d+/;
+  function renumberCaptions() {
+    const count = {};
+    for (const p of editor.querySelectorAll('p.mo-caption')) {
+      const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+      const first = walker.nextNode();
+      if (!first) continue;
+      const m = first.data.match(CAPTION_RE);
+      if (!m) continue;
+      count[m[1]] = (count[m[1]] || 0) + 1;
+      const next = first.data.replace(CAPTION_RE, `${m[1]} ${count[m[1]]}`);
+      if (next !== first.data) first.data = next;
+    }
+  }
+
+  async function insertCaption() {
+    rememberSelection();
+    const block = topBlocks()[0];
+    const kindSel = h('select', null, ['Figura', 'Tabela', 'Gráfico', 'Equação'].map((k) => h('option', { value: k }, k)));
+    if (block && block.tagName === 'TABLE') kindSel.value = 'Tabela';
+    const text = h('input', { type: 'text', placeholder: 'Ex.: Vendas por região em 2026' });
+    const dlg = h('dialog', { class: 'mo-dialog' }, h('form', { method: 'dialog' },
+      h('h2', null, 'Inserir legenda'),
+      h('p', null, 'A numeração (Figura 1, Figura 2…) é atualizada sozinha.'),
+      h('label', null, h('span', null, 'Tipo'), kindSel),
+      h('label', null, h('span', null, 'Texto'), text),
+      h('div', { class: 'dialog-actions' }, h('button', { type: 'button', class: 'btn', onclick: () => dlg.close() }, 'Cancelar'), h('button', { type: 'submit', class: 'btn primary' }, 'Inserir'))));
+    const result = await new Promise((resolve) => {
+      let out = null;
+      dlg.querySelector('form').addEventListener('submit', (e) => { e.preventDefault(); out = { kind: kindSel.value, text: text.value.trim() }; dlg.close(); });
+      dlg.addEventListener('close', () => { dlg.remove(); resolve(out); });
+      document.body.append(dlg);
+      dlg.showModal();
+      text.focus();
+    });
+    if (!result) return;
+    const p = h('p', { class: 'mo-caption' }, `${result.kind} 0${result.text ? ': ' + result.text.slice(0, 300) : ''}`);
+    if (block) block.after(p);
+    else editor.append(p);
+    renumberCaptions();
+    changed();
+  }
+
+  function sortParagraphs(desc) {
+    const blocks = selectedBlocks();
+    const parent = blocks[0] && blocks[0].parentElement;
+    if (blocks.length < 2 || blocks.some((b) => b.parentElement !== parent || ['TD', 'TH'].includes(b.tagName))) return MO.toast('Selecione dois ou mais parágrafos ou itens da mesma lista.');
+    const anchor = blocks[blocks.length - 1].nextSibling;
+    const sorted = [...blocks].sort((a, b) => a.textContent.trim().localeCompare(b.textContent.trim(), 'pt-PT', { numeric: true, sensitivity: 'base' }));
+    if (desc) sorted.reverse();
+    for (const b of sorted) parent.insertBefore(b, anchor);
+    changed();
+    MO.toast(`${blocks.length} parágrafos ordenados.`);
+  }
+
+  // ---------- Marca de água ----------
+
+  let docWatermark = '';
+  function applyWatermark() {
+    if (docWatermark) editor.dataset.wm = docWatermark;
+    else delete editor.dataset.wm;
+  }
+
+  async function watermarkDialog() {
+    const res = await MO.dialog({
+      title: 'Marca de água',
+      message: 'Texto em diagonal por trás do texto, no ecrã, na impressão e no PDF. Deixe vazio para tirar.',
+      fields: [{ name: 'text', label: 'Texto', value: docWatermark, placeholder: 'Ex.: CONFIDENCIAL, RASCUNHO, CÓPIA' }],
+      okLabel: 'Aplicar'
+    });
+    if (!res) return;
+    docWatermark = res.text.trim().slice(0, 40);
+    applyWatermark();
+    ctx.dirty();
+  }
+
+  // ---------- Ver: navegação, leitura e estatísticas ----------
+
+  let navPane = null;
+  function renderNav() {
+    if (!navPane || navPane.hidden) return;
+    const heads = [...editor.querySelectorAll('h1, h2, h3')].filter((el) => !el.closest('.mo-toc'));
+    navPane.replaceChildren(h('div', { class: 'nav-pane-title' }, 'Navegação'),
+      heads.length ? h('ol', null, heads.map((el) => h('li', { class: 'nav-' + el.tagName.toLowerCase() },
+        h('button', { type: 'button', onclick: () => { el.scrollIntoView({ block: 'start', behavior: 'smooth' }); const r = document.createRange(); r.selectNodeContents(el); r.collapse(true); const sel = document.getSelection(); sel.removeAllRanges(); sel.addRange(r); savedRange = r.cloneRange(); } }, el.textContent.trim() || '(título vazio)')))) :
+        h('p', { class: 'nav-pane-empty' }, 'Use os estilos Título 1, 2 e 3 para ver aqui a estrutura do documento.'));
+  }
+
+  function toggleNav() {
+    navPane.hidden = !navPane.hidden;
+    renderNav();
+  }
+
+  function toggleReading(on) {
+    const root = editor.closest('.view') || document.body;
+    const active = on ?? !root.classList.contains('reading-mode');
+    root.classList.toggle('reading-mode', active);
+    editor.contentEditable = active ? 'false' : 'true';
+    if (active) MO.toast('Modo de leitura. Prima Esc para voltar a editar.');
+    else editor.focus();
+  }
+
+  function statsDialog() {
+    const text = editor.innerText || '';
+    const words = (text.match(/[\p{L}\p{N}]+(?:[’'-][\p{L}\p{N}]+)*/gu) || []).length;
+    const chars = text.replace(/\n/g, '').length;
+    const noSpaces = text.replace(/\s/g, '').length;
+    const paragraphs = [...editor.querySelectorAll('p, h1, h2, h3, h4, li')].filter((el) => el.textContent.trim()).length;
+    const sentences = (text.match(/[^.!?…]+[.!?…]+/g) || []).length;
+    const [, hgt] = PAGE_SIZES[docPage.size] || PAGE_SIZES.A4;
+    const pxPerMm = editor.offsetWidth / (parseFloat(editor.style.width) || 210);
+    const pages = Math.max(1, Math.ceil(editor.scrollHeight / (hgt * pxPerMm)));
+    const rows = [
+      ['Páginas (aprox.)', pages], ['Palavras', words], ['Carateres (sem espaços)', noSpaces], ['Carateres (com espaços)', chars],
+      ['Parágrafos', paragraphs], ['Frases', sentences], ['Palavras por frase', sentences ? (words / sentences).toFixed(1).replace('.', ',') : '—'],
+      ['Tempo de leitura', `~${Math.max(1, Math.ceil(words / 200))} min`], ['Tempo a falar em voz alta', `~${Math.max(1, Math.ceil(words / 130))} min`]
+    ];
+    MO.dialog({ title: 'Estatísticas do documento', message: rows.map(([k, v]) => `${k}: ${typeof v === 'number' ? v.toLocaleString('pt-PT') : v}`).join('\n'), okLabel: 'Fechar', cancelLabel: '' });
+  }
+
   function buildRibbon() {
     themeRow = h('div', { class: 'theme-gallery' }, T.gallery((t) => {
       setTheme(t);
@@ -614,7 +793,10 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
                   select([['Entre linhas', ''], ['1,0', '1'], ['1,15', '1.15'], ['1,5', '1.5'], ['2,0', '2'], ['3,0', '3']], 'Espaçamento entre linhas', (v) => v && styleBlocks('lineHeight', v), true),
                   select([['Espaço depois', ''], ['0 pt', '0pt'], ['6 pt', '6pt'], ['12 pt', '12pt'], ['18 pt', '18pt']], 'Espaço depois do parágrafo', (v) => v && styleBlocks('marginBottom', v), true),
                   select([['Espaço antes', ''], ['0 pt', '0pt'], ['6 pt', '6pt'], ['12 pt', '12pt'], ['18 pt', '18pt']], 'Espaço antes do parágrafo', (v) => v && styleBlocks('marginTop', v), true),
-                  toolButton('↦', 'Avanço da primeira linha (liga/desliga)', () => { const b = selectedBlocks(); const on = b.length && !b[0].style.textIndent; styleBlocks('textIndent', on ? '1.25cm' : ''); }, 'firstline')
+                  toolButton('↦', 'Avanço da primeira linha (liga/desliga)', () => { const b = selectedBlocks(); const on = b.length && !b[0].style.textIndent; styleBlocks('textIndent', on ? '1.25cm' : ''); }, 'firstline'),
+                  toolButton('▢', 'Limite e sombreado do parágrafo (liga/desliga)', toggleBorder, 'border'),
+                  iconButton('sortAsc', 'Ordenar parágrafos de A a Z', () => sortParagraphs(false)),
+                  iconButton('sortDesc', 'Ordenar parágrafos de Z a A', () => sortParagraphs(true))
                 ]
               ]
             },
@@ -632,10 +814,18 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
           label: 'Estrutura',
           groups: [
             { label: 'Temas do documento', rows: [themeRow] },
-            { label: 'Página', rows: [[bigButton('pageSetup', 'Configurar página', 'Tamanho do papel, orientação e margens', pageDialog), bigButton('pageBreak', 'Cabeçalho e rodapé', 'Definir texto repetido e numeração de páginas', editPageParts)], [select([['Colunas', ''], ['Uma coluna', '1'], ['Duas colunas', '2'], ['Três colunas', '3']], 'Colunas de texto', (v) => v && setColumns(Number(v)), true)]] }
+            { label: 'Página', rows: [[bigButton('pageSetup', 'Configurar página', 'Tamanho do papel, orientação e margens', pageDialog), bigButton('pageBreak', 'Cabeçalho e rodapé', 'Definir texto repetido e numeração de páginas', editPageParts), bigButton('textBox', 'Marca de água', 'Texto em diagonal por trás do documento (CONFIDENCIAL, RASCUNHO…)', watermarkDialog)], [select([['Colunas', ''], ['Uma coluna', '1'], ['Duas colunas', '2'], ['Três colunas', '3']], 'Colunas de texto', (v) => v && setColumns(Number(v)), true)]] }
           ]
         },
         reviewTab(),
+        {
+          label: 'Ver',
+          groups: [
+            { label: 'Mostrar', rows: [[bigButton('toc', 'Navegação', 'Painel com os títulos do documento, para saltar entre secções', toggleNav)]] },
+            { label: 'Leitura', rows: [[bigButton('presenter', 'Modo de leitura', 'Esconder as ferramentas e ler sem distrações (Esc para sair)', () => toggleReading())]] },
+            { label: 'Documento', rows: [[bigButton('count', 'Estatísticas', 'Páginas, palavras, carateres, frases e tempo de leitura', statsDialog)]] }
+          ]
+        },
         {
           label: 'Correspondência',
           groups: [
@@ -664,7 +854,8 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
               label: 'Referências',
               rows: [[
                 bigButton('toc', 'Índice', 'Inserir ou atualizar o índice a partir dos títulos', insertToc),
-                bigButton('footnote', 'Nota de rodapé', 'Inserir nota de rodapé no cursor', addFootnote)
+                bigButton('footnote', 'Nota de rodapé', 'Inserir nota de rodapé no cursor', addFootnote),
+                bigButton('image', 'Legenda', 'Legenda numerada para figuras, tabelas e gráficos', insertCaption)
               ]]
             },
             {
@@ -677,6 +868,10 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
                 [
                   bigButton('sparkle', 'Símbolo', 'Inserir símbolo ou carácter especial (©, €, →, ✓…)', symbolDialog),
                   bigButton('pageSetup', 'Data', 'Inserir a data de hoje', insertDate)
+                ],
+                [
+                  bigButton('textBox', 'Caixa de destaque', 'Pôr o texto selecionado numa caixa com fundo (ou tirar)', insertBox),
+                  bigButton('fill', 'Letra capital', 'Letra grande no início do parágrafo (liga/desliga)', dropCap)
                 ]
               ]
             }
@@ -1022,13 +1217,14 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
       const ribbon = buildRibbon();
       const bar = h('div', { class: 'statusbar' }, statusEl, MO.zoomControl((k) => (editor.style.zoom = k)));
       notesBox = h('aside', { class: 'page-notes', hidden: true, 'aria-label': 'Notas de rodapé' });
-      container.append(ribbon, h('div', { class: 'page-scroll' }, editor, notesBox), bar);
+      navPane = h('nav', { class: 'nav-pane', hidden: true, 'aria-label': 'Navegação pelos títulos' });
+      container.append(ribbon, h('div', { class: 'writer-body' }, navPane, h('div', { class: 'page-scroll' }, editor, notesBox)), bar);
       editor.addEventListener('beforeinput', onBeforeInput);
       // Comentários e notas atualizam-se depois de cada alteração (no máximo uma vez por fotograma).
       let refreshFrame = 0;
       editor.addEventListener('input', () => {
         if (refreshFrame) return;
-        refreshFrame = requestAnimationFrame(() => { refreshFrame = 0; renderComments(); renderNotes(); });
+        refreshFrame = requestAnimationFrame(() => { refreshFrame = 0; renderComments(); renderNotes(); renumberCaptions(); renderNav(); });
       });
       showStates = MO.toolStates(ribbon, STATE_TITLES);
       document.addEventListener('selectionchange', updateStates);
@@ -1043,6 +1239,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
       editor.addEventListener('click', (e) => { if (e.target.tagName === 'IMG') showImageBar(e.target); else hideImageBar(); });
       editor.parentElement.addEventListener('scroll', () => placeImageBar(), { passive: true });
       editor.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && editor.contentEditable === 'false') { toggleReading(false); return; }
         if (e.key === 'Escape' && painter) { painter = null; painterButton && painterButton.classList.remove('on'); }
         if (activeImage && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); activeImage.remove(); hideImageBar(); changed(); return; }
         if (activeImage) hideImageBar();
@@ -1071,7 +1268,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
 
     newDoc(template) {
       setTheme(T.LIST[0]);
-      docHeader = ''; docFooter = '';
+      docHeader = ''; docFooter = ''; docWatermark = '';
       docComments = {}; docNotes = {}; docPage = cleanPage(null); tracking = false;
       const templates = {
         report: '<h1>Relatório de projeto</h1><p><strong>Responsável:</strong> [Nome]</p><p><strong>Data:</strong> [Data]</p><h2>1. Resumo executivo</h2><p>Apresente aqui os principais objetivos, resultados e conclusões.</p><h2>2. Objetivos</h2><p>Descreva o que se pretende alcançar.</p><h2>3. Desenvolvimento</h2><p>Registe as atividades realizadas, os recursos utilizados e os resultados obtidos.</p><h2>4. Conclusões e próximos passos</h2><p>Resuma as conclusões e identifique as ações seguintes.</p>',
@@ -1086,7 +1283,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
     serialize() {
       renderComments();
       renderNotes();
-      return JSON.stringify({ format: 'myoffice-doc', version: 3, theme: theme.id, html: editor.innerHTML, header: docHeader, footer: docFooter, comments: docComments, notes: docNotes, page: docPage });
+      return JSON.stringify({ format: 'myoffice-doc', version: 3, theme: theme.id, html: editor.innerHTML, header: docHeader, footer: docFooter, comments: docComments, notes: docNotes, page: docPage, watermark: docWatermark });
     },
 
     load(text, ext) {
@@ -1102,7 +1299,9 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
         docComments = cleanTextMap(data.comments, 'comment');
         docNotes = cleanTextMap(data.notes, 'note');
         docPage = cleanPage(data.page);
+        docWatermark = typeof data.watermark === 'string' ? data.watermark.slice(0, 40) : '';
       } else if (ext === 'docx') {
+        docWatermark = '';
         const doc = MO.OOXML.importDocx(text);
         docComments = cleanTextMap(doc.comments, 'comment');
         docNotes = cleanTextMap(doc.notes, 'note');
@@ -1111,12 +1310,14 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
         docHeader = String(doc.header || '').slice(0, 180);
         docFooter = String(doc.footer || '').slice(0, 180);
       } else if (ext === 'txt') {
+        docWatermark = '';
         docHeader = ''; docFooter = ''; docComments = {}; docNotes = {}; docPage = cleanPage(null);
         html = text
           .split(/\r?\n/)
           .map((line) => `<p>${MO.escapeHTML(line) || '<br>'}</p>`)
           .join('');
       } else {
+        docWatermark = '';
         docHeader = ''; docFooter = ''; docComments = {}; docNotes = {}; docPage = cleanPage(null);
         html = text;
       }
@@ -1138,6 +1339,7 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
       const node = h('div', { class: 'print-document' });
       if (docHeader) node.append(h('div', { class: 'print-running-header' }, docHeader));
       const body = h('div', { class: 'print-doc' });
+      if (docWatermark) node.append(h('div', { class: 'print-watermark', 'aria-hidden': 'true' }, docWatermark));
       renderNotes();
       body.innerHTML = editor.innerHTML;
       if (docPage.columns > 1) Object.assign(body.style, { columnCount: String(docPage.columns), columnGap: '10mm' });
@@ -1176,6 +1378,9 @@ hr.page-break { border: 0; margin: 0; break-after: page; }`;
   };
 
   function afterLoad() {
+    applyWatermark();
+    renumberCaptions();
+    renderNav();
     lockToc();
     renderComments();
     renderNotes();

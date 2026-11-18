@@ -467,6 +467,62 @@ const cellText = (page, a) =>
 
   await go(page, 'writer');
 
+  await test('Texto: caixa, letra capital, limite, legendas, ordenar, marca de água, navegação e estatísticas', page, async () => {
+    await loadDoc('<h1>Relatório</h1><p>Pera</p><p>Banana</p><p>Abacate</p><h2>Secção dois</h2><p>Era uma vez um texto.</p>');
+    await page.click('.page');
+    // Ordenar os três parágrafos.
+    await page.evaluate(() => { const ps = document.querySelectorAll('.page p'); const r = document.createRange(); r.setStart(ps[0].firstChild, 0); r.setEnd(ps[2].firstChild, 3); const s = getSelection(); s.removeAllRanges(); s.addRange(r); });
+    await writerTab('Base');
+    await page.click('button[title="Ordenar parágrafos de A a Z"]');
+    assert.deepEqual(await page.$$eval('.page p', (ps) => ps.slice(0, 3).map((p) => p.textContent)), ['Abacate', 'Banana', 'Pera']);
+    // Caixa de destaque à volta dos parágrafos selecionados.
+    await writerTab('Inserir');
+    await page.evaluate(() => { const ps = document.querySelectorAll('.page p'); const r = document.createRange(); r.setStart(ps[0].firstChild, 0); r.setEnd(ps[2].firstChild, 3); const s = getSelection(); s.removeAllRanges(); s.addRange(r); });
+    await page.click('button[title^="Pôr o texto selecionado numa caixa"]');
+    assert.equal(await page.locator('.page .mo-box p').count(), 3);
+    // Letra capital no último parágrafo.
+    await selectText('.page', 'uma vez');
+    await page.click('button[title^="Letra grande no início"]');
+    assert.equal(await page.textContent('.page .mo-dropcap'), 'E');
+    // Limite do parágrafo.
+    await writerTab('Base');
+    await selectText('.page', 'uma vez');
+    await page.click('button[title^="Limite e sombreado"]');
+    assert.equal(await page.locator('.page p.mo-border').count(), 1);
+    // Duas legendas do mesmo tipo são numeradas 1 e 2.
+    await writerTab('Inserir');
+    for (const [n, label] of [[1, 'Primeira'], [2, 'Segunda']]) {
+      await selectText('.page', 'uma vez');
+      await page.click('button[title^="Legenda numerada"]');
+      await page.fill('.mo-dialog input', label);
+      await page.click('.mo-dialog button[type=submit]');
+      await page.waitForFunction((k) => document.querySelectorAll('.page .mo-caption').length === k, n);
+    }
+    const caps = await page.$$eval('.page .mo-caption', (ps) => ps.map((p) => p.textContent));
+    assert.deepEqual(caps, ['Figura 1: Segunda', 'Figura 2: Primeira']);
+    // Marca de água guardada no ficheiro.
+    await writerTab('Estrutura');
+    await page.click('button[title^="Texto em diagonal"]');
+    await page.fill('.mo-dialog input', 'CONFIDENCIAL');
+    await page.click('.mo-dialog button[type=submit]');
+    await page.waitForFunction(() => document.querySelector('.page').dataset.wm === 'CONFIDENCIAL');
+    assert.equal(await page.getAttribute('.page', 'data-wm'), 'CONFIDENCIAL');
+    const saved = await page.evaluate(() => MO.modules.writer.serialize());
+    assert.equal(JSON.parse(saved).watermark, 'CONFIDENCIAL');
+    await page.evaluate((t) => MO.modules.writer.load(t, 'modoc'), saved);
+    assert.equal(await page.getAttribute('.page', 'data-wm'), 'CONFIDENCIAL');
+    assert.equal(await page.locator('.page .mo-box').count(), 1, 'a caixa sobrevive ao abrir');
+    // Navegação e estatísticas.
+    await page.locator('#view-writer .ribbon-tab', { hasText: /^Ver$/ }).click();
+    await page.click('button[title^="Painel com os títulos"]');
+    assert.deepEqual(await page.$$eval('.nav-pane button', (b) => b.map((x) => x.textContent)), ['Relatório', 'Secção dois']);
+    await page.screenshot({ path: require('path').join(require('os').tmpdir(), 'mo-writer-novidades.png') });
+    await page.click('button[title^="Páginas, palavras"]');
+    assert.match(await page.textContent('.mo-dialog'), /Palavras: \d+/);
+    await page.click('.mo-dialog button[type=submit]');
+    await page.click('button[title^="Painel com os títulos"]');
+  });
+
   await test('Texto: comentários ficam no documento e podem ser resolvidos', page, async () => {
     await loadDoc('<p>O orçamento aumentou bastante este ano.</p>');
     await page.click('.page');
