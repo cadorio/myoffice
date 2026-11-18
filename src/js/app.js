@@ -319,7 +319,7 @@
     const view = $('#view-' + id);
     const cards = [];
     if (START_BLANK[id]) {
-      cards.push(h('button', { type: 'button', class: 'start-card blank', onclick: () => { hideStart(); MO.modules[id].show(); } },
+      cards.push(h('button', { type: 'button', class: 'start-card blank', onclick: () => { hideStart(); newDoc(); } },
         h('span', { class: 'start-thumb blank-thumb' }, '＋'), h('strong', null, START_BLANK[id])));
     }
     // Modelos do ecrã inicial que pertencem a este programa.
@@ -548,7 +548,7 @@
   }
 
   function run(action) {
-    const actions = { new: newDoc, open: openFile, save: () => save(false), saveAs: () => save(true), exportPdf, printPreview, print: printNow, about, license: licenseDialog, closeFile: closeBackstage };
+    const actions = { new: () => (SOLO && MO.modules[current] ? showStart(current) : newDoc()), open: openFile, save: () => save(false), saveAs: () => save(true), exportPdf, printPreview, print: printNow, about, license: licenseDialog, closeFile: closeBackstage };
     if (actions[action]) {
       closeBackstage();
       actions[action]();
@@ -773,8 +773,8 @@
 
     const requestedView = SOLO || new URLSearchParams(location.search).get('view');
     show(ORDER.includes(requestedView) || requestedView === 'assistant' ? requestedView : 'home');
-    // Programa aberto sozinho: começa no seu ecrã de início.
-    if (SOLO && MO.modules[SOLO]) showStart(SOLO);
+    // Sem menu ao iniciar: o programa abre logo num documento em branco.
+    // Os modelos e os recentes ficam em Ficheiro › Novo.
   }
 
   init();

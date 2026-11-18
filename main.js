@@ -46,9 +46,10 @@ function lastAppFile() { return path.join(app.getPath('userData'), 'last-app.txt
 function lastApp() {
   try {
     const id = fsSync.readFileSync(lastAppFile(), 'utf8').trim();
-    if (APPS.includes(id) && id !== 'home') return id;
+    if (APPS.includes(id) && id !== 'home' && isInstalled(id)) return id;
   } catch (_) { /* primeira execução */ }
-  return 'writer';
+  const chosen = installedApps();
+  return chosen ? [...chosen][0] : 'writer';
 }
 function rememberApp(appId) {
   if (appId === 'home') return;
@@ -132,8 +133,28 @@ function sendTo(appId, channel, ...args) {
 }
 
 // Abre (ou traz para a frente) a janela de um programa.
+// Programas escolhidos no instalador (programas.txt ao lado do executável). Sem ficheiro: todos.
+let installedCache;
+function installedApps() {
+  if (installedCache !== undefined) return installedCache;
+  installedCache = null;
+  try {
+    if (app.isPackaged) {
+      const list = fsSync.readFileSync(path.join(path.dirname(process.execPath), 'programas.txt'), 'utf8')
+        .split(/\r?\n/).map((x) => x.trim()).filter((x) => APPS.includes(x) && x !== 'home');
+      if (list.length) installedCache = new Set(list);
+    }
+  } catch (_) { /* ZIP portátil, MSI ou desenvolvimento: todos os programas */ }
+  return installedCache;
+}
+const isInstalled = (appId) => appId === 'home' || !installedApps() || installedApps().has(appId);
+
 function openApp(appId) {
   if (!APPS.includes(appId)) return null;
+  if (!isInstalled(appId)) {
+    dialog.showMessageBox({ type: 'info', title: 'MyOffice', message: `O ${APP_TITLE[appId]} não foi instalado.`, detail: 'Para o acrescentar, volte a executar o instalador do MyOffice e escolha este programa.' });
+    return null;
+  }
   let entry = windows.get(appId);
   if (!entry) entry = createWindow(appId);
   else {
@@ -188,15 +209,15 @@ function buildMenu() {
     {
       label: 'Ver',
       submenu: [
-        { label: 'Texto', accelerator: 'CmdOrCtrl+1', click: () => openApp('writer') },
-        { label: 'Folhas', accelerator: 'CmdOrCtrl+2', click: () => openApp('sheets') },
-        { label: 'Diapositivos', accelerator: 'CmdOrCtrl+3', click: () => openApp('slides') },
-        { label: 'Desenho', accelerator: 'CmdOrCtrl+4', click: () => openApp('draw') },
-        { label: 'Notas', accelerator: 'CmdOrCtrl+5', click: () => openApp('notes') },
-        { label: 'Projetos', accelerator: 'CmdOrCtrl+6', click: () => openApp('projects') },
-        { label: 'PDF', accelerator: 'CmdOrCtrl+7', click: () => openApp('pdf') },
-        { label: 'Bases de dados', accelerator: 'CmdOrCtrl+8', click: () => openApp('db') },
-        { label: 'Assistente', accelerator: 'CmdOrCtrl+9', click: () => openApp('assistant') },
+        ...(isInstalled('writer') ? [{ label: 'Texto', accelerator: 'CmdOrCtrl+1', click: () => openApp('writer') }] : []),
+        ...(isInstalled('sheets') ? [{ label: 'Folhas', accelerator: 'CmdOrCtrl+2', click: () => openApp('sheets') }] : []),
+        ...(isInstalled('slides') ? [{ label: 'Diapositivos', accelerator: 'CmdOrCtrl+3', click: () => openApp('slides') }] : []),
+        ...(isInstalled('draw') ? [{ label: 'Desenho', accelerator: 'CmdOrCtrl+4', click: () => openApp('draw') }] : []),
+        ...(isInstalled('notes') ? [{ label: 'Notas', accelerator: 'CmdOrCtrl+5', click: () => openApp('notes') }] : []),
+        ...(isInstalled('projects') ? [{ label: 'Projetos', accelerator: 'CmdOrCtrl+6', click: () => openApp('projects') }] : []),
+        ...(isInstalled('pdf') ? [{ label: 'PDF', accelerator: 'CmdOrCtrl+7', click: () => openApp('pdf') }] : []),
+        ...(isInstalled('db') ? [{ label: 'Bases de dados', accelerator: 'CmdOrCtrl+8', click: () => openApp('db') }] : []),
+        ...(isInstalled('assistant') ? [{ label: 'Assistente', accelerator: 'CmdOrCtrl+9', click: () => openApp('assistant') }] : []),
         { type: 'separator' },
         { role: 'zoomIn', label: 'Aumentar zoom' },
         { role: 'zoomOut', label: 'Diminuir zoom' },
