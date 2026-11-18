@@ -1,6 +1,6 @@
 {
   "name": "myoffice",
-  "version": "1.12.1",
+  "version": "1.12.2",
   "private": true,
   "description": "Suite de escritório local com texto, folhas de cálculo, apresentações, desenho vetorial e assistente independente.",
   "main": "main.js",

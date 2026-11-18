@@ -4,11 +4,11 @@
 
 Sete programas independentes — **Texto, Folhas, Diapositivos, Desenho, PDF, Bases de dados e Assistente** — instalados de uma só vez. Os documentos ficam no seu computador: não é precisa conta, nuvem nem ligação à Internet. Abre e grava ficheiros do Word, Excel e PowerPoint, importa bases de dados do Access e liga a servidores MySQL, PostgreSQL e SQL Server.
 
-**[⬇ Descarregar MyOffice 1.12.1 para Windows (64 bits)](https://github.com/cadorio/myoffice/releases/download/v1.12.1/MyOffice-Setup-1.12.1.exe)**
+**[⬇ Descarregar MyOffice 1.12.2 para Windows (64 bits)](https://github.com/cadorio/myoffice/releases/download/v1.12.2/MyOffice-Setup-1.12.2.exe)**
 
-Também disponível como [MSI para empresas](https://github.com/cadorio/myoffice/releases/download/v1.12.1/MyOffice-1.12.1-x64.msi) e [ZIP portátil](https://github.com/cadorio/myoffice/releases/download/v1.12.1/MyOffice-1.12.1-x64-portatil.zip) · [Somas SHA-256](https://github.com/cadorio/myoffice/releases/download/v1.12.1/SHA256SUMS.txt)
+Também disponível como [MSI para empresas](https://github.com/cadorio/myoffice/releases/download/v1.12.2/MyOffice-1.12.2-x64.msi) e [ZIP portátil](https://github.com/cadorio/myoffice/releases/download/v1.12.2/MyOffice-1.12.2-x64-portatil.zip) · [Somas SHA-256](https://github.com/cadorio/myoffice/releases/download/v1.12.2/SHA256SUMS.txt)
 
-[Notas da versão](https://github.com/cadorio/myoffice/releases/tag/v1.12.1) · [Versões anteriores](https://github.com/cadorio/myoffice/releases) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
+[Notas da versão](https://github.com/cadorio/myoffice/releases/tag/v1.12.2) · [Versões anteriores](https://github.com/cadorio/myoffice/releases) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
 ![MyOffice Bases de dados](docs/screenshots/bases-de-dados.png)
 
@@ -76,7 +76,7 @@ Tons calmos de verde e papel, com modo claro e escuro.
 - Até 100 000 linhas × 256 colunas por folha e até 100 folhas por livro, com separadores que se podem renomear.
 - Mais de 30 funções, em português e em inglês (ver [Fórmulas](#fórmulas)).
 - **Gráficos** de 8 tipos (colunas, colunas empilhadas, barras, linhas, área, circular, anel e dispersão), com várias séries, título, legenda, valores e paletas de cores. Selecione a tabela, abra **Dados › Gráfico** e o gráfico fica **sobre a folha**: arraste para mover, mude o tamanho pelo canto e faça duplo clique para editar. Acompanha as alterações aos dados e vai para o Excel como gráfico nativo.
-- **Resumo dinâmico**: agrupa categorias e calcula soma, contagem e média com fórmulas que se atualizam com os dados. É uma alternativa às tabelas dinâmicas do Excel, não uma tabela dinâmica compatível.
+- **Tabela dinâmica**: clique numa célula dos dados e escolha o campo das linhas, o das colunas (opcional), o dos valores e o resumo (soma, contagem, média, máximo ou mínimo). Fica numa folha nova ou ao lado dos dados, com totais por linha, por coluna e geral, e atualiza-se quando os dados mudam. Não é exportada para o Excel como tabela dinâmica (vão os valores).
 - Bordas, unir e centrar células, fixar linhas e colunas, larguras de coluna (arrastar ou duplo clique para ajustar).
 - **Preenchimento automático**: arraste o canto da célula para continuar números, meses, dias da semana e fórmulas.
 - **Formatação condicional**: maior/menor que, entre, igual, contém texto e escala de cores.
@@ -172,15 +172,15 @@ Cada versão traz três formatos. Escolha um:
 
 | Ficheiro | Para quem |
 | --- | --- |
-| [`MyOffice-Setup-1.12.1.exe`](https://github.com/cadorio/myoffice/releases/download/v1.12.1/MyOffice-Setup-1.12.1.exe) | Uso pessoal. Assistente em português; instala só para o utilizador atual, sem pedir administrador. |
-| [`MyOffice-1.12.1-x64.msi`](https://github.com/cadorio/myoffice/releases/download/v1.12.1/MyOffice-1.12.1-x64.msi) | Empresas. Instala para todos os utilizadores e pode ser distribuído por GPO, Intune ou `msiexec /i MyOffice-1.12.1-x64.msi /qn`. |
-| [`MyOffice-1.12.1-x64-portatil.zip`](https://github.com/cadorio/myoffice/releases/download/v1.12.1/MyOffice-1.12.1-x64-portatil.zip) | Sem instalação. Extraia e abra `MyOffice.exe` (por exemplo, numa pen USB). Não cria atalhos nem associações. |
+| [`MyOffice-Setup-1.12.2.exe`](https://github.com/cadorio/myoffice/releases/download/v1.12.2/MyOffice-Setup-1.12.2.exe) | Uso pessoal. Assistente em português; instala só para o utilizador atual, sem pedir administrador. |
+| [`MyOffice-1.12.2-x64.msi`](https://github.com/cadorio/myoffice/releases/download/v1.12.2/MyOffice-1.12.2-x64.msi) | Empresas. Instala para todos os utilizadores e pode ser distribuído por GPO, Intune ou `msiexec /i MyOffice-1.12.2-x64.msi /qn`. |
+| [`MyOffice-1.12.2-x64-portatil.zip`](https://github.com/cadorio/myoffice/releases/download/v1.12.2/MyOffice-1.12.2-x64-portatil.zip) | Sem instalação. Extraia e abra `MyOffice.exe` (por exemplo, numa pen USB). Não cria atalhos nem associações. |
 
 1. Descarregue o formato que quer na [página de versões](https://github.com/cadorio/myoffice/releases/latest).
 2. Abra o ficheiro e siga o assistente de instalação, em português; é mostrada a licença Apache 2.0 antes de instalar.
 3. **Aviso do Windows:** enquanto não houver assinatura digital, o SmartScreen mostra "O Windows protegeu o computador". Clique em **Mais informações** e depois em **Executar mesmo assim**.
 
-**Antivírus:** cada versão traz `SHA256SUMS.txt`. Confirme que o ficheiro descarregado é o original com `Get-FileHash .\MyOffice-Setup-1.12.1.exe` no PowerShell e compare o valor. Se o antivírus bloquear o MyOffice, é um falso positivo comum em programas novos sem assinatura; veja [docs/assinatura-windows.md](docs/assinatura-windows.md) para saber como o reportar.
+**Antivírus:** cada versão traz `SHA256SUMS.txt`. Confirme que o ficheiro descarregado é o original com `Get-FileHash .\MyOffice-Setup-1.12.2.exe` no PowerShell e compare o valor. Se o antivírus bloquear o MyOffice, é um falso positivo comum em programas novos sem assinatura; veja [docs/assinatura-windows.md](docs/assinatura-windows.md) para saber como o reportar.
 
 O instalador cria, no menu Iniciar (sem pasta) e no ambiente de trabalho, um atalho com ícone próprio para cada programa (MyOffice Texto, Folhas, Diapositivos, Desenho, PDF, Bases de dados e Assistente), cada um com a sua entrada na barra de tarefas. Não há menu inicial: abrir o `MyOffice.exe` diretamente (no ZIP portátil ou no MSI) abre o último programa usado. Os ficheiros `.modoc`, `.mosheet`, `.moslides`, `.modraw` e `.modb` passam a abrir com o MyOffice; `.docx`, `.pptx` e `.pdf` ficam disponíveis em "Abrir com".
 
@@ -254,7 +254,7 @@ Também existem funções de estatística (mediana, moda, desvio padrão e vari�
 
 ## O que ainda não faz
 
-- Tabelas dinâmicas compatíveis com o Excel (o resumo dinâmico é a alternativa).
+- Exportar tabelas dinâmicas para o Excel como tabelas dinâmicas (vão como valores).
 - No Texto: marca d'água, legendas e referências cruzadas, bibliografia, caixas de texto e formas, comparar documentos.
 - Animações complexas e gráficos nativos do PowerPoint (os gráficos dos Diapositivos são imagens).
 - Do Access importam-se tabelas e dados; consultas, formulários, relatórios e macros não são convertidos, e ficheiros Access protegidos por palavra-passe não são suportados.
