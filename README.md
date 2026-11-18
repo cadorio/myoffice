@@ -41,15 +41,16 @@ Tons calmos de verde e papel, com modo claro e escuro.
 
 | Aplicação | Para quê | Formatos |
 | --- | --- | --- |
-| **Texto** | Cartas, relatórios e atas, com estilos, tabelas, imagens, gráficos, comentários, controlo de alterações, notas de rodapé, índice e mala direta | `.modoc` · DOCX · PDF · HTML · TXT |
-| **Folhas** | Contas, orçamentos e análise de dados, com fórmulas, gráficos de 8 tipos, formatação condicional e várias folhas por livro | `.mosheet` · XLSX · CSV · PDF |
+| **Texto** | Cartas, relatórios e atas, com estilos, tabelas, imagens, gráficos, comentários, controlo de alterações, notas de rodapé, índice, legendas, marca de água e mala direta | `.modoc` · DOCX · PDF · HTML · TXT |
+| **Folhas** | Contas, orçamentos e análise de dados, com fórmulas, gráficos de 8 tipos, tabelas dinâmicas, formatação condicional e várias folhas por livro | `.mosheet` · XLSX · CSV · PDF |
 | **Diapositivos** | Apresentações com temas, esquemas, imagens, formas, transições e notas do orador | `.moslides` · PPTX · PDF |
-| **Desenho** | Fluxogramas, mapas mentais, organogramas e esquemas | `.modraw` · SVG · PNG · PDF |
+| **Desenho** | Fluxogramas, mapas mentais, organogramas e esquemas, com 14 formas, imagens e desenho à mão | `.modraw` · SVG · PNG · PDF |
+| **Notas** | Cadernos com secções e páginas livres, listas de tarefas, etiquetas, imagens e desenho à mão, como o OneNote | `.monotes` · HTML · TXT · PDF |
 | **PDF** | Ler, anotar, assinar, juntar e organizar ficheiros PDF | PDF · TXT |
 | **Bases de dados** | Tabelas, formulários, consultas e relatórios, como o Access; ligação a MySQL, PostgreSQL e SQL Server | `.modb` (SQLite) · XLSX · CSV · importa Access |
-| **Assistente** | Guias passo a passo, fórmulas, rascunhos de cartas e análise de textos e tabelas, sem Internet | — |
+| **Assistente** | Guias passo a passo, contas (percentagens, IVA, datas), fórmulas, rascunhos de cartas e propostas e análise de textos e tabelas, sem Internet | — |
 
-**Modelos prontos a usar** no início de cada programa: relatório e ata de reunião (Texto), orçamento mensal e gestor de tarefas (Folhas), apresentação de projeto e de aula (Diapositivos), fluxograma, mapa mental, organograma, linha temporal e SWOT (Desenho), clientes, inventário e encomendas (Bases de dados).
+**Modelos prontos a usar** no início de cada programa: relatório e ata de reunião (Texto), orçamento mensal e gestor de tarefas (Folhas), apresentação de projeto e de aula (Diapositivos), fluxograma, mapa mental, organograma, linha temporal e SWOT (Desenho), reuniões, estudos e projeto (Notas), clientes, inventário e encomendas (Bases de dados).
 
 ### Texto
 
@@ -156,6 +157,8 @@ A ligação ao MySQL/MariaDB e ao PostgreSQL foi testada com servidores reais; a
 
 ### Notas
 
+![MyOffice Notas](docs/screenshots/notas.png)
+
 Um caderno como o OneNote, guardado no seu computador num ficheiro `.monotes`.
 
 - **Secções e páginas**: secções com cores à esquerda e a lista de páginas ao lado. Duplo clique numa secção para mudar o nome.
@@ -174,8 +177,8 @@ Um caderno como o OneNote, guardado no seu computador num ficheiro `.monotes`.
 - **Painel de ferramentas** à direita, em secções. Ctrl+. esconde ou mostra o painel.
 - **Ctrl+K** abre a procura de comandos: escreva o que quer fazer.
 - Modo claro e escuro, que acompanha o Windows ou se escolhe na aplicação.
-- Zoom de 50% a 200% em Texto, Folhas, Desenho e PDF.
-- **Recuperação automática**: se a aplicação fechar inesperadamente, oferece-se para recuperar o trabalho por guardar.
+- Zoom de 50% a 200% em Texto, Folhas, Desenho, Notas e PDF.
+- **Recuperação automática**: se a aplicação fechar inesperadamente, oferece-se para recuperar o trabalho por guardar. As Notas também gravam sozinhas depois do primeiro Guardar.
 - Pré-visualizar impressão (Ctrl+Shift+P), imprimir (Ctrl+P) e exportar para PDF (Ctrl+Shift+E).
 
 ![MyOffice em modo escuro](docs/screenshots/modo-escuro.png)
@@ -216,7 +219,7 @@ A conversão cobre o conteúdo e a formatação mais comuns, mas **não substitu
 
 | Formato | É convertido | Perde-se |
 | --- | --- | --- |
-| **DOCX** | Títulos, parágrafos, alinhamento, espaçamentos e avanços, formatação de caracteres (incluindo expoente e índice), listas, tabelas com células unidas, cabeçalho de tabela e cor das células, ligações, imagens, quebras de página, cabeçalho, rodapé, campos de página, **comentários, notas de rodapé, alterações controladas, configuração da página e colunas** (nos dois sentidos) | Caixas de texto e formas; texto à volta das imagens (exportadas em linha); cabeçalhos e rodapés complexos; a formatação dos comentários e das notas (fica só o texto) |
+| **DOCX** | Títulos, parágrafos, alinhamento, espaçamentos e avanços, formatação de caracteres (incluindo expoente e índice), listas, tabelas com células unidas, cabeçalho de tabela e cor das células, ligações, imagens, quebras de página, cabeçalho, rodapé, campos de página, **comentários, notas de rodapé, alterações controladas, configuração da página e colunas** (nos dois sentidos) | Caixas de texto e formas; marca de água; aspeto das caixas de destaque, legendas e letra capital (fica o texto); texto à volta das imagens (exportadas em linha); cabeçalhos e rodapés complexos; a formatação dos comentários e das notas (fica só o texto) |
 | **XLSX** | Até 100 folhas: valores, fórmulas (incluindo **referências a outras folhas**, como `Dados!A1`), estilos básicos, alinhamento, formatos de número e moeda, gráficos de colunas, barras, linhas, área, circular, anel e dispersão (com várias séries), bordas, células unidas, larguras de coluna, painéis fixos e **formatação condicional** (maior/menor que, entre, igual, contém texto, escala de cores) | Tabelas dinâmicas, gráficos avançados, alguns estilos, regras condicionais com fórmulas; funções não suportadas mostram `#NOME?` |
 | **PPTX** | Texto e posição das caixas, listas, imagens, retângulos e elipses, **tabelas**, **cores do tema** do PowerPoint, fundo de cor ou **imagem**, notas do orador, transições e efeitos de entrada simples | Animações complexas, gráficos, SmartArt, células unidas e formatação dentro das tabelas |
 
@@ -272,12 +275,13 @@ Também existem funções de estatística (mediana, moda, desvio padrão e vari�
 - **PDF seguro:** o leitor de PDF (pdf.js, versão atual) nunca executa código contido nos ficheiros.
 - **Servidores de bases de dados:** as palavras-passe guardadas são encriptadas pelo Windows; todas as instruções usam parâmetros, têm limite de tempo e as que alteram dados pedem confirmação.
 
-**Ainda por fazer:** o instalador não tem assinatura digital (ver [instruções de assinatura](docs/assinatura-windows.md)) e a verificação de integridade do pacote não está ativa.
+**Ainda por fazer:** o instalador ainda não tem assinatura digital. O workflow já está preparado para o Azure Trusted Signing ou para um certificado PFX (ver [instruções de assinatura](docs/assinatura-windows.md)). Até lá, cada versão traz o `SHA256SUMS.txt` para confirmar que os ficheiros não foram alterados.
 
 ## O que ainda não faz
 
 - Exportar tabelas dinâmicas para o Excel como tabelas dinâmicas (vão como valores).
-- No Texto: marca d'água, legendas e referências cruzadas, bibliografia, caixas de texto e formas, comparar documentos.
+- No Texto: referências cruzadas, bibliografia, formas soltas na página e comparar documentos. A marca de água não vai para o DOCX, e as caixas de destaque, legendas e letra capital vão como texto normal.
+- Nas Notas: abrir ficheiros do OneNote, sincronizar entre computadores e gravar áudio. Os traços à mão não vão quando envia a página para o Texto.
 - Animações complexas e gráficos nativos do PowerPoint (os gráficos dos Diapositivos são imagens).
 - Do Access importam-se tabelas e dados; consultas, formulários, relatórios e macros não são convertidos, e ficheiros Access protegidos por palavra-passe não são suportados.
 - A ligação ao SQL Server ainda não foi testada com um servidor real.
@@ -295,7 +299,7 @@ cd myoffice
 npm install
 npm start          # abre a aplicação
 npm test           # testes do motor de fórmulas, do assistente, das licenças e das ligações a servidores
-npm run test:ui    # testes da interface no browser (requer o Playwright)
+npm run test:ui    # 50 testes da interface no browser: Texto, Folhas, Desenho, Notas, Bases de dados… (requer o Playwright)
 npm run dist:win   # cria o instalador Windows na pasta dist/
 npm run train:ai   # reconstrói o índice do Assistente depois de alterar este README
 npm run notices    # atualiza os avisos de licença de terceiros

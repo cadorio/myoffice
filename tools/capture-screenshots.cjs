@@ -72,7 +72,36 @@ const { pathToFileURL } = require('node:url');
     throw new Error('O assistente IA de Folhas não está disponível na faixa.');
   }
   await capture('slides', 'diapositivos.png');
+  // Desenho com formas novas e anotação à mão.
+  await page.evaluate(() => {
+    const d = MO.modules.draw;
+    d.newDoc('flow');
+    const data = JSON.parse(d.serialize());
+    data.nodes.push({ type: 'star', x: 1180, y: 80, w: 120, h: 110, text: '', fill: '#ffe9a8', stroke: '#c9a227', color: '#202a27', fontSize: 16, bold: true });
+    data.nodes.push({ type: 'callout', x: 1040, y: 640, w: 240, h: 130, text: 'Rever com a equipa', fill: '#eee8f6', stroke: '#9b8bc4', color: '#202a27', fontSize: 18, bold: true });
+    const wave = []; for (let i = 0; i <= 40; i++) wave.push([980 + i * 6, 560 + Math.sin(i / 4) * 14]);
+    data.strokes = [{ pts: wave, color: '#c62828', width: 4, alpha: 1 }, { pts: [[940, 470], [1300, 470]], color: '#ffe14d', width: 18, alpha: 0.35 }];
+    d.load(JSON.stringify(data));
+  });
   await capture('draw', 'desenho.png');
+  // Caderno de exemplo nas Notas.
+  await page.evaluate(() => {
+    const n = MO.modules.notes;
+    n.newDoc('project');
+    const data = JSON.parse(n.serialize());
+    const p = data.sections[0].pages[0];
+    p.title = 'Lançamento da loja online';
+    p.blocks = [
+      { x: 30, y: 20, w: 380, html: '<h3>Objetivo</h3><p>Abrir a loja online até <b>1 de março</b>, com pagamentos por MB WAY e cartão.</p><p class="mo-tag-imp">Orçamento máximo: 12 000 €</p>' },
+      { x: 440, y: 20, w: 380, html: '<h3>Tarefas</h3><ul class="mo-check"><li class="mo-done">Escolher a plataforma</li><li class="mo-done">Fotografar os produtos</li><li>Escrever as descrições</li><li>Configurar os portes</li></ul>' },
+      { x: 30, y: 250, w: 380, html: '<h3>Dúvidas</h3><p class="mo-tag-q">Fazemos entregas para as ilhas?</p><p class="mo-tag-idea">Oferecer portes acima de 50 €</p>' }
+    ];
+    const ring = []; for (let i = 0; i <= 48; i++) ring.push([620 + Math.cos(i / 7.6) * 150, 330 + Math.sin(i / 7.6) * 60]);
+    p.strokes = [{ pts: ring, color: '#2f6fdd', width: 3, alpha: 1 }, { pts: [[470, 450], [520, 420], [560, 440]], color: '#2f6fdd', width: 3, alpha: 1 }];
+    data.sections.push({ name: 'Reuniões', color: '#17806a', pages: [{ title: 'Kick-off', date: new Date().toISOString(), blocks: [], strokes: [] }] });
+    n.load(JSON.stringify(data));
+  });
+  await capture('notes', 'notas.png');
   // PDF de exemplo, com uma anotação e um realce.
   await page.evaluate(async () => {
     const { PDFDocument, StandardFonts, rgb } = PDFLib;
