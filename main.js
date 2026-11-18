@@ -9,7 +9,7 @@ const path = require('path');
 const fs = require('fs/promises');
 const fsSync = require('fs');
 
-const NATIVE_EXT = ['modoc', 'mosheet', 'moslides', 'modraw', 'pdf', 'modb'];
+const NATIVE_EXT = ['modoc', 'mosheet', 'moslides', 'modraw', 'monotes', 'pdf', 'modb'];
 // Formatos do Word, Excel e PowerPoint: são binários (ZIP) e convertidos na interface.
 const BINARY_EXT = ['docx', 'xlsx', 'pptx', 'pdf', 'modb', 'accdb', 'mdb'];
 const OPEN_EXT = [...NATIVE_EXT, ...BINARY_EXT, 'html', 'htm', 'txt', 'csv'];
@@ -19,9 +19,9 @@ const APP_ROOT = path.join(__dirname, 'src') + path.sep;
 
 // Cada programa tem a sua janela, independente das outras (como o Word e o Excel):
 // 'home' é o ecrã inicial; os restantes são os programas.
-const APPS = ['home', 'writer', 'sheets', 'slides', 'draw', 'pdf', 'db', 'assistant'];
-const APP_TITLE = { home: 'MyOffice', writer: 'MyOffice Texto', sheets: 'MyOffice Folhas', slides: 'MyOffice Diapositivos', draw: 'MyOffice Desenho', pdf: 'MyOffice PDF', db: 'MyOffice Bases de dados', assistant: 'MyOffice Assistente' };
-const EXT_APP = { modoc: 'writer', docx: 'writer', html: 'writer', htm: 'writer', txt: 'writer', mosheet: 'sheets', xlsx: 'sheets', csv: 'sheets', moslides: 'slides', pptx: 'slides', modraw: 'draw', pdf: 'pdf', modb: 'db', accdb: 'db', mdb: 'db' };
+const APPS = ['home', 'writer', 'sheets', 'slides', 'draw', 'notes', 'pdf', 'db', 'assistant'];
+const APP_TITLE = { home: 'MyOffice', writer: 'MyOffice Texto', sheets: 'MyOffice Folhas', slides: 'MyOffice Diapositivos', draw: 'MyOffice Desenho', notes: 'MyOffice Notas', pdf: 'MyOffice PDF', db: 'MyOffice Bases de dados', assistant: 'MyOffice Assistente' };
+const EXT_APP = { modoc: 'writer', docx: 'writer', html: 'writer', htm: 'writer', txt: 'writer', mosheet: 'sheets', xlsx: 'sheets', csv: 'sheets', moslides: 'slides', pptx: 'slides', modraw: 'draw', monotes: 'notes', pdf: 'pdf', modb: 'db', accdb: 'db', mdb: 'db' };
 const windows = new Map(); // app -> { win, dirty, ready, queue }
 let pendingFile = null;
 let pendingView = null;
@@ -57,7 +57,7 @@ function rememberApp(appId) {
 
 function viewFromArgv(argv) {
   const args = new Set(argv);
-  for (const id of ['writer', 'sheets', 'slides', 'draw', 'pdf', 'db', 'assistant']) {
+  for (const id of ['writer', 'sheets', 'slides', 'draw', 'notes', 'pdf', 'db', 'assistant']) {
     if (args.has('--' + id)) return id;
   }
   return null;
@@ -192,9 +192,10 @@ function buildMenu() {
         { label: 'Folhas', accelerator: 'CmdOrCtrl+2', click: () => openApp('sheets') },
         { label: 'Diapositivos', accelerator: 'CmdOrCtrl+3', click: () => openApp('slides') },
         { label: 'Desenho', accelerator: 'CmdOrCtrl+4', click: () => openApp('draw') },
-        { label: 'PDF', accelerator: 'CmdOrCtrl+5', click: () => openApp('pdf') },
-        { label: 'Bases de dados', accelerator: 'CmdOrCtrl+6', click: () => openApp('db') },
-        { label: 'Assistente', accelerator: 'CmdOrCtrl+7', click: () => openApp('assistant') },
+        { label: 'Notas', accelerator: 'CmdOrCtrl+5', click: () => openApp('notes') },
+        { label: 'PDF', accelerator: 'CmdOrCtrl+6', click: () => openApp('pdf') },
+        { label: 'Bases de dados', accelerator: 'CmdOrCtrl+7', click: () => openApp('db') },
+        { label: 'Assistente', accelerator: 'CmdOrCtrl+8', click: () => openApp('assistant') },
         { type: 'separator' },
         { role: 'zoomIn', label: 'Aumentar zoom' },
         { role: 'zoomOut', label: 'Diminuir zoom' },
@@ -316,7 +317,7 @@ const winOf = (event) => entryOf(event).win;
 
 // ---------- Recuperação automática ----------
 // A interface envia de 30 em 30 segundos uma cópia dos documentos com alterações por guardar.
-const DRAFT_MODULES = ['writer', 'sheets', 'slides', 'draw'];
+const DRAFT_MODULES = ['writer', 'sheets', 'slides', 'draw', 'notes'];
 const draftFile = (id) => path.join(app.getPath('userData'), 'drafts', id + '.json');
 
 async function saveDraft(draft) {

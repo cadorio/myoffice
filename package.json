@@ -1,6 +1,6 @@
 {
   "name": "myoffice",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "private": true,
   "description": "Suite de escritório local com texto, folhas de cálculo, apresentações, desenho vetorial e assistente independente.",
   "main": "main.js",
@@ -64,6 +64,12 @@
         "ext": "modraw",
         "name": "Desenho MyOffice",
         "description": "Diagrama vetorial MyOffice",
+        "role": "Editor"
+      },
+      {
+        "ext": "monotes",
+        "name": "Caderno MyOffice",
+        "description": "Caderno de notas MyOffice",
         "role": "Editor"
       },
       {

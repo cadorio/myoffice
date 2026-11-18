@@ -465,6 +465,93 @@ const cellText = (page, a) =>
     return false;
   }, { selector, text });
 
+  // ---------------- Desenho: caneta e formas novas ----------------
+  await go(page, 'draw');
+  await test('Desenho: caneta, borracha, formas novas e traços guardados', page, async () => {
+    await page.evaluate(() => MO.modules.draw.newDoc('blank'));
+    await page.locator('#view-draw .ribbon-tab', { hasText: /^Desenhar$/ }).click();
+    await page.click('#view-draw button[title="Desenhar à mão livre"]');
+    const box = await page.locator('#view-draw .draw-canvas > svg').boundingBox();
+    await page.mouse.move(box.x + 100, box.y + 100);
+    await page.mouse.down();
+    for (let i = 1; i <= 10; i++) await page.mouse.move(box.x + 100 + i * 15, box.y + 100 + i * 6);
+    await page.mouse.up();
+    assert.equal(await page.evaluate(() => MO.modules.draw._debug.strokes().length), 1);
+    await page.click('#view-draw button[title^="Apagar traços à mão (passe"]');
+    await page.mouse.move(box.x + 160, box.y + 124);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 162, box.y + 126);
+    await page.mouse.up();
+    assert.equal(await page.evaluate(() => MO.modules.draw._debug.strokes().length), 0, 'a borracha apaga o traço');
+    await page.keyboard.press('Escape');
+    assert.equal(await page.evaluate(() => MO.modules.draw._debug.tool()), null);
+    await page.locator('#view-draw .ribbon-tab', { hasText: /^Inserir$/ }).click();
+    await page.click('#view-draw button[title="Acrescentar: Estrela"]');
+    await page.click('#view-draw button[title="Acrescentar: Balão de fala"]');
+    const types = await page.evaluate(() => MO.modules.draw._debug.nodes().map((n) => n.type));
+    assert.deepEqual(types, ['star', 'callout']);
+    await page.locator('#view-draw .ribbon-tab', { hasText: /^Desenhar$/ }).click();
+    await page.click('#view-draw button[title="Desenhar à mão livre"]');
+    await page.mouse.move(box.x + 300, box.y + 300); await page.mouse.down(); await page.mouse.move(box.x + 360, box.y + 330); await page.mouse.up();
+    const saved = await page.evaluate(() => MO.modules.draw.serialize());
+    await page.evaluate((t) => MO.modules.draw.load(t, 'modraw'), saved);
+    assert.equal(await page.evaluate(() => MO.modules.draw._debug.strokes().length), 1, 'o traço sobrevive a guardar e abrir');
+    assert.match(await page.evaluate(() => MO.modules.draw.exports[0].get()), /ink-stroke/);
+    await page.keyboard.press('Escape');
+  });
+
+  // ---------------- Notas ----------------
+  await go(page, 'notes');
+  await test('Notas: secções, páginas, blocos livres, tarefas, etiquetas, pesquisa e desenho', page, async () => {
+    await page.evaluate(() => MO.modules.notes.newDoc('project'));
+    assert.equal(await page.locator('.notes-section').count(), 1);
+    assert.equal(await page.locator('.notes-page').count(), 3);
+    // Escrever num sítio livre da página.
+    const surf = await page.locator('.notes-surface').boundingBox();
+    await page.mouse.click(surf.x + surf.width * 0.3, surf.y + 220);
+    await page.keyboard.type('Comprar papel para a impressora');
+    assert.equal(await page.evaluate(() => MO.modules.notes._debug.book().sections[0].pages[0].blocks.length), 3);
+    // Lista de tarefas no bloco atual e marcar como feita.
+    await page.locator('#view-notes .ribbon-tab', { hasText: /^Inserir$/ }).click();
+    await page.click('#view-notes button[title="Lista com caixas para marcar"]');
+    const li = page.locator('.notes-block ul.mo-check li', { hasText: 'Nova tarefa' });
+    const lb = await li.boundingBox();
+    await page.mouse.click(lb.x + 8, lb.y + lb.height / 2);
+    assert.equal(await li.getAttribute('class'), 'mo-done');
+    // Etiqueta Importante no parágrafo.
+    await page.locator('#view-notes .ribbon-tab', { hasText: /^Base$/ }).click();
+    await page.click('.notes-block-body >> text=Comprar papel');
+    await page.click('#view-notes button[title="Etiqueta: Importante"]');
+    assert.equal(await page.locator('.notes-block .mo-tag-imp').count(), 1);
+    // Nova página com título.
+    await page.click('#view-notes button[title="Acrescentar uma página a esta secção"]');
+    await page.keyboard.type('Orçamento');
+    assert.equal(await page.locator('.notes-page').count(), 4);
+    // Pesquisa em todas as páginas.
+    await page.fill('.notes-search', 'impressora');
+    assert.match(await page.textContent('.notes-pages'), /1 página encontrada/);
+    await page.fill('.notes-search', '');
+    // Desenhar à mão.
+    await page.locator('#view-notes .ribbon-tab', { hasText: /^Desenhar$/ }).click();
+    await page.click('#view-notes button[title="Desenhar à mão livre"]');
+    await page.mouse.move(surf.x + 200, surf.y + 300); await page.mouse.down();
+    for (let i = 1; i <= 8; i++) await page.mouse.move(surf.x + 200 + i * 20, surf.y + 300 + i * 4);
+    await page.mouse.up();
+    await page.keyboard.press('Escape');
+    // Guardar e abrir mantém tudo.
+    const saved = await page.evaluate(() => MO.modules.notes.serialize());
+    await page.evaluate(() => MO.modules.notes.newDoc());
+    await page.evaluate((t) => MO.modules.notes.load(t, 'monotes'), saved);
+    const book = await page.evaluate(() => MO.modules.notes._debug.book());
+    assert.equal(book.sections[0].pages.length, 4);
+    assert.equal(book.sections[0].pages[3].title, 'Orçamento');
+    assert.equal(book.sections[0].pages[3].strokes.length, 1);
+    assert.ok(book.sections[0].pages[0].blocks.some((b) => b.html.includes('mo-tag-imp') && b.html.includes('impressora')));
+    assert.ok(book.sections[0].pages[0].blocks.some((b) => b.html.includes('mo-done')));
+    await page.evaluate(() => MO.modules.notes._debug.open(0, 0));
+    await page.screenshot({ path: require('path').join(require('os').tmpdir(), 'mo-notas.png') });
+  });
+
   await go(page, 'writer');
 
   await test('Texto: caixa, letra capital, limite, legendas, ordenar, marca de água, navegação e estatísticas', page, async () => {
