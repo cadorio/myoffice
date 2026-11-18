@@ -2306,3 +2306,32 @@ tr:hover .db-row-del, .db-row-del:focus { opacity: 1; }
 /* Programas independentes: sem botão de grelha para saltar entre programas. */
 body[data-solo]:not([data-solo="home"]) #launcher,
 body[data-solo]:not([data-solo="home"]) #launcher-menu { display: none !important; }
+
+/* ---------- Texto: destaques, marca de água, navegação e leitura ---------- */
+.page .mo-box, .print-doc .mo-box { border: 1px solid #b9c3d6; border-left: 4px solid var(--doc-accent, #4d68be); background: #f3f6fb; border-radius: 4px; padding: 8pt 12pt; margin: 8pt 0; }
+.page .mo-box > :last-child, .print-doc .mo-box > :last-child { margin-bottom: 0; }
+.page .mo-border, .print-doc .mo-border { border: 1px solid #9aa1b1; background: #f7f8fa; padding: 4pt 8pt; }
+.page .mo-dropcap, .print-doc .mo-dropcap { float: left; font-size: 3.2em; line-height: .85; margin: .06em .08em 0 0; font-weight: 700; color: var(--doc-head-color, inherit); font-family: var(--doc-head-font, inherit); }
+.page .mo-caption, .print-doc .mo-caption { font-size: 10pt; font-style: italic; color: #4a5263; text-align: center; margin: 4pt 0 10pt; }
+.page { position: relative; }
+.page[data-wm]::before {
+  content: attr(data-wm); position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; user-select: none;
+  font: 700 72pt Arial, sans-serif; color: rgba(120, 130, 150, .16); transform: rotate(-35deg); white-space: nowrap; overflow: hidden;
+}
+.print-watermark { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; font: 700 72pt Arial, sans-serif; color: rgba(120, 130, 150, .16); transform: rotate(-35deg); white-space: nowrap; z-index: 0; }
+.print-document .print-doc { position: relative; z-index: 1; }
+.writer-body { flex: 1; min-height: 0; display: flex; }
+.writer-body > .page-scroll { flex: 1; min-width: 0; }
+.nav-pane { width: 230px; flex: none; overflow: auto; border-right: 1px solid var(--line); background: var(--panel); padding: 12px 8px; font-size: 13px; }
+.nav-pane-title { font-weight: 600; padding: 0 8px 8px; color: var(--muted); text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
+.nav-pane ol { list-style: none; margin: 0; padding: 0; }
+.nav-pane button { width: 100%; text-align: left; border: 0; background: none; color: var(--ink); padding: 5px 8px; border-radius: 6px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: inherit; }
+.nav-pane button:hover { background: var(--hover); }
+.nav-pane .nav-h1 button { font-weight: 600; }
+.nav-pane .nav-h2 button { padding-left: 20px; }
+.nav-pane .nav-h3 button { padding-left: 32px; color: var(--muted); }
+.nav-pane-empty { color: var(--muted); padding: 0 8px; }
+.reading-mode .ribbon, .reading-mode .nav-pane, .reading-mode .studio-inspector, .reading-mode .inspector { display: none !important; }
+.reading-mode .page-scroll { padding-top: 40px; }
+.mo-dialog p { white-space: pre-line; }
+.page p:has(> .mo-dropcap), .print-doc p:has(> .mo-dropcap) { display: flow-root; min-height: 2.6em; }

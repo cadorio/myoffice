@@ -46,7 +46,7 @@
   ];
   // Valores permitidos para propriedades que podiam esconder ou deslocar conteúdo.
   const LIMITED = { float: /^(left|right|none)$/, display: /^(block|inline|inline-block)$/ };
-  const SAFE_CLASSES = ['page-break', 'mo-comment', 'mo-ins', 'mo-del', 'mo-fn', 'mo-toc', 'mo-toc-title', 'mo-toc-1', 'mo-toc-2', 'mo-toc-3'];
+  const SAFE_CLASSES = ['page-break', 'mo-comment', 'mo-ins', 'mo-del', 'mo-fn', 'mo-toc', 'mo-toc-title', 'mo-toc-1', 'mo-toc-2', 'mo-toc-3', 'mo-box', 'mo-dropcap', 'mo-border', 'mo-caption'];
 
   function cleanStyle(el) {
     const kept = [];
