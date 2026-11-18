@@ -28,12 +28,27 @@
     return h('button', { type: 'button', class: 'btn mo-assistant-action', onclick: run }, action.label);
   }
 
-  function addMessage(role, text, extra, action) {
+  function copyButton(text) {
+    return h('button', { type: 'button', class: 'btn mo-assistant-copy', title: 'Copiar a resposta', onclick: async (e) => {
+      try { await navigator.clipboard.writeText(text); e.target.textContent = 'Copiado ✓'; setTimeout(() => { e.target.textContent = 'Copiar'; }, 1500); } catch { MO.toast('Não foi possível copiar.'); }
+    } }, 'Copiar');
+  }
+
+  function addMessage(role, text, extra, action, suggestions) {
     if (!messages) return;
     const empty = messages.querySelector('.mo-assistant-empty');
     if (empty) empty.remove();
     const item = h('article', { class: 'mo-assistant-message ' + role }, text);
-    if (action && (action.kind === 'formula' || action.kind === 'draft')) item.append(h('div', { class: 'mo-assistant-actions' }, actionButton(action)));
+    if (role === 'ai' && !extra) {
+      const row = h('div', { class: 'mo-assistant-actions' });
+      if (action && (action.kind === 'formula' || action.kind === 'draft')) row.append(actionButton(action));
+      row.append(copyButton(text));
+      item.append(row);
+    }
+    // Perguntas sugeridas: clicar envia-as.
+    if (Array.isArray(suggestions) && suggestions.length) {
+      item.append(h('div', { class: 'mo-assistant-suggest' }, suggestions.slice(0, 3).map((q) => h('button', { type: 'button', onclick: () => send(q) }, q))));
+    }
     if (extra) item.classList.add(extra);
     messages.append(item);
     messages.scrollTop = messages.scrollHeight;
@@ -73,7 +88,7 @@
       if (response.error) throw new Error(response.error);
       const answer = response.answer || 'Não consegui formular uma resposta. Tente novamente.';
       history.push({ role: 'assistant', content: answer });
-      addMessage('ai', answer, null, response.action);
+      addMessage('ai', answer, null, response.action, response.suggestions);
     } catch (error) {
       addMessage('ai', error.message || 'Ocorreu um erro ao contactar a IA.', 'error');
     } finally {
@@ -84,9 +99,15 @@
 
   function show() { if (input) input.focus(); }
 
+  function newChat() {
+    history.length = 0;
+    messages.replaceChildren(h('p', { class: 'mo-assistant-empty' }, 'Conversa nova. Em que posso ajudar?'));
+    input.focus();
+  }
+
   function init(container) {
     messages = h('div', { class: 'mo-assistant-messages', 'aria-live': 'polite' },
-      h('p', { class: 'mo-assistant-empty' }, 'Olá! Pergunte como fazer algo ("como unir células?"), peça uma fórmula ("média de C2 a C20") ou a estrutura de uma apresentação ("cria uma apresentação sobre…").')
+      h('p', { class: 'mo-assistant-empty' }, 'Olá! Pergunte como fazer algo ("como unir células?"), peça uma fórmula ("média de C2 a C20"), uma conta ("15% de 230", "IVA de 100", "dias entre 01/02/2026 e 15/03/2026"), um rascunho ("escreve uma proposta comercial para…") ou a estrutura de uma apresentação.')
     );
     input = h('textarea', { rows: 2, placeholder: 'Escreva a sua pergunta…', 'aria-label': 'Mensagem para o Assistente' });
     sendButton = h('button', { type: 'button', onclick: () => send() }, 'Enviar');
@@ -95,17 +116,19 @@
     });
     const shortcuts = [
       ['Fórmula', 'Quantos valores maiores que 100 há de B2 a B20?'],
-      ['Escrever', 'Escreve uma reclamação sobre a entrega atrasada'],
+      ['Contas', 'IVA de 250 euros'],
+      ['Escrever', 'Escreve uma carta de candidatura a assistente administrativo'],
       ['O meu documento', 'Resume o meu documento'],
       ['A minha folha', 'Analisa a minha folha'],
       ['Ajuda', 'Como fixar a primeira linha?'],
-      ['Diapositivos', 'Cria uma apresentação sobre o lançamento do produto']
+      ['Diapositivos', 'Cria uma apresentação sobre o lançamento do produto'],
+      ['Notas', 'Como faço uma lista de tarefas nas Notas?']
     ];
     root = h('main', { class: 'mo-assistant' },
       h('header', { class: 'mo-assistant-hero' },
         h('span', { class: 'mo-assistant-kicker' }, 'MYOFFICE · INTELIGÊNCIA ARTIFICIAL'),
         h('h1', null, 'Em que posso ajudar?'),
-        h('p', null, 'Guias passo a passo, fórmulas escritas a partir de uma frase, estruturas de apresentação e análise de texto e tabelas. Tudo no seu computador, sem Internet; as respostas seguem regras próprias e têm limites.')
+        h('p', null, 'Guias passo a passo para os oito programas, contas feitas na hora, fórmulas a partir de uma frase, rascunhos de cartas e propostas, estruturas de apresentação e análise de texto e tabelas. Tudo no seu computador, sem Internet; as respostas seguem regras próprias e têm limites.')
       ),
       h('section', { class: 'mo-assistant-shortcuts', 'aria-label': 'Sugestões rápidas' },
         shortcuts.map(([label, prompt]) => h('button', { type: 'button', onclick: () => send(prompt) },
@@ -115,6 +138,7 @@
       h('section', { class: 'mo-assistant-chat', 'aria-label': 'Conversa com o Assistente' },
         messages,
         h('form', { class: 'mo-assistant-compose', onsubmit: (event) => { event.preventDefault(); send(); } }, input, sendButton),
+        h('div', { class: 'mo-assistant-tools' }, h('button', { type: 'button', class: 'btn', onclick: newChat, title: 'Apagar a conversa e começar outra' }, 'Nova conversa')),
         h('div', { class: 'mo-assistant-foot' }, 'A IA pode cometer erros. Confirme fórmulas, números e informação importante. · Enter para enviar, Shift+Enter para nova linha.')
       )
     );
