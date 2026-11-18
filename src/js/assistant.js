@@ -459,6 +459,8 @@
     ['caixa destaque letra capital capitular limite sombreado moldura', 'Destaques no texto (Texto)', ['Caixa de destaque (Inserir › Elementos): selecione parágrafos e clique para os pôr numa caixa com fundo; clique outra vez para tirar.', 'Letra capital: com o cursor no parágrafo, faz a primeira letra grande.', 'Limite e sombreado (Base › Parágrafo, botão ▢) põe uma moldura à volta do parágrafo.']],
     ['navegacao painel titulos leitura modo estatisticas palavras paginas contar contagem', 'Navegação, leitura e estatísticas (Texto)', ['Ver › Navegação mostra os títulos à esquerda; clique para saltar para a secção.', 'Ver › Modo de leitura esconde as ferramentas; Esc volta a editar.', 'Ver › Estatísticas mostra páginas, palavras, carateres, frases e tempo de leitura.']],
     ['ordenar paragrafos alfabetica lista nomes az', 'Ordenar parágrafos (Texto)', ['Selecione os parágrafos ou os itens da lista.', 'Em Base › Parágrafo, clique em Ordenar de A a Z ou de Z a A.']],
+    ['projeto projetos !gantt !cronograma planeamento planear prazos tarefas dependencias marco', 'Planear um projeto (Projetos)', ['Abra o MyOffice Projetos e comece por um modelo (Projeto simples, Lançamento de produto, Evento) ou em branco.', 'Em Tarefa › Tarefa acrescente tarefas; escreva o nome, a duração em dias e, se quiser, o responsável. Marco cria uma data importante sem duração.', 'Para uma tarefa só começar quando outra acabar, escreva o número da linha em "Depende de" (Ver › Colunas) ou use Ligar à anterior.', 'Subtarefa (Alt+→) agrupa tarefas numa fase; as datas da fase calculam-se sozinhas. Arraste as barras do gráfico para mudar datas e o canto direito para mudar a duração.']],
+    ['caminho critico folga atraso atrasar prazo final', 'Caminho crítico (Projetos)', ['Em Projeto › Análise, ative Mostrar o caminho crítico.', 'As tarefas a vermelho não têm folga: se atrasarem, o projeto inteiro atrasa.', 'Em Projeto › Calendário escolha se os fins de semana contam.']],
     ['ortografia ortografica erros revisao', 'Revisão ortográfica (Texto)', ['As palavras com erro ficam sublinhadas a vermelho, quando o Windows tem o dicionário de português.', 'Clique com o botão direito para ver sugestões.']]
   ].map(([keys, title, steps]) => ({ keys: keys.split(' '), title, steps }));
 
@@ -469,7 +471,8 @@
     let bestScore = 0;
     for (const guide of GUIDES) {
       let score = 0;
-      for (const key of guide.keys) if (has(key)) score += key.length > 6 ? 2 : 1;
+      // Palavras marcadas com ! identificam o guia sem dúvida (valem 5).
+      for (const key of guide.keys) if (key[0] === '!' ? has(key.slice(1)) : has(key)) score += key[0] === '!' ? 5 : key.length > 6 ? 2 : 1;
       if (score > bestScore) { best = guide; bestScore = score; }
     }
     return bestScore >= 2 ? best : null;
@@ -479,7 +482,7 @@
   function guideScore(query, guide) {
     const list = query.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
     const has = (key) => { const stem = key.length > 5 ? key.slice(0, key.length - 2) : key; return list.some((w) => w.startsWith(stem)); };
-    return guide.keys.reduce((n, key) => n + (has(key) ? (key.length > 6 ? 2 : 1) : 0), 0);
+    return guide.keys.reduce((n, key) => n + (key[0] === '!' ? (has(key.slice(1)) ? 5 : 0) : has(key) ? (key.length > 6 ? 2 : 1) : 0), 0);
   }
 
   const guideAnswer = (guide) => `${guide.title}:\n${guide.steps.map((step, i) => `${i + 1}. ${step}`).join('\n')}`;
@@ -696,7 +699,7 @@
     const list = query.split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2);
     const has = (key) => { const stem = key.length > 5 ? key.slice(0, key.length - 2) : key; return list.some((w) => w.startsWith(stem)); };
     return GUIDES.filter((g) => g !== except && g.keys[0] !== 'limitacoes')
-      .map((g) => ({ g, score: g.keys.filter(has).length }))
+      .map((g) => ({ g, score: g.keys.filter((k) => has(k.replace(/^!/, ''))).length }))
       .filter((x) => x.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 3)

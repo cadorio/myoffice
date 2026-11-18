@@ -105,3 +105,7 @@ assert.ok(ask('fórmula para a idade').includes('DATADIF'));
 const unsure = chatTo('Utilizador: como faço para por bordas e unir');
 assert.ok(Array.isArray(unsure.suggestions));
 console.log('Testes de contas, guias novos e sugestões passaram.');
+assert.ok(ask('como faço um gráfico de gantt?').startsWith('Planear um projeto'));
+assert.ok(ask('como vejo o caminho crítico').startsWith('Caminho crítico'));
+assert.ok(ask('como crio um gráfico').startsWith('Criar um gráfico'));
+console.log('Testes dos guias de Projetos passaram.');

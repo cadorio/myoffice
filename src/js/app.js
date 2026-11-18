@@ -10,14 +10,14 @@
   // Na aplicação instalada, cada programa tem a sua janela: ?app=sheets mostra só as Folhas.
   const SOLO = (() => {
     const id = api ? new URLSearchParams(location.search).get('app') : null;
-    return ['home', 'writer', 'sheets', 'slides', 'draw', 'notes', 'pdf', 'db', 'assistant'].includes(id) ? id : null;
+    return ['home', 'writer', 'sheets', 'slides', 'draw', 'notes', 'projects', 'pdf', 'db', 'assistant'].includes(id) ? id : null;
   })();
   MO.solo = SOLO;
 
-  const ORDER = ['writer', 'sheets', 'slides', 'draw', 'notes', 'pdf', 'db'];
-  const EXT_MODULE = { modoc: 'writer', html: 'writer', htm: 'writer', txt: 'writer', mosheet: 'sheets', csv: 'sheets', moslides: 'slides', modraw: 'draw', monotes: 'notes', pdf: 'pdf', modb: 'db', accdb: 'db', mdb: 'db', docx: 'writer', xlsx: 'sheets', pptx: 'slides' };
+  const ORDER = ['writer', 'sheets', 'slides', 'draw', 'notes', 'projects', 'pdf', 'db'];
+  const EXT_MODULE = { modoc: 'writer', html: 'writer', htm: 'writer', txt: 'writer', mosheet: 'sheets', csv: 'sheets', moslides: 'slides', modraw: 'draw', monotes: 'notes', moproj: 'projects', pdf: 'pdf', modb: 'db', accdb: 'db', mdb: 'db', docx: 'writer', xlsx: 'sheets', pptx: 'slides' };
   const BINARY_EXT = ['docx', 'xlsx', 'pptx', 'pdf', 'modb', 'accdb', 'mdb'];
-  const APP_ICON = { writer: 'icon-text.svg', sheets: 'icon-sheets.svg', slides: 'icon-slides.svg', draw: 'icon-draw.svg', notes: 'icon-notes.svg', pdf: 'icon-pdf.svg', db: 'icon-db.svg', assistant: 'icon-assistant.svg' };
+  const APP_ICON = { writer: 'icon-text.svg', sheets: 'icon-sheets.svg', slides: 'icon-slides.svg', draw: 'icon-draw.svg', notes: 'icon-notes.svg', projects: 'icon-projects.svg', pdf: 'icon-pdf.svg', db: 'icon-db.svg', assistant: 'icon-assistant.svg' };
   const docs = {};
   let current = 'home';
 
@@ -303,10 +303,11 @@
   const START_TEMPLATES = {
     db: [['clientes', 'Clientes', 'Contactos e cidades'], ['inventario', 'Inventário', 'Produtos, preços e stock'], ['encomendas', 'Encomendas', 'Clientes, produtos e encomendas ligados']],
     draw: [['flow', 'Fluxograma', 'Etapas e decisões'], ['mind', 'Mapa mental', 'Ideias à volta de um tema'], ['org', 'Organograma', 'Equipas e funções'], ['timeline', 'Linha temporal', 'Etapas ao longo do tempo'], ['swot', 'SWOT', 'Forças, fraquezas, oportunidades e ameaças']],
+    projects: [['simple', 'Projeto simples', 'Fases, revisão e entrega'], ['launch', 'Lançamento de produto', 'Mercado, produto e comunicação'], ['event', 'Evento', 'Local, oradores, logística e balanço']],
     notes: [['meeting', 'Reuniões', 'Agenda, participantes e ações'], ['study', 'Estudos', 'Uma secção por disciplina'], ['project', 'Projeto', 'Visão geral, tarefas e ideias']]
   };
-  const START_TITLE = { writer: 'Texto', sheets: 'Folhas', slides: 'Diapositivos', draw: 'Desenho', notes: 'Notas', pdf: 'PDF', db: 'Bases de dados' };
-  const START_BLANK = { writer: 'Documento em branco', sheets: 'Livro em branco', slides: 'Apresentação em branco', draw: 'Desenho em branco', notes: 'Caderno em branco', pdf: null, db: 'Base de dados em branco' };
+  const START_TITLE = { writer: 'Texto', sheets: 'Folhas', slides: 'Diapositivos', draw: 'Desenho', notes: 'Notas', projects: 'Projetos', pdf: 'PDF', db: 'Bases de dados' };
+  const START_BLANK = { writer: 'Documento em branco', sheets: 'Livro em branco', slides: 'Apresentação em branco', draw: 'Desenho em branco', notes: 'Caderno em branco', projects: 'Projeto em branco', pdf: null, db: 'Base de dados em branco' };
   let startEl = null;
 
   function hideStart() {
@@ -337,7 +338,7 @@
     startEl = h('section', { class: 'start-screen', 'aria-label': `Início — ${START_TITLE[id]}` },
       h('div', { class: 'start-inner' },
         h('header', { class: 'start-head' },
-          h('span', { class: 'app-tile ' + (id === 'notes' ? 'notas' : id) }, h('img', { src: 'assets/' + APP_ICON[id], alt: '' })),
+          h('span', { class: 'app-tile ' + (id === 'notes' ? 'notas' : id === 'projects' ? 'projetos' : id) }, h('img', { src: 'assets/' + APP_ICON[id], alt: '' })),
           h('h1', null, START_TITLE[id]),
           h('button', { type: 'button', class: 'btn', 'data-action': 'open' }, 'Abrir…')
         ),
@@ -354,7 +355,7 @@
     empty.hidden = mine.length > 0;
     recentList.replaceChildren(...mine.map((item) => h('li', null,
       h('button', { type: 'button', class: 'recent-item', title: item.path, onclick: async () => loadFile(await api.openRecent(item.path)) },
-        h('span', { class: 'app-tile ' + (id === 'notes' ? 'notas' : id) }, h('img', { src: 'assets/' + APP_ICON[id], alt: '' })),
+        h('span', { class: 'app-tile ' + (id === 'notes' ? 'notas' : id === 'projects' ? 'projetos' : id) }, h('img', { src: 'assets/' + APP_ICON[id], alt: '' })),
         h('span', { class: 'recent-name' }, item.name),
         h('span', { class: 'recent-path' }, item.path)))));
   }
@@ -373,7 +374,7 @@
             h(
               'button',
               { type: 'button', class: 'recent-item', title: item.path, onclick: async () => loadFile(await api.openRecent(item.path)) },
-              h('span', { class: 'app-tile ' + (id === 'notes' ? 'notas' : id) }, h('img', { src: 'assets/' + APP_ICON[id], alt: '' })),
+              h('span', { class: 'app-tile ' + (id === 'notes' ? 'notas' : id === 'projects' ? 'projetos' : id) }, h('img', { src: 'assets/' + APP_ICON[id], alt: '' })),
               h('span', { class: 'recent-name' }, item.name),
               h('span', { class: 'recent-path' }, item.path)
             )
@@ -615,7 +616,7 @@
       ['Novo documento', 'new'], ['Abrir ficheiro…', 'open'], ['Guardar', 'save'], ['Guardar como…', 'saveAs'], ['Exportar como PDF', 'exportPdf'], ['Pré-visualizar impressão', 'printPreview'], ['Imprimir…', 'print'], ['Acerca do MyOffice', 'about']
     ];
     for (const [label, action] of actions) out.push({ label, hint: 'Ficheiro', run: () => run(action) });
-    for (const [label, id] of [['Abrir Texto', 'writer'], ['Abrir Folhas', 'sheets'], ['Abrir Diapositivos', 'slides'], ['Abrir Desenho', 'draw'], ['Abrir Notas', 'notes'], ['Abrir PDF', 'pdf'], ['Abrir Bases de dados', 'db'], ['Abrir Assistente', 'assistant']]) {
+    for (const [label, id] of [['Abrir Texto', 'writer'], ['Abrir Folhas', 'sheets'], ['Abrir Diapositivos', 'slides'], ['Abrir Desenho', 'draw'], ['Abrir Notas', 'notes'], ['Abrir Projetos', 'projects'], ['Abrir PDF', 'pdf'], ['Abrir Bases de dados', 'db'], ['Abrir Assistente', 'assistant']]) {
       if (id === current) continue;
       out.push({ label, hint: 'Aplicações', run: () => show(id) });
     }

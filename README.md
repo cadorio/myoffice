@@ -2,13 +2,13 @@
 
 **Suite de escritório para Windows: simples, privada e leve.**
 
-Oito programas independentes — **Texto, Folhas, Diapositivos, Desenho, Notas, PDF, Bases de dados e Assistente** — instalados de uma só vez. Os documentos ficam no seu computador: não é precisa conta, nuvem nem ligação à Internet. Abre e grava ficheiros do Word, Excel e PowerPoint, importa bases de dados do Access e liga a servidores MySQL, PostgreSQL e SQL Server.
+Nove programas independentes — **Texto, Folhas, Diapositivos, Desenho, Notas, Projetos, PDF, Bases de dados e Assistente** — instalados de uma só vez. Os documentos ficam no seu computador: não é precisa conta, nuvem nem ligação à Internet. Abre e grava ficheiros do Word, Excel e PowerPoint, importa bases de dados do Access e liga a servidores MySQL, PostgreSQL e SQL Server.
 
-**[⬇ Descarregar MyOffice 1.15.0 para Windows (64 bits)](https://github.com/cadorio/myoffice/releases/download/v1.15.0/MyOffice-Setup-1.15.0.exe)**
+**[⬇ Descarregar MyOffice 1.16.0 para Windows (64 bits)](https://github.com/cadorio/myoffice/releases/download/v1.16.0/MyOffice-Setup-1.16.0.exe)**
 
-Também disponível como [MSI para empresas](https://github.com/cadorio/myoffice/releases/download/v1.15.0/MyOffice-1.15.0-x64.msi) e [ZIP portátil](https://github.com/cadorio/myoffice/releases/download/v1.15.0/MyOffice-1.15.0-x64-portatil.zip) · [Somas SHA-256](https://github.com/cadorio/myoffice/releases/download/v1.15.0/SHA256SUMS.txt)
+Também disponível como [MSI para empresas](https://github.com/cadorio/myoffice/releases/download/v1.16.0/MyOffice-1.16.0-x64.msi) e [ZIP portátil](https://github.com/cadorio/myoffice/releases/download/v1.16.0/MyOffice-1.16.0-x64-portatil.zip) · [Somas SHA-256](https://github.com/cadorio/myoffice/releases/download/v1.16.0/SHA256SUMS.txt)
 
-[Notas da versão](https://github.com/cadorio/myoffice/releases/tag/v1.15.0) · [Versões anteriores](https://github.com/cadorio/myoffice/releases) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
+[Notas da versão](https://github.com/cadorio/myoffice/releases/tag/v1.16.0) · [Versões anteriores](https://github.com/cadorio/myoffice/releases) · [Reportar um problema](https://github.com/cadorio/myoffice/issues)
 
 ![MyOffice Bases de dados](docs/screenshots/bases-de-dados.png)
 
@@ -46,11 +46,12 @@ Tons calmos de verde e papel, com modo claro e escuro.
 | **Diapositivos** | Apresentações com temas, esquemas, imagens, formas, transições e notas do orador | `.moslides` · PPTX · PDF |
 | **Desenho** | Fluxogramas, mapas mentais, organogramas e esquemas, com 14 formas, imagens e desenho à mão | `.modraw` · SVG · PNG · PDF |
 | **Notas** | Cadernos com secções e páginas livres, listas de tarefas, etiquetas, imagens e desenho à mão, como o OneNote | `.monotes` · HTML · TXT · PDF |
+| **Projetos** | Planeamento com tarefas, durações, dependências, marcos, gráfico de Gantt e caminho crítico, como o Microsoft Project | `.moproj` · CSV · SVG · PDF |
 | **PDF** | Ler, anotar, assinar, juntar e organizar ficheiros PDF | PDF · TXT |
 | **Bases de dados** | Tabelas, formulários, consultas e relatórios, como o Access; ligação a MySQL, PostgreSQL e SQL Server | `.modb` (SQLite) · XLSX · CSV · importa Access |
 | **Assistente** | Guias passo a passo, contas (percentagens, IVA, datas), fórmulas, rascunhos de cartas e propostas e análise de textos e tabelas, sem Internet | — |
 
-**Modelos prontos a usar** no início de cada programa: relatório e ata de reunião (Texto), orçamento mensal e gestor de tarefas (Folhas), apresentação de projeto e de aula (Diapositivos), fluxograma, mapa mental, organograma, linha temporal e SWOT (Desenho), reuniões, estudos e projeto (Notas), clientes, inventário e encomendas (Bases de dados).
+**Modelos prontos a usar** no início de cada programa: relatório e ata de reunião (Texto), orçamento mensal e gestor de tarefas (Folhas), apresentação de projeto e de aula (Diapositivos), fluxograma, mapa mental, organograma, linha temporal e SWOT (Desenho), reuniões, estudos e projeto (Notas), projeto simples, lançamento de produto e evento (Projetos), clientes, inventário e encomendas (Bases de dados).
 
 ### Texto
 
@@ -171,9 +172,23 @@ Um caderno como o OneNote, guardado no seu computador num ficheiro `.monotes`.
 - **Enviar para o Texto**: abre a página como documento no MyOffice Texto. Exporta o caderno inteiro para HTML ou texto.
 - Modelos: reuniões, estudos (uma secção por disciplina) e projeto.
 
+### Projetos
+
+![MyOffice Projetos](docs/screenshots/projetos.png)
+
+Planeamento de projetos como o Microsoft Project, com o plano guardado num ficheiro `.moproj`.
+
+- **Tarefas** com duração em dias, data de início, % concluído e responsável. **Marcos** para datas importantes (duração 0).
+- **Dependências**: uma tarefa só começa quando as anteriores acabam. Escreva o número da linha em "Depende de" (por exemplo `3;5`) ou use **Ligar à anterior**. As datas recalculam-se sozinhas.
+- **Fases e subtarefas** (Alt+→ e Alt+←), com numeração 1, 1.1, 1.2… e datas e progresso da fase calculados a partir das subtarefas.
+- **Gráfico de Gantt** com escala de dias, semanas ou meses, linha de hoje e fins de semana sombreados. Arraste uma barra para mudar a data, ou o canto direito para mudar a duração.
+- **Caminho crítico**: mostra a vermelho as tarefas que, se atrasarem, atrasam o projeto inteiro.
+- Calendário com ou sem fins de semana, anular e refazer, e exportação para CSV (abre no Excel e nas Folhas), SVG e PDF.
+- Modelos: projeto simples, lançamento de produto e evento.
+
 ### Em todas as aplicações
 
-- **Programas independentes**: Texto, Folhas, Diapositivos, Desenho, Notas, PDF, Bases de dados e Assistente abrem cada um na sua janela, com o seu atalho no menu Iniciar e a sua entrada na barra de tarefas, como o Word e o Excel. Cada programa começa no seu próprio ecrã de início (em branco, modelos e ficheiros recentes desse tipo) e não depende de um menu principal. Fechar um programa não fecha os outros, e cada um recupera o seu próprio trabalho. Cada programa tem o seu ícone no ambiente de trabalho; abrir o `MyOffice.exe` sem escolher o programa abre o último usado.
+- **Programas independentes**: Texto, Folhas, Diapositivos, Desenho, Notas, Projetos, PDF, Bases de dados e Assistente abrem cada um na sua janela, com o seu atalho no menu Iniciar e a sua entrada na barra de tarefas, como o Word e o Excel. Cada programa começa no seu próprio ecrã de início (em branco, modelos e ficheiros recentes desse tipo) e não depende de um menu principal. Fechar um programa não fecha os outros, e cada um recupera o seu próprio trabalho. Cada programa tem o seu ícone no ambiente de trabalho; abrir o `MyOffice.exe` sem escolher o programa abre o último usado.
 - **Painel de ferramentas** à direita, em secções. Ctrl+. esconde ou mostra o painel.
 - **Ctrl+K** abre a procura de comandos: escreva o que quer fazer.
 - Modo claro e escuro, que acompanha o Windows ou se escolhe na aplicação.
@@ -195,17 +210,17 @@ Cada versão traz três formatos. Escolha um:
 
 | Ficheiro | Para quem |
 | --- | --- |
-| [`MyOffice-Setup-1.15.0.exe`](https://github.com/cadorio/myoffice/releases/download/v1.15.0/MyOffice-Setup-1.15.0.exe) | Uso pessoal. Assistente em português; instala só para o utilizador atual, sem pedir administrador. |
-| [`MyOffice-1.15.0-x64.msi`](https://github.com/cadorio/myoffice/releases/download/v1.15.0/MyOffice-1.15.0-x64.msi) | Empresas. Instala para todos os utilizadores e pode ser distribuído por GPO, Intune ou `msiexec /i MyOffice-1.15.0-x64.msi /qn`. |
-| [`MyOffice-1.15.0-x64-portatil.zip`](https://github.com/cadorio/myoffice/releases/download/v1.15.0/MyOffice-1.15.0-x64-portatil.zip) | Sem instalação. Extraia e abra `MyOffice.exe` (por exemplo, numa pen USB). Não cria atalhos nem associações. |
+| [`MyOffice-Setup-1.16.0.exe`](https://github.com/cadorio/myoffice/releases/download/v1.16.0/MyOffice-Setup-1.16.0.exe) | Uso pessoal. Assistente em português; instala só para o utilizador atual, sem pedir administrador. |
+| [`MyOffice-1.16.0-x64.msi`](https://github.com/cadorio/myoffice/releases/download/v1.16.0/MyOffice-1.16.0-x64.msi) | Empresas. Instala para todos os utilizadores e pode ser distribuído por GPO, Intune ou `msiexec /i MyOffice-1.16.0-x64.msi /qn`. |
+| [`MyOffice-1.16.0-x64-portatil.zip`](https://github.com/cadorio/myoffice/releases/download/v1.16.0/MyOffice-1.16.0-x64-portatil.zip) | Sem instalação. Extraia e abra `MyOffice.exe` (por exemplo, numa pen USB). Não cria atalhos nem associações. |
 
 1. Descarregue o formato que quer na [página de versões](https://github.com/cadorio/myoffice/releases/latest).
 2. Abra o ficheiro e siga o assistente de instalação, em português; é mostrada a licença Apache 2.0 antes de instalar.
 3. **Aviso do Windows:** enquanto não houver assinatura digital, o SmartScreen mostra "O Windows protegeu o computador". Clique em **Mais informações** e depois em **Executar mesmo assim**.
 
-**Antivírus:** cada versão traz `SHA256SUMS.txt`. Confirme que o ficheiro descarregado é o original com `Get-FileHash .\MyOffice-Setup-1.15.0.exe` no PowerShell e compare o valor. Se o antivírus bloquear o MyOffice, é um falso positivo comum em programas novos sem assinatura; veja [docs/assinatura-windows.md](docs/assinatura-windows.md) para saber como o reportar.
+**Antivírus:** cada versão traz `SHA256SUMS.txt`. Confirme que o ficheiro descarregado é o original com `Get-FileHash .\MyOffice-Setup-1.16.0.exe` no PowerShell e compare o valor. Se o antivírus bloquear o MyOffice, é um falso positivo comum em programas novos sem assinatura; veja [docs/assinatura-windows.md](docs/assinatura-windows.md) para saber como o reportar.
 
-O instalador cria, no menu Iniciar (sem pasta) e no ambiente de trabalho, um atalho com ícone próprio para cada programa (MyOffice Texto, Folhas, Diapositivos, Desenho, Notas, PDF, Bases de dados e Assistente), cada um com a sua entrada na barra de tarefas. Não há menu inicial: abrir o `MyOffice.exe` diretamente (no ZIP portátil ou no MSI) abre o último programa usado. Os ficheiros `.modoc`, `.mosheet`, `.moslides`, `.modraw`, `.monotes` e `.modb` passam a abrir com o MyOffice; `.docx`, `.pptx` e `.pdf` ficam disponíveis em "Abrir com".
+O instalador cria, no menu Iniciar (sem pasta) e no ambiente de trabalho, um atalho com ícone próprio para cada programa (MyOffice Texto, Folhas, Diapositivos, Desenho, Notas, Projetos, PDF, Bases de dados e Assistente), cada um com a sua entrada na barra de tarefas. Não há menu inicial: abrir o `MyOffice.exe` diretamente (no ZIP portátil ou no MSI) abre o último programa usado. Os ficheiros `.modoc`, `.mosheet`, `.moslides`, `.modraw`, `.monotes`, `.moproj` e `.modb` passam a abrir com o MyOffice; `.docx`, `.pptx` e `.pdf` ficam disponíveis em "Abrir com".
 
 > Os requisitos de memória são objetivos e ainda não foram confirmados em computadores de diferentes idades.
 
@@ -231,7 +246,7 @@ As imagens WebP são convertidas para PNG, para poderem seguir em DOCX e PPTX. O
 
 O Assistente funciona inteiramente no computador, sem Internet, contas nem descarregamentos. Os documentos não saem da máquina.
 
-- **Guias passo a passo** — pergunte "como unir células?", "como imprimo?" ou "como ativo o controlo de alterações?" e recebe os passos, com os nomes dos botões. Há guias para os oito programas, incluindo as Notas, o desenho à mão, a marca de água e a tabela dinâmica. Se a pergunta não tiver guia, procura na documentação ou sugere os temas mais parecidos, que se abrem com um clique.
+- **Guias passo a passo** — pergunte "como unir células?", "como imprimo?" ou "como ativo o controlo de alterações?" e recebe os passos, com os nomes dos botões. Há guias para os nove programas, incluindo as Notas, o desenho à mão, a marca de água e a tabela dinâmica. Se a pergunta não tiver guia, procura na documentação ou sugere os temas mais parecidos, que se abrem com um clique.
 - **Contas feitas na hora** — "15% de 230", "IVA de 100" (23 %), "tirar o IVA a 246 euros", "desconto de 20% em 50", "(250-30)/4", "dias entre 01/02/2026 e 15/03/2026". A resposta mostra também a fórmula equivalente para as Folhas.
 - **Fórmulas a partir de uma frase** — "soma de B2 a B10" dá `=SOMA(B2:B10)`; "quantos valores maiores que 100 na coluna C" dá `=CONTAR.SE(C2:C100;">100")`. Também média, máximo, mínimo, PROCV, SE, SE.ERRO, idade (DATADIF), dias entre datas, posição (ORDEM), IVA, percentagens e arredondamentos.
 - **Rascunhos** — "escreve uma reclamação sobre a fatura da luz", "preciso de um pedido de férias", "faz um convite para o jantar de Natal": cartas, emails, reclamações, pedidos, atas, convites, agradecimentos, relatórios, currículos, cartas de candidatura, justificações de falta, cartas de demissão, propostas comerciais e comunicados, com o assunto já preenchido. O botão **Inserir no Texto** coloca o rascunho no documento.
@@ -281,6 +296,7 @@ Também existem funções de estatística (mediana, moda, desvio padrão e vari�
 
 - Exportar tabelas dinâmicas para o Excel como tabelas dinâmicas (vão como valores).
 - No Texto: referências cruzadas, bibliografia, formas soltas na página e comparar documentos. A marca de água não vai para o DOCX, e as caixas de destaque, legendas e letra capital vão como texto normal.
+- Nos Projetos: abrir ficheiros do Microsoft Project (.mpp), recursos com custos e cargas de trabalho, e dependências que não sejam "fim para início".
 - Nas Notas: abrir ficheiros do OneNote, sincronizar entre computadores e gravar áudio. Os traços à mão não vão quando envia a página para o Texto.
 - Animações complexas e gráficos nativos do PowerPoint (os gráficos dos Diapositivos são imagens).
 - Do Access importam-se tabelas e dados; consultas, formulários, relatórios e macros não são convertidos, e ficheiros Access protegidos por palavra-passe não são suportados.
@@ -299,7 +315,7 @@ cd myoffice
 npm install
 npm start          # abre a aplicação
 npm test           # testes do motor de fórmulas, do assistente, das licenças e das ligações a servidores
-npm run test:ui    # 50 testes da interface no browser: Texto, Folhas, Desenho, Notas, Bases de dados… (requer o Playwright)
+npm run test:ui    # 51 testes da interface no browser: Texto, Folhas, Desenho, Notas, Projetos, Bases de dados… (requer o Playwright)
 npm run dist:win   # cria o instalador Windows na pasta dist/
 npm run train:ai   # reconstrói o índice do Assistente depois de alterar este README
 npm run notices    # atualiza os avisos de licença de terceiros
@@ -326,6 +342,7 @@ src/
   js/slides.js     Diapositivos
   js/draw.js       Desenho
   js/notes.js      Notas (cadernos, secções e páginas)
+  js/projects.js   Projetos (tarefas, dependências e Gantt)
   js/ink.js        Desenho à mão, partilhado pelo Desenho e pelas Notas
   js/pdf.js        PDF
   js/db.js         Bases de dados

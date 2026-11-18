@@ -2406,3 +2406,53 @@ ul.mo-check > li.mo-done::before { background: #17806a; border-color: #17806a; b
 .mo-assistant-suggest button:hover { background: var(--hover); }
 .mo-assistant-tools { display: flex; justify-content: flex-end; margin-top: 6px; }
 .mo-assistant-tools .btn { font-size: 12px; padding: 4px 10px; }
+
+/* ---------- MyOffice Projetos ---------- */
+body[data-current="projects"] { --accent: #2f8fa8; }
+.app-tile.projetos { background: #2f8fa8; }
+.proj-body { flex: 1; min-height: 0; display: flex; overflow: auto; background: var(--panel); align-items: flex-start; }
+.proj-table-wrap { flex: none; position: sticky; left: 0; z-index: 2; background: var(--panel); border-right: 1px solid var(--line-strong); }
+.proj-table { border-collapse: collapse; table-layout: fixed; font-size: 13px; }
+.proj-table thead th { position: sticky; top: 0; z-index: 1; height: 48px; background: var(--panel); border-bottom: 1px solid var(--line-strong); font-weight: 600; font-size: 12px; color: var(--muted); text-align: left; padding: 0 6px; }
+.proj-table td { height: 31px; border-bottom: 1px solid var(--line); padding: 0 4px; white-space: nowrap; overflow: hidden; }
+.proj-table tr.is-selected td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.proj-table tr.is-summary td { font-weight: 700; }
+.proj-table tr.is-critical .col-name input { color: #c62828; }
+.proj-table input { width: 100%; border: 1px solid transparent; background: transparent; color: var(--ink); font: inherit; padding: 4px; border-radius: 4px; }
+.proj-table input:hover { border-color: var(--line); }
+.proj-table input:focus { border-color: var(--accent); background: var(--field); outline: 0; }
+.proj-table input[type="date"] { font-size: 12px; padding: 3px 2px; }
+.proj-table .col-wbs { color: var(--muted); font-size: 12px; text-align: right; padding-right: 8px; }
+.proj-name { display: flex; align-items: center; gap: 4px; }
+.proj-diamond { color: #3b4554; font-size: 11px; }
+.proj-ro { color: var(--muted); font-size: 12px; padding: 0 4px; }
+.proj-gantt-wrap { flex: none; }
+.proj-gantt { display: block; background: #fff; }
+.proj-gantt text { font-family: Arial, sans-serif; user-select: none; }
+.proj-head { position: sticky; top: 0; }
+.proj-head-bg { fill: #f6f7f9; }
+.proj-month { font-size: 12px; font-weight: 700; fill: #3b4554; }
+.proj-day { font-size: 10px; fill: #6b7686; text-anchor: middle; }
+.proj-day.is-weekend { fill: #a3acb9; }
+.proj-tick { stroke: #d6dbe3; }
+.proj-row-bg { fill: transparent; stroke: #eef0f3; }
+.proj-row-bg.is-selected { fill: rgba(47, 143, 168, .1); }
+.proj-weekend { fill: #f3f5f8; pointer-events: none; }
+.proj-today { stroke: #e0563b; stroke-width: 1.5; stroke-dasharray: 4 3; pointer-events: none; }
+.proj-bar { fill: #8fb0e8; cursor: grab; }
+.proj-progress { fill: #3f6fcf; pointer-events: none; }
+.proj-handle { fill: transparent; cursor: ew-resize; }
+.proj-bar.is-critical { fill: #f0a39a; }
+.proj-milestone { fill: #3b4554; }
+.proj-milestone.is-critical { fill: #c62828; }
+.proj-summary { fill: #3b4554; }
+.proj-label { font-size: 11px; fill: #3b4554; pointer-events: none; }
+.proj-link { fill: none; stroke: #6b7686; stroke-width: 1.2; pointer-events: none; }
+.proj-link.is-critical { stroke: #c62828; }
+.proj-print h1 { font: 600 18pt Arial, sans-serif; margin: 0; }
+.proj-print p { color: #667085; font: 9pt Arial, sans-serif; }
+.proj-print-table { border-collapse: collapse; width: 100%; font: 9pt Arial, sans-serif; margin-bottom: 10pt; }
+.proj-print-table th, .proj-print-table td { border-bottom: .5pt solid #d0d5dd; padding: 2pt 4pt; text-align: left; }
+.proj-print-table tr.is-summary td { font-weight: 700; }
+.proj-print-gantt { width: 100%; height: auto; }
+.proj-table input[type="number"] { padding-right: 0; }
